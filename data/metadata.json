@@ -1,0 +1,23 @@
+[{
+  "id": "0421",
+  "slug": "turn-dead-git-branches-into-cleanup-script",
+  "title": "Turn Dead Git Branches Into a Cleanup Script",
+  "hook": "Run your raw git history through a browser-side intent parser to generate a safe, executable local cleanup script.",
+  "path": "tools/turn-dead-git-branches-into-cleanup-script.html",
+  "date": "2023-10-04",
+  "status": "published",
+  "format": "tool",
+  "category": "code",
+  "solution_mode": "browser-native",
+  "waste_source": "Unmerged, stale local branches tracked in git for-each-ref",
+  "free_ai_mechanism": "Browser-native text classification and chronological intent parsing via JavaScript",
+  "free_infra": ["GitHub Pages", "Browser WASM"],
+  "ladder_tier": "T0",
+  "stack_weakest_link": "GitHub Pages soft 100GB/month bandwidth limit",
+  "asymmetry_note": "Incumbents charge subscriptions to manage branches centrally; this workflow uses local text-paste compute, bypassing the need for OAuth and cloud sync entirely.",
+  "source_urls": ["https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages", "https://webassembly.org/"],
+  "tags": ["git", "cleanup", "browser-native", "regex"],
+  "reading_time_minutes": 3,
+  "pinned": false,
+  "verified": "2023-10-04"
+}]
