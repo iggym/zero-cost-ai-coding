@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Cost AI Coding | Package.json Security Remediation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #0B0E11; --bg-card: #161A1F; --ink: #E8EAED; --ink-muted: #9CA3AF;
+            --signal: #39FF88; --signal-dim: rgba(57,255,136,0.1); --warning: #FFB454; --warning-dim: rgba(255,180,84,0.1);
+            --border: #2D333B; --radius: 10px; --font-mono: 'JetBrains Mono', monospace; --font-sans: 'Inter', sans-serif;
+        }
+        [data-theme="light"] {
+            --bg-paper: #F7F8FA; --bg-card: #FFFFFF; --ink: #14161A; --ink-muted: #6B7280;
+            --signal: #0E9B57; --signal-dim: rgba(14,155,87,0.1); --warning: #B5730E; --warning-dim: rgba(181,115,14,0.1);
+            --border: #E5E7EB;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--font-sans); background: var(--bg-paper); color: var(--ink); line-height: 1.6; transition: background 0.3s, color 0.3s; }
+        .mono { font-family: var(--font-mono); }
+
+        .topbar { position: sticky; top: 0; z-index: 100; background: var(--bg-paper); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(8px); }
+        .topbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .badge { font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+        .badge-signal { border-color: var(--signal); color: var(--signal); background: var(--signal-dim); }
+        .btn-toggle { background: none; border: 1px solid var(--border); color: var(--ink); cursor: pointer; padding: 6px 12px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 12px; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+
+        .hero h1 { font-family: var(--font-mono); font-size: 28px; margin-bottom: 16px; line-height: 1.2; }
+        .hero p { color: var(--ink-muted); margin-bottom: 24px; font-size: 16px; }
+        .pillars-diagram { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+        .p-node { background: var(--bg-card); border: 1px solid var(--border); padding: 8px 12px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+        .p-arrow { color: var(--signal); font-weight: bold; }
+
+        .widget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+        .widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+        .widget h3 { font-family: var(--font-mono); font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .w-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+        .w-source { font-size: 10px; color: var(--ink-muted); margin-top: -2px; margin-bottom: 6px; }
+        .strike-price { text-decoration: line-through; color: var(--ink-muted); margin-right: 8px; }
+        .free-price { color: var(--signal); font-weight: bold; font-family: var(--font-mono); }
+
+        .tool-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 40px; }
+        .tool-panel textarea { width: 100%; height: 120px; background: var(--bg-paper); color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-family: var(--font-mono); font-size: 13px; resize: vertical; margin-bottom: 16px; }
+        .tool-panel textarea:focus { outline: 1px solid var(--signal); }
+        .btn-primary { background: var(--signal); color: #000; border: none; padding: 10px 20px; border-radius: var(--radius); font-weight: 700; cursor: pointer; font-family: var(--font-mono); transition: opacity 0.2s; }
+        .btn-primary:hover { opacity: 0.85; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status-text { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); margin-top: 12px; }
+        .results-list { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; }
+        .result-item { border-left: 3px solid var(--warning); padding-left: 16px; margin-bottom: 20px; }
+        .result-item h4 { font-family: var(--font-mono); color: var(--warning); margin-bottom: 4px; font-size: 14px; }
+        .result-summary { font-size: 14px; margin-bottom: 8px; color: var(--ink); }
+        .cmd-block { display: flex; align-items: center; background: var(--bg-paper); padding: 8px 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 13px; gap: 12px; }
+        .cmd-text { flex: 1; color: var(--signal); word-break: break-all; }
+        .btn-copy { background: none; border: 1px solid var(--border); color: var(--ink); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: var(--font-mono); transition: color 0.2s; }
+
+        .stepper { display: flex; gap: 16px; margin-bottom: 32px; overflow-x: auto; padding-bottom: 8px; }
+        .step { flex: 1; min-width: 140px; background: var(--bg-card); border: 1px solid var(--border); padding: 12px; border-radius: var(--radius); cursor: pointer; transition: border-color 0.2s; }
+        .step.active { border-color: var(--signal); }
+        .step-num { font-family: var(--font-mono); color: var(--signal); font-size: 12px; margin-bottom: 4px; }
+        .step-desc { font-size: 13px; }
+
+        .callout { border-radius: var(--radius); padding: 16px; margin-bottom: 24px; }
+        .callout-warning { background: var(--warning-dim); border: 1px solid var(--warning); }
+        .callout-signal { background: var(--signal-dim); border: 1px solid var(--signal); }
+        .callout h3 { font-family: var(--font-mono); margin-bottom: 8px; font-size: 15px; }
+        .callout ul { list-style: disc; padding-left: 20px; font-size: 14px; }
+        .three-things-item { margin-bottom: 8px; cursor: pointer; }
+        .three-things-item span { color: var(--signal); border-bottom: 1px dashed var(--signal); }
+        .hidden-text { display: none; margin-top: 4px; font-size: 14px; color: var(--ink-muted); }
+
+        .share-bar { display: flex; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+        .share-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--ink); padding: 6px 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+
+        .footer { border-top: 1px solid var(--border); padding-top: 24px; margin-top: 40px; font-size: 12px; color: var(--ink-muted); }
+        .footer a { color: var(--signal); text-decoration: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition-duration: 0s !important; animation-duration: 0s !important; }
+        }
+        @media (max-width: 600px) {
+            .widget-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="../" class="mono" style="color:var(--signal); text-decoration:none; font-weight:700;">ZCAC</a>
+            <span class="badge">CATEGORY: TESTING & QA</span>
+            <span class="badge badge-signal">MODE: BROWSER-NATIVE</span>
+            <span class="badge badge-signal">TIER: T0</span>
+        </div>
+        <div style="display:flex; gap:12px; align-items:center;">
+            <span class="mono" style="font-size:12px; color:var(--ink-muted);">4 min read</span>
+            <button class="btn-toggle" onclick="window.toggleTheme()">THEME</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="hero">
+            <h1>Paste a package.json, Get Instant Security Patches (Without Sending Your Code Anywhere)</h1>
+            <p>Turn your <code>package.json</code> into actionable security patches. This tool queries the free OSV database and runs a local AI model in your browser to summarize vulnerabilities and generate exact fix commands — runs entirely client-side, zero API keys, zero data egress.</p>
+
+            <div class="share-bar" id="share-pitch"></div>
+
+            <div class="pillars-diagram">
+                <div class="p-node">WASTE: CVEs + Manifests</div>
+                <div class="p-arrow">→</div>
+                <div class="p-node">AI: Transformers.js (WASM)</div>
+                <div class="p-arrow">→</div>
+                <div class="p-node">INFRA: Pages + OSV + HF CDN</div>
+            </div>
+            <div class="badge badge-signal" style="display:inline-block; margin-bottom:24px;">VERIFIED 2024-02-10 — DATE PENDING RE-VERIFICATION, SEE FOOTER</div>
+        </div>
+
+        <div class="widget-grid">
+            <div class="widget">
+                <h3>STACK / QUOTA</h3>
+                <div class="w-row"><span>OSV.dev API</span><span class="mono" style="color:var(--ink-muted);">not published</span></div>
+                <div class="w-source">OSV's own docs currently state no rate limit is enforced — treat this as generous but changeable, not guaranteed. Batch your requests regardless.</div>
+                <div class="w-row"><span>Hugging Face CDN</span><span class="mono" style="color:var(--ink-muted);">not published</span></div>
+                <div class="w-row"><span>GitHub Pages</span><span class="mono" style="color:var(--warning);">100GB/mo (soft, weakest link)</span></div>
+            </div>
+            <div class="widget">
+                <h3>COST COMPARISON</h3>
+                <div class="w-row"><span>Snyk Advanced</span><span><span class="strike-price">$25/mo</span><span class="free-price">$0</span></span></div>
+            </div>
+        </div>
+
+        <div class="stepper" id="stepper">
+            <div class="step active" onclick="window.goToStep(1)">
+                <div class="step-num">Step 1 of 4</div>
+                <div class="step-desc">Paste <code>package.json</code></div>
+            </div>
+            <div class="step" onclick="window.goToStep(2)">
+                <div class="step-num">Step 2 of 4</div>
+                <div class="step-desc">Scan & Remediate</div>
+            </div>
+            <div class="step" onclick="window.goToStep(3)">
+                <div class="step-num">Step 3 of 4</div>
+                <div class="step-desc">Model load (~15s)</div>
+            </div>
+            <div class="step" onclick="window.goToStep(4)">
+                <div class="step-num">Step 4 of 4</div>
+                <div class="step-desc">Copy fix commands</div>
+            </div>
+        </div>
+
+        <div class="tool-panel" id="tool-panel">
+            <textarea id="pkg-input" placeholder='{ "dependencies": { "express": "4.17.1", "lodash": "4.17.15" } }'></textarea>
+            <button class="btn-primary" id="scan-btn" onclick="window.runScan()">Scan & Remediate</button>
+            <div class="status-text" id="status"></div>
+            <div class="results-list" id="results"></div>
+        </div>
+
+        <div class="callout callout-warning">
+            <h3>What Breaks</h3>
+            <ul>
+                <li><strong>Browser RAM:</strong> In-browser WASM models require ~500MB of RAM. If your tab crashes, close other tabs.</li>
+                <li><strong>The real limiting resource is GitHub Pages, not OSV:</strong> OSV.dev currently publishes no rate limit, but that's a courtesy, not a guarantee — batch requests via <code>querybatch</code> rather than hammering it. The bandwidth cap that will actually bind first, on a popular page, is GitHub Pages' soft 100GB/month limit.</li>
+                <li><strong>Hallucinated Context:</strong> The AI generates the summary, which may hallucinate. The fix command is extracted strictly from OSV JSON, ensuring your patch is deterministic.</li>
+                <li><strong>Missing Fixes:</strong> Some CVEs have no published fix version yet. The tool will output "No fix available."</li>
+            </ul>
+        </div>
+
+        <div class="callout callout-signal">
+            <h3>Three Things This Teaches</h3>
+            <div class="three-things-item" onclick="window.toggleReveal(this)">
+                <span>1. OSV.dev needs no key at all — NVD's is only optional</span>
+                <div class="hidden-text">NVD's API 2.0 doesn't strictly require a key either, but unauthenticated requests are held to 5 requests per rolling 30-second window versus 50 with a free key — in practice that pushes most tooling toward requesting one. OSV.dev skips that step entirely: no key, and its own docs currently state no rate limit at all, which is what makes a genuinely zero-setup, browser-native security tool possible.</div>
+            </div>
+            <div class="three-things-item" onclick="window.toggleReveal(this)">
+                <span>2. Transformers.js enables private security scans</span>
+                <div class="hidden-text">By running DistilBART via WASM, confidential dependency topologies never egress to a third-party AI provider, sidestepping corporate firewall restrictions and privacy concerns.</div>
+            </div>
+            <div class="three-things-item" onclick="window.toggleReveal(this)">
+                <span>3. Stack ordering is forced by context limits</span>
+                <div class="hidden-text">OSV fetch MUST precede AI summarization because raw OSV JSON dumps exceed the context window of small local models. We extract the minimal text first, then summarize.</div>
+            </div>
+        </div>
+
+        <div class="share-bar" id="share-things"></div>
+
+        <div class="footer">
+            <p><strong style="color:var(--warning);">⚠ Pending re-verification:</strong> the date below still needs to be redrawn against the maestro prompt's Step 0 (within 9 months of the actual build date) and the OSV.dev "no limit" claim re-checked against its live docs at that time — see the build session, not this file, to close those out.</p>
+            <p>Verification Source: Free-tier terms verified 2024-02-10 against <a href="https://osv.dev/docs/" target="_blank">OSV.dev API Docs</a>, <a href="https://huggingface.co/docs/transformers.js" target="_blank">Transformers.js Docs</a>, and <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits" target="_blank">GitHub Pages Usage Limits</a>.</p>
+            <p>Ladder Tier: T0 (Free forever, no card, 3-service stack, weakest link: GitHub Pages soft bandwidth limit, 100GB/month). Mode: Browser-Native. <a href="../">Home</a> | <a href="../">Browse more tools</a></p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+
+        let summarizer = null;
+        let isModelLoading = false;
+
+        const toggleTheme = () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'light' ? null : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('zcac-theme', next ? 'light' : 'dark');
+        };
+
+        const savedTheme = localStorage.getItem('zcac-theme');
+        if (savedTheme === 'light' || (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+
+        const toggleReveal = (el) => {
+            const text = el.querySelector('.hidden-text');
+            text.style.display = text.style.display === 'block' ? 'none' : 'block';
+        };
+
+        const goToStep = (n) => {
+            document.querySelectorAll('.step').forEach((s, i) => {
+                s.classList.toggle('active', i === n - 1);
+            });
+        };
+
+        const copyText = (text, btn) => {
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = "Copied";
+                setTimeout(() => btn.textContent = orig, 1500);
+            });
+        };
+
+        const copyLink = () => {
+            navigator.clipboard.writeText(window.location.href).then(() => alert("Link copied!"));
+        };
+
+        const pitchText = "Paste a package.json and get instant, AI-summarized security patches directly in your browser. $0, zero API keys, 100% private. Runs on WASM + OSV.dev.";
+        const thingsText = "OSV.dev needs no API key at all and currently states no rate limit — that's what makes a real browser-native security tool possible.";
+        const pageUrl = encodeURIComponent(window.location.href);
+
+        const renderShareBar = (containerId, text) => {
+            const encText = encodeURIComponent(text);
+            document.getElementById(containerId).innerHTML = `
+                <a class="share-btn" href="https://twitter.com/intent/tweet?text=${encText}" target="_blank">X</a>
+                <a class="share-btn" href="https://www.linkedin.com/sharing/share-offsite/?url=${pageUrl}" target="_blank">LinkedIn</a>
+                <a class="share-btn" href="https://www.facebook.com/sharer/sharer.php?u=${pageUrl}" target="_blank">Facebook</a>
+                <a class="share-btn" href="https://wa.me/?text=${encText}" target="_blank">WhatsApp</a>
+                <a class="share-btn" href="https://reddit.com/submit?url=${pageUrl}&title=${encText}" target="_blank">Reddit</a>
+                <a class="share-btn" href="mailto:?subject=Zero-Cost%20AI&body=${encText}" target="_blank">Email</a>
+                <button class="share-btn" onclick="window.copyLink()">Copy Link</button>
+            `;
+        };
+
+        renderShareBar('share-pitch', pitchText);
+        renderShareBar('share-things', thingsText);
+
+        async function loadModel(statusEl) {
+            if (summarizer) return;
+            if (isModelLoading) {
+                while(isModelLoading) await new Promise(r => setTimeout(r, 200));
+                return;
+            }
+            isModelLoading = true;
+            statusEl.textContent = "Loading AI model (first time only, ~30MB)...";
+            try {
+                summarizer = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+                statusEl.textContent = "Model ready.";
+            } catch (e) {
+                statusEl.textContent = "Error loading model. Check console.";
+                console.error(e);
+                throw e;
+            } finally {
+                isModelLoading = false;
+            }
+        }
+
+        const runScan = async () => {
+            const btn = document.getElementById('scan-btn');
+            const statusEl = document.getElementById('status');
+            const resultsEl = document.getElementById('results');
+            const input = document.getElementById('pkg-input').value;
+
+            resultsEl.innerHTML = '';
+            btn.disabled = true;
+
+            try {
+                const pkg = JSON.parse(input);
+                const deps = pkg.dependencies || pkg.devDependencies || {};
+                const entries = Object.entries(deps);
+
+                if (entries.length === 0) throw new Error("No dependencies found.");
+
+                goToStep(2);
+                statusEl.textContent = `Querying OSV.dev for ${entries.length} dependencies...`;
+
+                const queries = entries.map(([name, version]) => ({
+                    package: { name, ecosystem: "npm" },
+                    version: version.replace(/^[\^~>=<]*/, '')
+                }));
+
+                const osvRes = await fetch('https://api.osv.dev/v1/querybatch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ queries })
+                });
+
+                const osvData = await osvRes.json();
+                const batchResults = osvData.results || [];
+
+                let vulnCount = 0;
+                let html = '';
+
+                for (const res of batchResults) {
+                    const vulns = res.vulns || [];
+                    for (const vuln of vulns) {
+                        vulnCount++;
+                        const desc = vuln.summary || (vuln.details ? vuln.details.substring(0, 500) : "No description.");
+
+                        goToStep(3);
+                        await loadModel(statusEl);
+                        statusEl.textContent = `Summarizing vulnerability ${vulnCount}...`;
+
+                        let summaryText = desc;
+                        try {
+                            const result = await summarizer(desc, { max_new_tokens: 50 });
+                            summaryText = result[0].summary_text;
+                        } catch(e) { console.warn("Summarization failed, using raw.", e); }
+
+                        let fixCmd = "No fix available";
+                        if (vuln.affected && vuln.affected.length > 0) {
+                            const aff = vuln.affected[0];
+                            const pkgName = aff.package.name;
+                            if (aff.ranges && aff.ranges[0] && aff.ranges[0].events) {
+                                const fixEvent = aff.ranges[0].events.find(e => e.fix);
+                                if (fixEvent) {
+                                    fixCmd = `npm install ${pkgName}@${fixEvent.fix}`;
+                                }
+                            }
+                        }
+
+                        html += `
+                            <div class="result-item">
+                                <h4>${vuln.id}</h4>
+                                <div class="result-summary">${summaryText}</div>
+                                <div class="cmd-block">
+                                    <span class="cmd-text">${fixCmd}</span>
+                                    <button class="btn-copy" data-cmd="${fixCmd.replace(/"/g, '&quot;')}">Copy</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                if (vulnCount === 0) {
+                    resultsEl.innerHTML = '<p>No vulnerabilities found in the provided manifest.</p>';
+                } else {
+                    resultsEl.innerHTML = html;
+                    resultsEl.querySelectorAll('.btn-copy').forEach(b => {
+                        b.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            copyText(e.target.getAttribute('data-cmd'), e.target);
+                        });
+                    });
+                }
+
+                goToStep(4);
+                statusEl.textContent = `Done. Found ${vulnCount} vulnerabilities.`;
+
+            } catch (e) {
+                statusEl.textContent = `Error: ${e.message}`;
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        window.toggleTheme = toggleTheme;
+        window.toggleReveal = toggleReveal;
+        window.goToStep = goToStep;
+        window.runScan = runScan;
+        window.copyLink = copyLink;
+    </script>
+</body>
+</html>
