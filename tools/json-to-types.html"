@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON → Types | zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--bg2:#141414;--bg3:#1c1c1c;--fg:#e5e5e5;--fg2:#a3a3a3;--fg3:#666;
+  --accent:#22c55e;--accent2:#16a34a;--border:#262626;--radius:6px;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+[data-theme="light"]{
+  --bg:#fafafa;--bg2:#fff;--bg3:#f0f0f0;--fg:#171717;--fg2:#525252;--fg3:#999;
+  --accent:#16a34a;--accent2:#15803d;--border:#e5e5e5;
+}
+body{font-family:var(--font-body);background:var(--bg);color:var(--fg);line-height:1.6;min-height:100vh}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font-family:var(--font-body);cursor:pointer;border:none;background:none;color:var(--fg);font-size:inherit}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.topbar{position:sticky;top:0;z-index:50;background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-family:var(--font-mono);font-weight:700;font-size:14px;color:var(--fg2)}
+.theme-btn{font-size:18px;padding:4px 8px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border)}
+.main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+.pitch{margin-bottom:28px}
+.pitch h1{font-family:var(--font-mono);font-size:clamp(22px,4vw,30px);font-weight:700;margin-bottom:8px;line-height:1.3}
+.pitch h1 span{color:var(--accent)}
+.pitch p{color:var(--fg2);font-size:14px;margin-bottom:6px}
+.pitch .replaces{font-size:13px;color:var(--fg3)}
+.meta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.meta-row label{font-family:var(--font-mono);font-size:13px;color:var(--fg2)}
+.meta-row input{font-family:var(--font-mono);font-size:13px;background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;width:140px}
+.input-wrap{margin-bottom:16px}
+.input-wrap textarea{width:100%;min-height:180px;font-family:var(--font-mono);font-size:13px;background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;resize:vertical;line-height:1.5}
+.error-msg{color:#ef4444;font-size:13px;margin-top:6px;font-family:var(--font-mono);min-height:20px}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:0}
+.tab-btn{font-family:var(--font-mono);font-size:13px;font-weight:500;padding:8px 16px;color:var(--fg3);border-bottom:2px solid transparent;transition:color .15s}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-btn:hover{color:var(--fg)}
+.output-wrap{position:relative;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.output-code{font-family:var(--font-mono);font-size:13px;line-height:1.6;padding:16px;white-space:pre;overflow-x:auto;min-height:120px;max-height:500px;overflow-y:auto;color:var(--fg)}
+.copy-btn{position:absolute;top:8px;right:8px;font-family:var(--font-mono);font-size:12px;padding:4px 10px;background:var(--bg3);color:var(--fg2);border:1px solid var(--border);border-radius:var(--radius)}
+.copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+.stats{font-size:13px;color:var(--fg3);margin-top:12px;font-family:var(--font-mono);min-height:20px}
+.stats strong{color:var(--fg2)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.act-btn{font-family:var(--font-mono);font-size:12px;padding:6px 12px;background:var(--bg3);color:var(--fg2);border:1px solid var(--border);border-radius:var(--radius)}
+.act-btn:hover{color:var(--accent);border-color:var(--accent)}
+.how-to{margin-top:32px;border-top:1px solid var(--border);padding-top:20px}
+.how-to h2{font-family:var(--font-mono);font-size:16px;font-weight:700;margin-bottom:10px}
+.how-to ol{padding-left:20px;color:var(--fg2);font-size:14px}
+.how-to ol li{margin-bottom:6px}
+.breaks{margin-top:16px;font-size:13px;color:var(--fg3);line-height:1.5}
+.footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--fg3);font-family:var(--font-mono)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent2);color:#fff;font-family:var(--font-mono);font-size:13px;padding:8px 16px;border-radius:var(--radius);opacity:0;transition:opacity .2s;pointer-events:none;z-index:100}
+.toast.show{opacity:1}
+@media(max-width:600px){
+  .main{padding:12px 10px 40px}
+  .input-wrap textarea{min-height:140px;font-size:12px}
+  .output-code{font-size:12px;padding:10px}
+  .tabs{overflow-x:auto}
+  .tab-btn{padding:8px 12px;white-space:nowrap}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" aria-label="Home">← zero-cost-ai-coding</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="topbar-title">JSON → Types</span>
+    <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">☀</button>
+  </div>
+</div>
+
+<main class="main">
+  <div class="pitch">
+    <h1>Paste JSON → get <span>TypeScript</span>, <span>Zod</span>, <span>Pydantic</span></h1>
+    <p>Runs entirely in-browser — no API, no key, no network. Free-tier limit: none. It's just code.</p>
+    <p class="replaces">What it replaces: no direct paid equivalent found (quicktype.io is free but requires network; VS Code extensions need install).</p>
+  </div>
+
+  <div class="meta-row">
+    <label for="rootName">Root name</label>
+    <input type="text" id="rootName" value="Root" spellcheck="false" autocomplete="off">
+  </div>
+
+  <div class="input-wrap">
+    <textarea id="jsonInput" spellcheck="false" placeholder='Paste JSON here...'></textarea>
+    <div class="error-msg" id="errorMsg" role="alert"></div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="ts" role="tab" aria-selected="true">TypeScript</button>
+    <button class="tab-btn" data-tab="zod" role="tab" aria-selected="false">Zod</button>
+    <button class="tab-btn" data-tab="py" role="tab" aria-selected="false">Pydantic</button>
+  </div>
+  <div class="output-wrap">
+    <button class="copy-btn" id="copyOutput" aria-label="Copy output">Copy</button>
+    <pre class="output-code" id="outputCode" role="tabpanel">// output appears here</pre>
+  </div>
+
+  <div class="stats" id="statsLine"></div>
+
+  <div class="actions">
+    <button class="act-btn" id="copyJson">Copy as JSON</button>
+    <button class="act-btn" id="downloadJson">Download JSON</button>
+    <button class="act-btn" id="shareX">Share on X</button>
+    <button class="act-btn" id="shareLink">Copy link</button>
+  </div>
+
+  <div class="how-to">
+    <h2>How to use</h2>
+    <ol>
+      <li>Paste a JSON API response (or any JSON) into the input box</li>
+      <li>Set the root type name if you don't want "Root"</li>
+      <li>Switch tabs for TypeScript interfaces, Zod schemas, or Pydantic models</li>
+      <li>Click Copy and paste into your codebase</li>
+    </ol>
+    <div class="breaks">
+      <strong>What breaks:</strong> Very deeply nested JSON (&gt;50 levels) may hit recursion limits. JSON can't distinguish integers from floats — <code>1.0</code> parses as <code>1</code>, so you'll get <code>int</code>/<code>number</code> where you might mean <code>float</code>. Null values infer as <code>null</code> type, not optional — adjust manually if null means "missing".
+    </div>
+  </div>
+
+  <div class="footer">
+    Free-tier verified: browser-native, no external service &middot; Built for <a href="https://iggym.github.io/zero-cost-ai-coding/">zero-cost-ai-coding</a>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Theme ──
+const themeBtn = document.getElementById('themeToggle');
+const html = document.documentElement;
+function setTheme(t) {
+  html.dataset.theme = t;
+  themeBtn.textContent = t === 'dark' ? '☀' : '🌙';
+  try { sessionStorage.setItem('theme', t); } catch(e) {}
+}
+themeBtn.addEventListener('click', () => setTheme(html.dataset.theme === 'dark' ? 'light' : 'dark'));
+try {
+  const saved = sessionStorage.getItem('theme');
+  if (saved) setTheme(saved);
+} catch(e) {}
+
+// ── Toast ──
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ── Clipboard ──
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied')).catch(() => toast('Copy failed'));
+}
+
+// ── Analyze JSON → type schema ──
+function analyze(value, rootName) {
+  const interfaces = new Map();
+  let nameCount = 0;
+
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function safeKey(k) { return k.replace(/[^a-zA-Z0-9]/g, '_'); }
+  function uniqueName(base) {
+    if (!interfaces.has(base)) return base;
+    return base + '_' + (++nameCount);
+  }
+  function P(n) { return { kind: 'primitive', name: n }; }
+
+  function mergeTypes(types, name) {
+    if (types.length === 0) return P('any');
+    if (types.length === 1) return types[0];
+    // dedup by JSON representation
+    const unique = [];
+    const seen = new Set();
+    for (const t of types) {
+      const k = JSON.stringify(t);
+      if (!seen.has(k)) { seen.add(k); unique.push(t); }
+    }
+    if (unique.length === 1) return unique[0];
+    // all primitives?
+    if (unique.every(t => t.kind === 'primitive')) {
+      const names = unique.map(t => t.name);
+      if (names.includes('integer') && names.includes('number')) {
+        const filtered = names.filter(n => n !== 'integer');
+        const deduped = [...new Set(filtered)];
+        if (deduped.length === 1) return P(deduped[0]);
+        return { kind: 'union', types: deduped.map(P) };
+      }
+      if (names.length === 1) return P(names[0]);
+      return { kind: 'union', types: unique };
+    }
+    return { kind: 'union', types: unique };
+  }
+
+  function mergeObjects(objects, name) {
+    const allKeys = new Set();
+    const keyCount = {};
+    const keyVals = {};
+    for (const obj of objects) {
+      for (const [k, v] of Object.entries(obj)) {
+        allKeys.add(k);
+        keyCount[k] = (keyCount[k] || 0) + 1;
+        if (!keyVals[k]) keyVals[k] = [];
+        keyVals[k].push(v);
+      }
+    }
+    const iname = uniqueName(name);
+    const fields = {};
+    for (const k of allKeys) {
+      const optional = keyCount[k] < objects.length;
+      fields[k] = { type: inferFromValues(keyVals[k], iname + cap(safeKey(k))), optional };
+    }
+    interfaces.set(iname, { name: iname, fields });
+    return { kind: 'ref', name: iname };
+  }
+
+  function inferFromValues(values, name) {
+    const objs = values.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v));
+    const nonObjs = values.filter(v => !(v !== null && typeof v === 'object' && !Array.isArray(v)));
+    if (objs.length > 0 && nonObjs.length === 0) return mergeObjects(objs, name);
+    const types = values.map(v => walk(v, name));
+    return mergeTypes(types, name);
+  }
+
+  function walk(val, name) {
+    if (val === null) return P('null');
+    if (typeof val === 'string') return P('string');
+    if (typeof val === 'boolean') return P('boolean');
+    if (typeof val === 'number') return P(Number.isInteger(val) ? 'integer' : 'number');
+    if (Array.isArray(val)) {
+      if (val.length === 0) return { kind: 'array', items: P('any') };
+      const objs = val.filter(v => v !== null && typeof v === 'object' && !Array.isArray(v));
+      const nonObjs = val.filter(v => !(v !== null && typeof v === 'object' && !Array.isArray(v)));
+      if (objs.length > 0 && nonObjs.length === 0) {
+        return { kind: 'array', items: mergeObjects(objs, name) };
+      }
+      const types = val.map(v => walk(v, name));
+      return { kind: 'array', items: mergeTypes(types, name) };
+    }
+    if (typeof val === 'object') {
+      const iname = uniqueName(name);
+      const fields = {};
+      for (const [k, v] of Object.entries(val)) {
+        fields[k] = { type: walk(v, iname + cap(safeKey(k))), optional: false };
+      }
+      interfaces.set(iname, { name: iname, fields });
+      return { kind: 'ref', name: iname };
+    }
+    return P('unknown');
+  }
+
+  const rootType = walk(value, rootName || 'Root');
+  return { rootType, interfaces };
+}
+
+// ── TypeScript generator ──
+function needsQuotesTS(k) { return !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(k); }
+
+function toTS(type) {
+  switch (type.kind) {
+    case 'primitive':
+      if (type.name === 'integer') return 'number';
+      return type.name;
+    case 'array': {
+      const item = toTS(type.items);
+      if (item.includes(' ') || item.includes('|')) return `(${item})[]`;
+      return `${item}[]`;
+    }
+    case 'ref': return type.name;
+    case 'union': return type.types.map(toTS).join(' | ');
+    default: return 'unknown';
+  }
+}
+
+function generateTS(result) {
+  const lines = [];
+  for (const [, iface] of result.interfaces) {
+    lines.push(`export interface ${iface.name} {`);
+    for (const [k, f] of Object.entries(iface.fields)) {
+      const kq = needsQuotesTS(k) ? `'${k}'` : k;
+      lines.push(`  ${kq}${f.optional ? '?' : ''}: ${toTS(f.type)};`);
+    }
+    lines.push('}');
+    lines.push('');
+  }
+  if (result.rootType.kind === 'array') {
+    lines.push(`export type Root = ${toTS(result.rootType)};`);
+    lines.push('');
+  } else if (result.rootType.kind === 'primitive') {
+    lines.push(`export type Root = ${toTS(result.rootType)};`);
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+}
+
+// ── Zod generator ──
+function toZod(type) {
+  switch (type.kind) {
+    case 'primitive':
+      switch (type.name) {
+        case 'string': return 'z.string()';
+        case 'number': return 'z.number()';
+        case 'integer': return 'z.number().int()';
+        case 'boolean': return 'z.boolean()';
+        case 'null': return 'z.null()';
+        case 'any': return 'z.any()';
+        default: return 'z.unknown()';
+      }
+    case 'array': return `z.array(${toZod(type.items)})`;
+    case 'ref': return `${type.name}Schema`;
+    case 'union': {
+      const hasNull = type.types.some(t => t.kind === 'primitive' && t.name === 'null');
+      if (hasNull && type.types.length === 2) {
+        const other = type.types.find(t => !(t.kind === 'primitive' && t.name === 'null'));
+        return `${toZod(other)}.nullable()`;
+      }
+      return `z.union([${type.types.map(toZod).join(', ')}])`;
+    }
+    default: return 'z.unknown()';
+  }
+}
+
+function generateZod(result) {
+  const lines = ['import { z } from "zod";', ''];
+  for (const [, iface] of result.interfaces) {
+    lines.push(`export const ${iface.name}Schema = z.object({`);
+    for (const [k, f] of Object.entries(iface.fields)) {
+      const kq = needsQuotesTS(k) ? `'${k}'` : k;
+      lines.push(`  ${kq}: ${toZod(f.type)}${f.optional ? '.optional()' : ''},`);
+    }
+    lines.push('});');
+    lines.push(`export type ${iface.name} = z.infer<typeof ${iface.name}Schema>;`);
+    lines.push('');
+  }
+  if (result.rootType.kind === 'array') {
+    lines.push(`export const RootSchema = z.array(${toZod(result.rootType.items)});`);
+    lines.push(`export type Root = z.infer<typeof RootSchema>;`);
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+}
+
+// ── Pydantic generator ──
+const pyKeywords = new Set(['False','None','True','and','as','assert','async','await','break','class','continue','def','del','elif','else','except','finally','for','from','global','if','import','in','is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield']);
+
+function pySafe(k) {
+  let s = k.replace(/[^a-zA-Z0-9_]/g, '_');
+  if (/^[0-9]/.test(s)) s = '_' + s;
+  if (pyKeywords.has(s)) s += '_';
+  return s;
+}
+
+function toPy(type) {
+  switch (type.kind) {
+    case 'primitive':
+      switch (type.name) {
+        case 'string': return 'str';
+        case 'number': return 'float';
+        case 'integer': return 'int';
+        case 'boolean': return 'bool';
+        case 'null': return 'None';
+        case 'any': return 'Any';
+        default: return 'Any';
+      }
+    case 'array': return `list[${toPy(type.items)}]`;
+    case 'ref': return type.name;
+    case 'union': return `Union[${type.types.map(toPy).join(', ')}]`;
+    default: return 'Any';
+  }
+}
+
+function generatePy(result) {
+  let needsOptional = false, needsUnion = false, needsAny = false, needsField = false, needsConfig = false;
+
+  function checkType(t) {
+    if (t.kind === 'union') { needsUnion = true; t.types.forEach(checkType); }
+    if (t.kind === 'array') checkType(t.items);
+    if (t.kind === 'primitive' && (t.name === 'any' || t.name === 'unknown')) needsAny = true;
+  }
+
+  for (const [, iface] of result.interfaces) {
+    for (const [k, f] of Object.entries(iface.fields)) {
+      if (f.optional) needsOptional = true;
+      checkType(f.type);
+      if (pySafe(k) !== k) { needsField = true; needsConfig = true; }
+    }
+  }
+  if (result.rootType.kind === 'array') checkType(result.rootType.items);
+
+  const lines = [];
+  const pyImports = ['BaseModel'];
+  if (needsField) pyImports.push('Field');
+  if (needsConfig) pyImports.push('ConfigDict');
+  lines.push(`from pydantic import ${pyImports.join(', ')}`);
+
+  const typingImports = [];
+  if (needsOptional) typingImports.push('Optional');
+  if (needsUnion) typingImports.push('Union');
+  if (needsAny) typingImports.push('Any');
+  if (typingImports.length > 0) lines.push(`from typing import ${typingImports.join(', ')}`);
+  lines.push('');
+
+  for (const [, iface] of result.interfaces) {
+    lines.push(`class ${iface.name}(BaseModel):`);
+    if (needsConfig) lines.push('    model_config = ConfigDict(populate_by_name=True)');
+    const fl = [];
+    for (const [k, f] of Object.entries(iface.fields)) {
+      const sk = pySafe(k);
+      const pt = toPy(f.type);
+      const alias = sk !== k ? ` = Field(alias='${k}')` : '';
+      if (f.optional) {
+        fl.push(`    ${sk}: Optional[${pt}] = None${alias}`);
+      } else {
+        fl.push(`    ${sk}: ${pt}${alias}`);
+      }
+    }
+    if (fl.length === 0) lines.push('    pass');
+    else lines.push(...fl);
+    lines.push('');
+  }
+
+  if (result.rootType.kind === 'array') {
+    lines.push(`Root = list[${toPy(result.rootType.items)}]`);
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+}
+
+// ── Count fields ──
+function countFields(interfaces) {
+  let total = 0;
+  for (const [, iface] of interfaces) total += Object.keys(iface.fields).length;
+  return total;
+}
+
+// ── UI State ──
+let currentTab = 'ts';
+let lastResult = null;
+let lastInput = '';
+let outputs = { ts: '', zod: '', py: '' };
+
+const jsonInput = document.getElementById('jsonInput');
+const rootNameInput = document.getElementById('rootName');
+const errorMsg = document.getElementById('errorMsg');
+const outputCode = document.getElementById('outputCode');
+const statsLine = document.getElementById('statsLine');
+
+// ── Generate ──
+function generate() {
+  const raw = jsonInput.value.trim();
+  if (!raw) {
+    errorMsg.textContent = '';
+    outputCode.textContent = '// paste JSON above';
+    statsLine.innerHTML = '';
+    lastResult = null;
+    outputs = { ts: '', zod: '', py: '' };
+    return;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    errorMsg.textContent = 'Invalid JSON: ' + e.message;
+    outputCode.textContent = '';
+    statsLine.innerHTML = '';
+    lastResult = null;
+    outputs = { ts: '', zod: '', py: '' };
+    return;
+  }
+  errorMsg.textContent = '';
+
+  const rootName = rootNameInput.value.trim() || 'Root';
+  lastResult = analyze(parsed, rootName);
+  lastInput = raw;
+
+  outputs.ts = generateTS(lastResult);
+  outputs.zod = generateZod(lastResult);
+  outputs.py = generatePy(lastResult);
+
+  showOutput();
+
+  const fc = countFields(lastResult.interfaces);
+  const ic = lastResult.interfaces.size;
+  if (fc > 0) {
+    const mins = (fc * 15 / 60);
+    const display = mins < 1 ? `${Math.round(mins * 60)}s` : `${mins.toFixed(1)}min`;
+    statsLine.innerHTML = `<strong>${fc}</strong> fields across <strong>${ic}</strong> interface${ic !== 1 ? 's' : ''} — ~${display} saved vs. manual typing (at ~15s/field)`;
+  } else {
+    statsLine.innerHTML = '';
+  }
+}
+
+function showOutput() {
+  outputCode.textContent = outputs[currentTab] || '// no output';
+}
+
+// ── Tabs ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    currentTab = btn.dataset.tab;
+    showOutput();
+  });
+});
+
+// ── Input events ──
+jsonInput.addEventListener('input', generate);
+rootNameInput.addEventListener('input', generate);
+
+// ── Copy output ──
+document.getElementById('copyOutput').addEventListener('click', () => {
+  if (outputs[currentTab]) copyText(outputs[currentTab]);
+});
+
+// ── JSON export ──
+function getExportObj() {
+  if (!lastResult) return null;
+  return {
+    zcac: true,
+    kind: 'json-types',
+    data: {
+      rootName: rootNameInput.value.trim() || 'Root',
+      input: lastInput,
+      typescript: outputs.ts,
+      zod: outputs.zod,
+      pydantic: outputs.py
+    }
+  };
+}
+
+document.getElementById('copyJson').addEventListener('click', () => {
+  const obj = getExportObj();
+  if (obj) copyText(JSON.stringify(obj, null, 2));
+  else toast('Nothing to export');
+});
+
+document.getElementById('downloadJson').addEventListener('click', () => {
+  const obj = getExportObj();
+  if (!obj) { toast('Nothing to export'); return; }
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'json-types.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ── Share ──
+const toolUrl = 'https://iggym.github.io/zero-cost-ai-coding/tools/json-to-types.html';
+document.getElementById('shareX').addEventListener('click', () => {
+  const text = encodeURIComponent('JSON → TypeScript + Zod + Pydantic types, entirely in-browser, zero API calls');
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(toolUrl)}`, '_blank');
+});
+document.getElementById('shareLink').addEventListener('click', () => {
+  copyText(toolUrl);
+});
+
+// ── Pre-fill example ──
+jsonInput.value = JSON.stringify({
+  "users": [
+    { "id": 1, "name": "Alice Chen", "email": "alice@example.com", "role": "admin", "active": true, "profile": { "avatar": "https://img.example.com/alice.jpg", "bio": "Full-stack developer", "joined": "2024-01-15" } },
+    { "id": 2, "name": "Bob Park", "email": "bob@example.com", "role": "user", "active": false }
+  ],
+  "total": 2,
+  "page": 1
+}, null, 2);
+
+generate();
+</script>
+</body>
+</html>
