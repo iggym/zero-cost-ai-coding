@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Smith — free AI unit test generator | Zero-Cost AI Coding</title>
+<meta name="description" content="Paste a function or method, get a ready-to-run unit test file (Jest, Vitest, node:test, pytest) from Gemini 2.5 Flash's free tier. No card. Your key stays in this tab.">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%233fb950"/><text x="16" y="23" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" fill="%230d1117">t</text></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117; --bg2:#151b23; --bg3:#1c2430; --border:#2b3442; --text:#e6edf3; --muted:#98a3b3;
+  --accent:#3fb950; --accent-ink:#0d1117; --danger:#f85149; --warn:#d29922; --focus:#58a6ff;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --radius:10px;
+}
+[data-theme="light"]{
+  --bg:#f6f8fa; --bg2:#ffffff; --bg3:#edf1f5; --border:#d0d7de; --text:#1f2328; --muted:#57606a;
+  --accent:#1a7f37; --accent-ink:#ffffff; --danger:#cf222e; --warn:#9a6700; --focus:#0969da;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--sans); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{font-family:var(--mono); line-height:1.25; letter-spacing:-.01em}
+h1{font-size:clamp(1.6rem,4vw,2.2rem); margin:0 0 .4rem}
+h2{font-size:1.15rem; margin:2.2rem 0 .6rem}
+code,kbd,pre{font-family:var(--mono)}
+/* skip link */
+.skip{position:absolute; left:-9999px; top:0; background:var(--accent); color:var(--accent-ink); padding:.5rem .9rem; border-radius:0 0 8px 0; z-index:100; font-weight:600}
+.skip:focus{left:0; color:var(--accent-ink)}
+/* top bar */
+.topbar{
+  position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+  padding:.55rem 1rem; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--border);
+}
+.topbar .home{font-family:var(--mono); font-size:.85rem; font-weight:600; color:var(--text); display:inline-flex; align-items:center; gap:.4rem}
+.topbar .home svg{flex:none}
+.topbar .right{display:flex; align-items:center; gap:.5rem}
+.topbar .title{font-family:var(--mono); font-size:.85rem; font-weight:600; color:var(--muted)}
+/* layout */
+.wrap{max-width:880px; margin:0 auto; padding:1.4rem 1rem 3rem}
+main:focus{outline:none}
+.pitch p{color:var(--muted); margin:.3rem 0}
+.meta-line{font-size:.9rem; color:var(--muted)}
+.share{display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.9rem}
+/* buttons & inputs */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-height:44px; padding:.55rem 1rem;
+  font-family:var(--mono); font-size:.85rem; font-weight:600; border-radius:8px; border:1px solid var(--border);
+  background:var(--bg2); color:var(--text); cursor:pointer; transition:border-color .15s, background .15s;
+}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn-primary:hover{filter:brightness(1.08); border-color:var(--accent)}
+.btn-primary:disabled{opacity:.55; cursor:wait; filter:none}
+.btn-sm{min-height:36px; padding:.3rem .7rem; font-size:.78rem}
+.btn-ghost{background:transparent}
+input[type=text], input[type=password], input[type=number], select, textarea{
+  width:100%; background:var(--bg2); color:var(--text); border:1px solid var(--border); border-radius:8px;
+  font-family:var(--mono); font-size:.85rem; padding:.6rem .7rem;
+}
+input[type=number]{width:5.5rem; display:inline-block}
+select{width:auto; min-height:44px; cursor:pointer}
+textarea{resize:vertical; min-height:220px; line-height:1.55}
+input::placeholder, textarea::placeholder{color:var(--muted); opacity:.7}
+/* cards */
+.card{background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:1.1rem 1.2rem; margin:1rem 0}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:.8rem}
+@media (max-width:640px){.grid2{grid-template-columns:1fr}}
+.field{margin-bottom:.9rem}
+.field label{display:block; font-family:var(--mono); font-size:.78rem; font-weight:600; color:var(--muted); margin-bottom:.3rem; text-transform:uppercase; letter-spacing:.04em}
+.hint{font-size:.8rem; color:var(--muted); margin-top:.25rem}
+.check{display:flex; align-items:center; gap:.55rem; font-size:.9rem; min-height:44px}
+.check input{width:18px; height:18px; accent-color:var(--accent)}
+/* status & result */
+.status{margin:.9rem 0 0; font-size:.85rem; min-height:1.4em}
+.status.ok{color:var(--accent)}
+.status.err{color:var(--danger)}
+.status.warn{color:var(--warn)}
+pre.out{
+  background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:.9rem 1rem; overflow:auto;
+  font-size:.78rem; line-height:1.5; max-height:480px; margin:0 0 .8rem; tab-size:2;
+}
+.result-actions{display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.4rem}
+.saved{
+  display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; margin:.7rem 0 0; padding:.7rem .9rem;
+  background:var(--bg3); border:1px dashed var(--border); border-radius:8px; font-size:.88rem;
+}
+.saved b{font-family:var(--mono)}
+.saved .rate{display:inline-flex; align-items:center; gap:.4rem; font-size:.8rem; color:var(--muted)}
+/* steps */
+ol.steps{margin:.5rem 0 0; padding-left:1.3rem; color:var(--text)}
+ol.steps li{margin:.45rem 0}
+ol.steps code, .meta-line code, .pitch code{background:var(--bg3); border:1px solid var(--border); border-radius:5px; padding:.05rem .35rem; font-size:.82em}
+/* limits */
+ul.limits{margin:.4rem 0 0; padding-left:1.3rem}
+ul.limits li{margin:.4rem 0; color:var(--text)}
+ul.limits b{font-family:var(--mono); font-size:.9em}
+/* footer */
+footer{border-top:1px solid var(--border); margin-top:2.5rem; padding:1rem; text-align:center; font-size:.78rem; color:var(--muted)}
+footer code{font-size:.8em}
+/* misc */
+.muted{color:var(--muted)}
+.tag{display:inline-block; font-family:var(--mono); font-size:.7rem; border:1px solid var(--border); color:var(--muted); border-radius:999px; padding:.1rem .55rem; margin-right:.35rem}
+.hidden{display:none!important}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition:none!important; animation:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#tool">Skip to tool</a>
+
+<header class="topbar">
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/" aria-label="Zero-Cost AI Coding home">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 21V12h6v9"/></svg>
+    Zero-Cost AI Coding
+  </a>
+  <div class="right">
+    <span class="title">Test Smith</span>
+    <button class="btn btn-sm btn-ghost" id="themeToggle" type="button" aria-pressed="true">Light</button>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <h1>Test Smith</h1>
+  <div class="pitch">
+    <p>
+      Paste a function or method, get a ready-to-run unit test file (<b>Jest</b>, <b>Vitest</b>, <b>node:test</b>, or <b>pytest</b>)
+      from Gemini 2.5 Flash's free tier — no card, no trial, and your API key never leaves this tab.
+    </p>
+    <p class="meta-line">
+      <b>Free tier:</b> no card, no trial. Google no longer publishes static per-model free-tier numbers; your exact limits show in
+      <a href="https://aistudio.google.com/rate-limit" target="_blank" rel="noopener">AI Studio</a>. Mid-2026 third-party trackers put 2.5 Flash at
+      roughly 10 req/min and ~500–1,500 req/day, and Google trimmed free quotas ~50–80% in Dec 2025 — expect the cap to move without notice.
+      <b>What it replaces:</b> Diffblue Cover Developer Edition — <a href="https://www.g2.com/products/diffblue-cover/pricing" target="_blank" rel="noopener">$30/mo or $330/yr on G2</a>,
+      Java-only, 100 methods/mo (its free Community edition is IntelliJ-only and capped).
+    </p>
+    <div class="share">
+      <a class="btn btn-sm" id="shareX" href="#" target="_blank" rel="noopener">Share on X</a>
+      <button class="btn btn-sm" id="shareLink" type="button">Copy link</button>
+    </div>
+  </div>
+
+  <h2>How to use</h2>
+  <ol class="steps">
+    <li>Get a free API key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (Google account, no card). Paste it below — it's held in <code>sessionStorage</code> and is gone when the tab closes. It's sent only to Google's API, via the <code>x-goog-api-key</code> header, never in a URL.</li>
+    <li>Paste your function(s). Language auto-detects; pick a framework if the default doesn't fit. Toggle edge-case coverage.</li>
+    <li>Hit <b>Generate tests</b>. Fix the import path at the top of the generated file (it points at <code>./your-module</code> / <code>your_module</code>), then run: <code>npx jest</code>, <code>npx vitest run</code>, or <code>pytest</code>.</li>
+  </ol>
+
+  <section class="card" id="tool" tabindex="-1" aria-label="Test generator">
+    <div class="field">
+      <label for="keyInput">Gemini API key (free, session-only)</label>
+      <input type="password" id="keyInput" name="key" autocomplete="off" spellcheck="false"
+             placeholder="AIza... — stored in this tab only, cleared when the tab closes">
+      <div class="hint">Stored in sessionStorage while this tab is open. Never written to localStorage, logs, URLs, or any exported file.</div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="langSel">Language</label>
+        <select id="langSel">
+          <option value="auto" selected>Auto-detect</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="python">Python</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fwSel">Test framework</label>
+        <select id="fwSel">
+          <option value="auto" selected>Auto (JS→Jest, TS→Vitest, Py→pytest)</option>
+          <option value="jest">Jest</option>
+          <option value="vitest">Vitest</option>
+          <option value="node:test">node:test</option>
+          <option value="pytest">pytest</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="check" style="margin-bottom:.9rem">
+      <input type="checkbox" id="edgeChk" checked>
+      <label for="edgeChk" style="margin:0; text-transform:none; letter-spacing:0; color:var(--text)">Cover edge cases (null/empty input, invalid values, boundaries)</label>
+    </div>
+
+    <div class="field">
+      <label for="codeIn">Your code (function, method, or module)</label>
+      <textarea id="codeIn" spellcheck="false" placeholder="Paste a function or method you want tests for…">// Example — replace with your own code
+function priceWithTax(price, taxRate = 0.0825) {
+  if (typeof price !== "number" || price < 0) throw new Error("price must be a non-negative number");
+  if (typeof taxRate !== "number" || taxRate < 0) throw new Error("taxRate must be a non-negative number");
+  return Math.round(price * (1 + taxRate) * 100) / 100;
+}
+
+function greet(name) {
+  if (!name) return "Hello, stranger!";
+  return `Hello, ${name}!`;
+}</textarea>
+      <div class="hint">Keep each run to one file or function group — very large pastes can truncate the generated file.</div>
+    </div>
+
+    <button class="btn btn-primary" id="genBtn" type="button">Generate tests</button>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+
+    <div class="saved" id="savedBox">
+      <span id="savedReadout">No functions or methods detected yet — paste code to see what a run saves you.</span>
+      <span class="rate">
+        rate:
+        <input type="number" id="rateIn" value="5" min="0.5" step="0.5" aria-label="minutes per hand-written test (your estimate)">
+        min/test
+      </span>
+    </div>
+
+    <div id="resultCard" class="hidden" aria-label="Generated tests">
+      <h3 style="margin-top:.3rem">Generated test file</h3>
+      <div class="result-actions">
+        <button class="btn btn-sm btn-primary" id="copyBtn" type="button">Copy</button>
+        <button class="btn btn-sm" id="dlBtn" type="button">Download</button>
+        <button class="btn btn-sm" id="copyJsonBtn" type="button">Copy as JSON</button>
+        <button class="btn btn-sm" id="dlJsonBtn" type="button">Download JSON</button>
+      </div>
+      <pre class="out" tabindex="0"><code id="outCode"></code></pre>
+    </div>
+
+    <div class="field" style="margin-top:1rem">
+      <label for="importIn">Import a Test Smith export (JSON)</label>
+      <textarea id="importIn" rows="3" spellcheck="false" placeholder='Paste {"zcac":true,"kind":"unit-tests","data":{…}} here to restore a previous run.'></textarea>
+      <button class="btn btn-sm" id="importBtn" type="button" style="margin-top:.5rem">Import</button>
+    </div>
+  </section>
+
+  <h2>What breaks</h2>
+  <ul class="limits">
+    <li><b>Rate caps.</b> Hit <code>429 RESOURCE_EXHAUSTED</code> and you've passed the free tier's RPM or RPD limit: RPM clears in ~a minute, RPD resets at midnight Pacific. Free-tier quotas change without notice — check <a href="https://aistudio.google.com/rate-limit" target="_blank" rel="noopener">aistudio.google.com/rate-limit</a>.</li>
+    <li><b>Your code leaves the browser.</b> The paste is POSTed to Google's Gemini API. Google's free tier may use submitted data to improve its products — don't paste proprietary code you can't share. This is the trade-off for a model far stronger than anything that runs in a tab.</li>
+    <li><b>The key.</b> sessionStorage only; it dies with the tab. If you reload, re-enter it. The page never logs it and never includes it in exported JSON.</li>
+    <li><b>Tests need a review pass.</b> The model is good, not infallible. Fix the import path (<code>./your-module</code> / <code>your_module</code>), run the suite, and correct any assertion the model got wrong — you're getting a first draft, not a guarantee.</li>
+    <li><b>Sandboxed previews.</b> If this page is shown in a sandboxed iframe preview or opened from <code>file://</code> with restrictions, the API call can be blocked — open the HTML in a normal browser tab.</li>
+  </ul>
+</main>
+
+<footer>
+  Free-tier claim verified 2026-08-15 against Google's Gemini API docs (<a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank" rel="noopener">rate-limits</a>,
+  <a href="https://ai.google.dev/api/generate-content" target="_blank" rel="noopener">generateContent reference</a>) plus a live preflight + request test from a browser origin.
+  Diffblue pricing from <a href="https://www.g2.com/products/diffblue-cover/pricing" target="_blank" rel="noopener">G2</a>.
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+
+  var KEY_SESSION = "zcac_test_smith_key";
+  var MODEL = "gemini-2.5-flash";
+  var ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
+
+  var themeToggle = $("#themeToggle");
+  var keyInput = $("#keyInput");
+  var langSel = $("#langSel");
+  var fwSel = $("#fwSel");
+  var edgeChk = $("#edgeChk");
+  var codeIn = $("#codeIn");
+  var genBtn = $("#genBtn");
+  var statusEl = $("#status");
+  var savedReadout = $("#savedReadout");
+  var rateIn = $("#rateIn");
+  var resultCard = $("#resultCard");
+  var outCode = $("#outCode");
+  var copyBtn = $("#copyBtn");
+  var dlBtn = $("#dlBtn");
+  var copyJsonBtn = $("#copyJsonBtn");
+  var dlJsonBtn = $("#dlJsonBtn");
+  var importIn = $("#importIn");
+  var importBtn = $("#importBtn");
+  var shareX = $("#shareX");
+  var shareLink = $("#shareLink");
+
+  var state = { last: null };
+
+  /* ---------- theme ---------- */
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    themeToggle.textContent = t === "dark" ? "Light" : "Dark";
+    themeToggle.setAttribute("aria-pressed", String(t === "dark"));
+  }
+  (function initTheme() {
+    var stored = null;
+    try { stored = localStorage.getItem("zcac_theme"); } catch (e) {}
+    var pref = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+    applyTheme(stored || pref);
+  })();
+  themeToggle.addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(cur);
+    try { localStorage.setItem("zcac_theme", cur); } catch (e) {}
+  });
+
+  /* ---------- language / framework resolution ---------- */
+  function detectLang(code) {
+    // Python: def/async def, decorators, `from x import y`, and bare `import mod`
+    // (but not JS `import X from '…'` / `import { … } from …` / `import * as …`)
+    if (/^\s*(?:async\s+)?def\s+\w+|^\s*@|^\s*from\s+\w+\s+import|^\s*import\s+(?!\{|\*)(?![\w.]+\s+from\b)[a-zA-Z_]\w*/m.test(code)) return "python";
+    if (/: (?:string|number|boolean|any|unknown|void|Record<|Promise<|Array<|readonly)|interface\s+\w+|type\s+\w+\s*=|:\s*string\s*\[\]/m.test(code)) return "typescript";
+    return "javascript";
+  }
+  function fwDefault(lang) {
+    return lang === "python" ? "pytest" : (lang === "typescript" ? "vitest" : "jest");
+  }
+  function resolvedLang() {
+    var v = langSel.value;
+    return v === "auto" ? detectLang(codeIn.value) : v;
+  }
+  function resolvedFw(lang) {
+    var v = fwSel.value;
+    return v === "auto" ? fwDefault(lang) : v;
+  }
+
+  /* ---------- function count (for the saved-time readout) ---------- */
+  function countFunctions(code, lang) {
+    if (!code || !code.trim()) return 0;
+    if (lang === "python") {
+      var pm = code.match(/^\s*(?:async\s+)?def\s+\w+/gm);
+      return pm ? pm.length : 0;
+    }
+    var re = /(?:^|\n)[ \t]*(?:export[ \t]+(?:default[ \t]+)?)?(?:async[ \t]+)?function[ \t]*\*?[ \t]*[A-Za-z_$][\w$]*|(?:^|\n)[ \t]*(?:export[ \t]+)?(?:const|let|var)[ \t]+[A-Za-z_$][\w$]*[ \t]*=[ \t]*(?:async[ \t]*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)[ \t]*=>|(?:^|\n)[ \t]*(?:(?:public|private|protected|static)[ \t]+)*(?!if\b|for\b|while\b|switch\b|catch\b|return\b|typeof\b|new\b)[A-Za-z_$][\w$]*[ \t]*\([^)]*\)[ \t]*\{/g;
+    var m = code.match(re);
+    return m ? m.length : 0;
+  }
+
+  function updateSaved() {
+    var lang = resolvedLang();
+    var n = countFunctions(codeIn.value, lang);
+    var rate = parseFloat(rateIn.value) || 5;
+    var saved = Math.round(n * rate);
+    savedReadout.textContent = n === 0
+      ? "No functions or methods detected yet — paste code to see what a run saves you."
+      : "\u2248 " + n + " function(s) detected \u2192 \u2248 " + saved + " min of test drafting saved per run (at your " + rate + " min/test rate).";
+  }
+  [codeIn, langSel, fwSel, rateIn].forEach(function (el) {
+    el.addEventListener("input", updateSaved);
+    el.addEventListener("change", updateSaved);
+  });
+  updateSaved();
+
+  /* ---------- prompt ---------- */
+  function buildPrompt(lang, framework, edge, code) {
+    var style = edge
+      ? "Cover the main behavior AND the important edge cases: empty/null/undefined input, invalid values that should throw, and boundary values."
+      : "Cover the main behavior with 2-4 focused test cases.";
+    var importHint = {
+      jest: "Import the code under test with CommonJS: `const { ... } = require('./your-module');`",
+      vitest: "Import the code under test with `import { ... } from './your-module';`",
+      "node:test": "Import the code under test with `const { ... } = require('./your-module');`",
+      pytest: "Import the code under test with `from your_module import ...` (assume the pasted code is saved as your_module.py)."
+    }[framework];
+    var idioms = {
+      jest: "Use describe()/test() and expect(). Use jest.fn() only if you must isolate a dependency.",
+      vitest: "Use describe()/it() and expect() imported from 'vitest'.",
+      "node:test": "Use test() from 'node:test' and assert from 'node:assert/strict'. No external packages.",
+      pytest: "Use plain pytest functions named test_*() with assert. No unittest classes."
+    }[framework];
+    return [
+      "You are a senior test engineer. Write a complete, runnable unit test file for the code below.",
+      "",
+      "Language: " + lang + ". Test framework: " + framework + ".",
+      "Style: " + style,
+      "",
+      "Rules:",
+      "- Output ONLY the test file code. No markdown code fences, no explanation, no surrounding prose.",
+      "- " + importHint + " Then add a one-line comment at the top telling the user to adjust that import path to their own file.",
+      "- " + idioms,
+      "- No placeholder or empty tests. Every test must assert something real about the code below.",
+      "- If the code has obvious bugs, write tests that document the actual behavior and note anything suspicious in a comment.",
+      "",
+      "CODE:",
+      code
+    ].join("\n");
+  }
+
+  /* ---------- status ---------- */
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg || "";
+    statusEl.className = "status" + (kind ? " " + kind : "");
+  }
+
+  /* ---------- API call ---------- */
+  function extractText(data) {
+    if (!data || !Array.isArray(data.candidates) || !data.candidates[0] || !data.candidates[0].content ||
+        !Array.isArray(data.candidates[0].content.parts)) return null;
+    return data.candidates[0].content.parts.map(function (p) { return (p && p.text) || ""; }).join("");
+  }
+  function cleanCode(text) {
+    var t = (text || "").trim();
+    var fence = t.match(/^```[^\n]*\n([\s\S]*?)\n```\s*$/);
+    if (fence) return fence[1].trim();
+    if (t.indexOf("```") === 0) t = t.replace(/^```[^\n]*\n?/, "");
+    if (t.slice(-3) === "```") t = t.slice(0, -3);
+    return t.trim();
+  }
+  function errorMessageFor(res, data) {
+    var status = res.status;
+    var msg = (data && data.error && data.error.message) ? data.error.message : "";
+    var details = (data && data.error && data.error.details) || [];
+    var reason = (details[0] && details[0].reason) || "";
+    if (reason === "API_KEY_INVALID") return "Google rejected this API key (API_KEY_INVALID). Re-check it at aistudio.google.com/apikey — keys start with AIza and are 39 chars.";
+    if (status === 429) return "Rate limited (429). You hit the free tier's per-minute or per-day cap. Wait ~a minute, or until midnight Pacific for the daily cap. Live limits: aistudio.google.com/rate-limit.";
+    if (status === 403) return "Permission denied (403) — this key may not have access to " + MODEL + ". Check it in AI Studio.";
+    if (status === 404) return "Model not found (404) — Google may have renamed " + MODEL + ". See ai.google.dev/gemini-api/docs/models.";
+    if (status === 400) return "Bad request (400): " + (msg || "invalid request shape.");
+    if (status >= 500) return "Google API error (" + status + "). Retry in a few seconds.";
+    return "Request failed (" + status + "): " + (msg || "unknown error.");
+  }
+
+  async function generateTests() {
+    var key = keyInput.value.trim() || (sessionStorage.getItem(KEY_SESSION) || "");
+    if (!key) {
+      setStatus("No API key yet — paste a free one from aistudio.google.com/apikey (no card).", "err");
+      keyInput.focus();
+      return;
+    }
+    var code = codeIn.value;
+    if (!code.trim()) {
+      setStatus("Paste some code first.", "err");
+      codeIn.focus();
+      return;
+    }
+    var lang = resolvedLang();
+    var framework = resolvedFw(lang);
+    var edge = edgeChk.checked;
+
+    try { sessionStorage.setItem(KEY_SESSION, key); } catch (e) {}
+    setStatus("Generating " + framework + " tests\u2026 (2.5 Flash free tier, usually a few seconds)", "ok");
+    genBtn.disabled = true;
+
+    var payload = {
+      contents: [{ parts: [{ text: buildPrompt(lang, framework, edge, code) }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
+    };
+
+    try {
+      var res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(payload)
+      });
+      var data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        setStatus(errorMessageFor(res, data), "err");
+        return;
+      }
+      var text = extractText(data);
+      if (text === null) {
+        setStatus("Unexpected API response. Raw: " + JSON.stringify(data).slice(0, 240), "err");
+        return;
+      }
+      var tests = cleanCode(text);
+      if (!tests) { setStatus("The model returned an empty response. Try again.", "err"); return; }
+      setResult(lang, framework, edge, code, tests);
+      setStatus("Done \u2014 " + framework + " test file generated. Adjust the import path, then run your test runner.", "ok");
+    } catch (err) {
+      setStatus("Couldn't reach the Gemini API (" + (err && err.message ? err.message : "network error") + "). If this page is in a sandboxed preview or file://, open it in a normal browser tab.", "err");
+    } finally {
+      genBtn.disabled = false;
+    }
+  }
+
+  function setResult(lang, framework, edge, source, tests) {
+    state.last = { language: lang, framework: framework, edgeCases: edge, source: source, tests: tests };
+    outCode.textContent = tests;
+    resultCard.classList.remove("hidden");
+    try { resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e) {}
+    updateSaved();
+  }
+
+  /* ---------- copy / download / export / import ---------- */
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      return true;
+    } catch (e) { return false; }
+  }
+  function copyText(text, btn) {
+    function done() {
+      if (btn) {
+        var old = btn.textContent;
+        btn.textContent = "Copied \u2713";
+        setTimeout(function () { btn.textContent = old; }, 1600);
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { if (legacyCopy(text)) done(); });
+    } else if (legacyCopy(text)) { done(); }
+  }
+  function downloadFile(name, content, type) {
+    if (typeof URL.createObjectURL !== "function") {
+      setStatus("Download isn't available in this context \u2014 use Copy instead.", "warn");
+      return;
+    }
+    var blob = new Blob([content], { type: type || "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+  }
+  function exportJson() {
+    if (!state.last) return null;
+    return JSON.stringify({
+      zcac: true,
+      kind: "unit-tests",
+      data: {
+        language: state.last.language,
+        framework: state.last.framework,
+        edgeCases: state.last.edgeCases,
+        source: state.last.source,
+        tests: state.last.tests,
+        generatedAt: new Date().toISOString()
+      }
+    }, null, 2);
+  }
+  function importJson(text) {
+    var parsed;
+    try { parsed = JSON.parse(text); } catch (e) { return "That's not valid JSON."; }
+    if (!parsed || parsed.zcac !== true || parsed.kind !== "unit-tests" || !parsed.data ||
+        typeof parsed.data.source !== "string" || typeof parsed.data.tests !== "string") {
+      return "Not a Test Smith export. Expected {\"zcac\": true, \"kind\": \"unit-tests\", \"data\": {…}}.";
+    }
+    var d = parsed.data;
+    var lang = ["javascript", "typescript", "python"].indexOf(d.language) !== -1 ? d.language : detectLang(d.source);
+    var fw = ["jest", "vitest", "pytest", "node:test"].indexOf(d.framework) !== -1 ? d.framework : fwDefault(lang);
+    langSel.value = lang;
+    fwSel.value = fw;
+    edgeChk.checked = !!d.edgeCases;
+    codeIn.value = d.source;
+    setResult(lang, fw, !!d.edgeCases, d.source, d.tests);
+    return "Imported Test Smith export (kind: unit-tests).";
+  }
+
+  genBtn.addEventListener("click", generateTests);
+  codeIn.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); generateTests(); }
+  });
+
+  copyBtn.addEventListener("click", function () { if (state.last) copyText(state.last.tests, copyBtn); });
+  dlBtn.addEventListener("click", function () {
+    if (!state.last) return;
+    var lang = state.last.language, fw = state.last.framework;
+    var name = fw === "pytest" ? "test_your_module.py" : (lang === "typescript" || fw === "vitest") ? "your-module.test.ts" : "your-module.test.js";
+    downloadFile(name, state.last.tests);
+  });
+  copyJsonBtn.addEventListener("click", function () {
+    var j = exportJson();
+    if (j) copyText(j, copyJsonBtn);
+  });
+  dlJsonBtn.addEventListener("click", function () {
+    var j = exportJson();
+    if (j) downloadFile("test-smith-export.json", j, "application/json");
+  });
+  importBtn.addEventListener("click", function () {
+    var msg = importJson(importIn.value);
+    setStatus(msg, msg === "That's not valid JSON." || msg.indexOf("Not a Test Smith export") === 0 ? "warn" : "ok");
+  });
+
+  /* ---------- share ---------- */
+  var PAGE_URL = "https://iggym.github.io/zero-cost-ai-coding/tools/test-smith.html";
+  shareX.href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent("Paste a function, get a ready-to-run unit test file (Jest/Vitest/pytest) — free Gemini tier, no card, key stays in your tab.") + "&url=" + encodeURIComponent(PAGE_URL);
+  shareLink.addEventListener("click", function () { copyText(PAGE_URL, shareLink); });
+
+  /* test hooks (harmless, used by automated checks) */
+  window.__ts = { countFunctions: countFunctions, detectLang: detectLang, buildPrompt: buildPrompt, exportJson: exportJson, importJson: importJson, resolvedLang: resolvedLang, resolvedFw: resolvedFw };
+})();
+</script>
+</body>
+</html>
