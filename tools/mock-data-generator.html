@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Data Generator — zero-cost-ai-coding</title>
+<meta name="description" content="Generate realistic mock test data in your browser — no account, no API, no row limits. JSON, CSV, or SQL output.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --accent: #00ff88;
+  --accent-hover: #00cc6a;
+  --accent-fg: #0d1117;
+  --danger: #f85149;
+  --radius: 6px;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-2: #f6f8fa;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --accent: #1a7f37;
+  --accent-hover: #116327;
+  --accent-fg: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.home-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+.home-link:hover { text-decoration: underline; }
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tool-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.theme-toggle {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.theme-toggle:hover { border-color: var(--accent); }
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+main {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+h1 {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+h2 {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  margin-top: 28px;
+}
+.pitch p {
+  font-size: 1rem;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.share-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.share-row a, .share-row button {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 5px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+.share-row a:hover, .share-row button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.share-row a:focus-visible, .share-row button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.info-section {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.info-section p { margin-bottom: 6px; }
+.info-section ol { padding-left: 20px; margin-bottom: 6px; }
+.info-section li { margin-bottom: 4px; }
+.info-section a { color: var(--accent); }
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+/* Column builder */
+.columns-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.column-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.column-row input[type="text"],
+.column-row select {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text);
+}
+.column-row input[type="text"] {
+  width: 140px;
+}
+.column-row select {
+  width: 150px;
+}
+.col-options {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.col-options input {
+  width: 55px !important;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text);
+  text-align: center;
+}
+.col-options label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.col-remove {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius);
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.col-remove:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.col-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+#add-column {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+#add-column:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#add-column:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Controls */
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.controls label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.controls input, .controls select {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text);
+}
+.controls input:focus-visible, .controls select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+#generate {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+#generate:hover { background: var(--accent-hover); }
+#generate:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Output */
+.output-wrap {
+  margin-top: 16px;
+}
+.output-box {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  max-height: 420px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--text);
+  tab-size: 2;
+}
+.output-box:empty::before {
+  content: 'Click Generate to produce mock data.';
+  color: var(--text-muted);
+  font-style: italic;
+}
+.output-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.output-actions button {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.output-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.output-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.toast.show { opacity: 1; }
+/* Import */
+.import-section {
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.import-section summary {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.import-section summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.import-section textarea {
+  width: 100%;
+  height: 80px;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text);
+  resize: vertical;
+}
+#import-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  margin-top: 8px;
+}
+#import-btn:hover { border-color: var(--accent); color: var(--accent); }
+#import-msg {
+  font-size: 12px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+}
+#import-msg.error { color: var(--danger); }
+#import-msg.success { color: var(--accent); }
+/* Saved readout */
+.saved-readout {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.saved-readout .big-number {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.saved-readout .assumption {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+.saved-readout .mockaroo-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 4px;
+}
+footer {
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+footer a { color: var(--accent); }
+@media (max-width: 600px) {
+  .column-row input[type="text"] { width: 120px; }
+  .column-row select { width: 130px; }
+  h1 { font-size: 1.3rem; }
+  .controls { flex-direction: column; align-items: stretch; }
+  .controls label { width: 100%; }
+  #generate { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← Home</a>
+  <div class="topbar-right">
+    <span class="tool-name">Mock Data</span>
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode">🌙</button>
+  </div>
+</header>
+<main>
+  <section class="pitch">
+    <h1>Mock Data Generator</h1>
+    <p>Generate realistic test data in your browser — no account, no API, no row limits. Runs fully client-side with embedded datasets.</p>
+    <div class="share-row">
+      <a href="https://twitter.com/intent/tweet?text=Mock%20Data%20Generator%20%E2%80%94%20free%20in-browser%20test%20data%20generation%2C%20no%20row%20limits&url=https://iggym.github.io/zero-cost-ai-coding/tools/mock-data-generator.html" target="_blank" rel="noopener">Share on X</a>
+      <button id="copy-link-btn">Copy Link</button>
+    </div>
+  </section>
+
+  <section class="info-section">
+    <h2>What it replaces</h2>
+    <p>Mockaroo's free tier caps at 1,000 rows per download and requires an account for saved schemas (source: <a href="https://www.mockaroo.com/" target="_blank" rel="noopener">mockaroo.com</a>). This tool has no row limit and no account requirement — everything runs in your browser tab.</p>
+  </section>
+
+  <section class="info-section">
+    <h2>How to use</h2>
+    <ol>
+      <li>Add or remove columns, pick a data type for each</li>
+      <li>Set how many rows you want (1–50,000)</li>
+      <li>Pick a format: JSON, CSV, or SQL INSERT statements</li>
+      <li>Click Generate, then copy or download the result</li>
+    </ol>
+  </section>
+
+  <section class="info-section">
+    <h2>What breaks</h2>
+    <p>Row counts above 10,000 may slow your browser while rendering output. Generated data uses <code>Math.random()</code> — pseudo-random, not cryptographically secure; don't use it for real secrets or tokens. Credit card numbers are random 16-digit strings, not Luhn-validated. Data is US-centric (names, cities, states, phone format).</p>
+  </section>
+
+  <hr class="divider">
+
+  <section>
+    <h2>Columns</h2>
+    <div class="columns-container" id="columns-list"></div>
+    <button id="add-column">+ Add Column</button>
+
+    <div class="controls">
+      <label>Rows
+        <input type="number" id="row-count" value="100" min="1" max="50000">
+      </label>
+      <label>Format
+        <select id="format">
+          <option value="json">JSON</option>
+          <option value="csv">CSV</option>
+          <option value="sql">SQL</option>
+        </select>
+      </label>
+      <label id="table-name-wrap" style="display:none">Table name
+        <input type="text" id="table-name" value="mock_data">
+      </label>
+      <button id="generate">Generate</button>
+    </div>
+
+    <div class="output-wrap">
+      <h2>Output</h2>
+      <div class="output-box" id="output" aria-live="polite"></div>
+      <div class="output-actions">
+        <button id="copy-output">Copy</button>
+        <button id="download-output">Download</button>
+        <button id="copy-json">Copy as JSON (zcac)</button>
+      </div>
+    </div>
+
+    <details class="import-section">
+      <summary>Import columns from another tool's JSON</summary>
+      <textarea id="import-box" placeholder='{"zcac": true, "kind": "mock-data", "data": {"columns": [...]}}'></textarea>
+      <button id="import-btn">Load Columns</button>
+      <p id="import-msg"></p>
+    </details>
+
+    <div class="saved-readout" id="saved-readout" aria-live="polite">
+      No data generated yet.
+    </div>
+  </section>
+
+  <footer>
+    Free-tier claim verified against <a href="https://www.mockaroo.com/" target="_blank" rel="noopener">mockaroo.com</a> (1,000 rows free, account required for more). This tool runs 100% in your browser — no backend, no API calls.
+  </footer>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Data ────────────────────────────────────────────
+const FIRST_NAMES = ["James","Mary","John","Patricia","Robert","Jennifer","Michael","Linda","William","Elizabeth","David","Barbara","Richard","Susan","Joseph","Jessica","Thomas","Sarah","Charles","Karen","Christopher","Nancy","Daniel","Lisa","Matthew","Margaret","Anthony","Betty","Mark","Sandra","Donald","Ashley","Steven","Dorothy","Paul","Kimberly","Andrew","Emily","Joshua","Donna","Kenneth","Michelle","Kevin","Carol","Brian","Amanda","George","Melissa","Edward","Deborah","Ronald","Stephanie","Timothy","Rebecca","Jason","Laura","Jeffrey","Sharon","Ryan","Cynthia","Jacob","Kathleen","Gary","Amy","Nicholas","Shirley","Eric","Angela","Jonathan","Helen","Stephen","Anna","Larry","Brenda","Justin","Pamela","Scott","Nicole","Brandon","Emma","Benjamin","Samantha","Samuel","Katherine","Gregory","Christine","Alexander","Debra","Patrick","Rachel","Frank","Catherine","Raymond","Carolyn","Jack","Janet","Dennis","Ruth","Jerry","Maria","Tyler","Heather"];
+const LAST_NAMES = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin","Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson","Walker","Young","Allen","King","Wright","Scott","Torres","Nguyen","Hill","Flores","Green","Adams","Nelson","Baker","Hall","Rivera","Campbell","Mitchell","Carter","Roberts","Gomez","Phillips","Evans","Turner","Diaz","Parker","Cruz","Edwards","Collins","Reyes","Stewart","Morris","Morales","Murphy","Cook","Rogers","Gutierrez","Ortiz","Morgan","Cooper","Peterson","Bailey","Reed","Kelly","Howard","Ramos","Kim","Cox","Ward","Richardson","Watson","Brooks","Chavez","Wood","James","Bennett","Gray","Mendoza","Ruiz","Hughes","Price","Alvarez","Castillo","Sanders","Patel","Myers","Long","Ross","Foster"];
+const CITIES = ["New York","Los Angeles","Chicago","Houston","Phoenix","Philadelphia","San Antonio","San Diego","Dallas","San Jose","Austin","Jacksonville","Fort Worth","Columbus","Charlotte","San Francisco","Indianapolis","Seattle","Denver","Boston","El Paso","Nashville","Detroit","Portland","Memphis","Las Vegas","Louisville","Baltimore","Milwaukee","Albuquerque","Tucson","Fresno","Sacramento","Kansas City","Atlanta","Miami","Omaha","Minneapolis","Cleveland","Tulsa"];
+const STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"];
+const DOMAINS = ["gmail.com","yahoo.com","hotmail.com","outlook.com","protonmail.com","icloud.com","fastmail.com","zoho.com","aol.com","mail.com","example.com","company.org","tech.io","dev.to","firm.co"];
+const COMPANY_PREFIXES = ["Tech","Data","Cloud","Net","Cyber","Digital","Smart","Byte","Logic","Core","Edge","Peak","Prime","Nexus","Flux","Vibe","Link","Sync","Hub","Forge","Apex","Vertex","Quantum","Pixel","Code","Stack","Grid","Mesh","Wave","Pulse","Spark","Shift","Flow","Base","Point","Zone","Craft","Lab"];
+const COMPANY_SUFFIXES = ["Corp","Inc","LLC","Ltd","Systems","Solutions","Group","Labs","Works","Partners","Holdings","Studios","Industries","Technologies","Software","Dynamics","Ventures","Networks","Interactive","Digital"];
+const JOB_TITLES = ["Software Engineer","Senior Developer","Product Manager","Data Scientist","DevOps Engineer","Frontend Developer","Backend Developer","Full Stack Developer","UX Designer","UI Designer","QA Engineer","System Administrator","Database Administrator","Security Analyst","Project Manager","Scrum Master","Technical Lead","Engineering Manager","CTO","CEO","CIO","Data Engineer","ML Engineer","Mobile Developer","Cloud Architect","Site Reliability Engineer","Product Designer","Business Analyst","Technical Writer","Solutions Architect"];
+const STREET_NAMES = ["Main","Oak","Pine","Maple","Cedar","Elm","Washington","Lake","Hill","Park","Church","Mill","High","Walnut","Chestnut","Spruce","Birch","Willow","Sunset","Spring","Forest","River","Meadow","Valley","Ridge","Brook","Stone","Highland","Garden","Rose"];
+const STREET_TYPES = ["Street","Avenue","Boulevard","Drive","Lane","Road","Court","Place","Way","Circle","Terrace","Parkway"];
+const WORDS = ["the","system","will","generate","random","data","for","testing","your","application","with","realistic","values","that","look","like","real","records","each","field","is","independently","generated","using","embedded","datasets","no","external","calls","needed","everything","runs","in","your","browser","fast","private","and","free","from","limits","you","can","export","as","JSON","CSV","or","SQL","statements","this","tool","does","not","send","any","data","to","any","server","all","processing","happens","locally","in","your","tab"];
+const COUNTRIES = ["United States","Canada","United Kingdom","Australia","Germany","France","Spain","Italy","Netherlands","Sweden"];
+
+const TYPES = [
+  {v:"firstName",l:"First Name"},
+  {v:"lastName",l:"Last Name"},
+  {v:"fullName",l:"Full Name"},
+  {v:"email",l:"Email"},
+  {v:"username",l:"Username"},
+  {v:"password",l:"Password"},
+  {v:"phone",l:"Phone"},
+  {v:"street",l:"Street Address"},
+  {v:"city",l:"City"},
+  {v:"state",l:"State"},
+  {v:"zip",l:"Zip Code"},
+  {v:"country",l:"Country"},
+  {v:"company",l:"Company"},
+  {v:"jobTitle",l:"Job Title"},
+  {v:"uuid",l:"UUID"},
+  {v:"url",l:"URL"},
+  {v:"ip",l:"IP Address (IPv4)"},
+  {v:"date",l:"Date (YYYY-MM-DD)"},
+  {v:"timestamp",l:"Timestamp (ISO 8601)"},
+  {v:"number",l:"Number (range)"},
+  {v:"boolean",l:"Boolean"},
+  {v:"paragraph",l:"Paragraph"},
+  {v:"color",l:"Hex Color"},
+  {v:"currency",l:"Currency Amount"},
+  {v:"creditCard",l:"Credit Card (fake)"}
+];
+
+// ─── Helpers ─────────────────────────────────────────
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function pickInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pad(n, w) { return String(n).padStart(w, '0'); }
+
+function generateValue(type, opts) {
+  switch (type) {
+    case 'firstName': return pick(FIRST_NAMES);
+    case 'lastName': return pick(LAST_NAMES);
+    case 'fullName': return pick(FIRST_NAMES) + ' ' + pick(LAST_NAMES);
+    case 'email':
+      return (pick(FIRST_NAMES).toLowerCase() + pickInt(1, 999) + '@' + pick(DOMAINS));
+    case 'username':
+      return pick(FIRST_NAMES).toLowerCase() + pickInt(1, 9999);
+    case 'password': {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+      let s = '';
+      for (let i = 0; i < 16; i++) s += chars[pickInt(0, chars.length - 1)];
+      return s;
+    }
+    case 'phone':
+      return '(' + pickInt(200, 999) + ') ' + pickInt(200, 999) + '-' + pickInt(1000, 9999);
+    case 'street':
+      return pickInt(100, 9999) + ' ' + pick(STREET_NAMES) + ' ' + pick(STREET_TYPES);
+    case 'city': return pick(CITIES);
+    case 'state': return pick(STATES);
+    case 'zip': return String(pickInt(10000, 99999));
+    case 'country': return pick(COUNTRIES);
+    case 'company': return pick(COMPANY_PREFIXES) + pick(COMPANY_SUFFIXES);
+    case 'jobTitle': return pick(JOB_TITLES);
+    case 'uuid':
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    case 'url':
+      return 'https://www.' + pick(DOMAINS) + '/' + pick(WORDS);
+    case 'ip':
+      return pickInt(1, 255) + '.' + pickInt(0, 255) + '.' + pickInt(0, 255) + '.' + pickInt(1, 254);
+    case 'date': {
+      const now = Date.now();
+      const past = now - 2 * 365 * 24 * 60 * 60 * 1000;
+      return new Date(pickInt(past, now)).toISOString().split('T')[0];
+    }
+    case 'timestamp': {
+      const now = Date.now();
+      const past = now - 2 * 365 * 24 * 60 * 60 * 1000;
+      return new Date(pickInt(past, now)).toISOString();
+    }
+    case 'number': {
+      const min = (opts && opts.min != null) ? opts.min : 1;
+      const max = (opts && opts.max != null) ? opts.max : 100;
+      return pickInt(min, max);
+    }
+    case 'boolean': return Math.random() < 0.5;
+    case 'paragraph': {
+      const count = pickInt(12, 25);
+      const words = [];
+      for (let i = 0; i < count; i++) words.push(pick(WORDS));
+      let p = words.join(' ');
+      return p.charAt(0).toUpperCase() + p.slice(1) + '.';
+    }
+    case 'color':
+      return '#' + pad(pickInt(0, 255).toString(16), 2) + pad(pickInt(0, 255).toString(16), 2) + pad(pickInt(0, 255).toString(16), 2);
+    case 'currency':
+      return '$' + (Math.random() * 9999).toFixed(2);
+    case 'creditCard': {
+      let num = '4';
+      for (let i = 0; i < 15; i++) num += pickInt(0, 9);
+      return num.match(/(\d{4})/g).join('-');
+    }
+    default: return '';
+  }
+}
+
+// ─── Column Management ───────────────────────────────
+const columnsList = document.getElementById('columns-list');
+let colIdCounter = 0;
+
+function createColumnRow(name, type, opts) {
+  const id = ++colIdCounter;
+  const row = document.createElement('div');
+  row.className = 'column-row';
+  row.dataset.id = id;
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'col-name';
+  nameInput.value = name || ('column_' + id);
+  nameInput.setAttribute('aria-label', 'Column name');
+  nameInput.placeholder = 'column name';
+
+  const typeSelect = document.createElement('select');
+  typeSelect.className = 'col-type';
+  typeSelect.setAttribute('aria-label', 'Data type');
+  TYPES.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.v;
+    opt.textContent = t.l;
+    if (t.v === (type || 'firstName')) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+
+  const optsSpan = document.createElement('span');
+  optsSpan.className = 'col-options';
+  optsSpan.style.display = (type === 'number') ? 'flex' : 'none';
+
+  const minLabel = document.createElement('label');
+  minLabel.textContent = 'min';
+  const minInput = document.createElement('input');
+  minInput.type = 'number';
+  minInput.className = 'col-min';
+  minInput.value = (opts && opts.min != null) ? opts.min : 1;
+  minInput.setAttribute('aria-label', 'Minimum value');
+
+  const maxLabel = document.createElement('label');
+  maxLabel.textContent = 'max';
+  const maxInput = document.createElement('input');
+  maxInput.type = 'number';
+  maxInput.className = 'col-max';
+  maxInput.value = (opts && opts.max != null) ? opts.max : 100;
+  maxInput.setAttribute('aria-label', 'Maximum value');
+
+  minLabel.appendChild(minInput);
+  maxLabel.appendChild(maxInput);
+  optsSpan.appendChild(minLabel);
+  optsSpan.appendChild(maxLabel);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'col-remove';
+  removeBtn.textContent = '✕';
+  removeBtn.setAttribute('aria-label', 'Remove column');
+  removeBtn.addEventListener('click', () => {
+    row.remove();
+  });
+
+  typeSelect.addEventListener('change', () => {
+    optsSpan.style.display = (typeSelect.value === 'number') ? 'flex' : 'none';
+  });
+
+  row.appendChild(nameInput);
+  row.appendChild(typeSelect);
+  row.appendChild(optsSpan);
+  row.appendChild(removeBtn);
+  return row;
+}
+
+function addColumn(name, type, opts) {
+  columnsList.appendChild(createColumnRow(name, type, opts));
+}
+
+// Default columns
+addColumn('id', 'number', {min: 1, max: 1000});
+addColumn('first_name', 'firstName');
+addColumn('last_name', 'lastName');
+addColumn('email', 'email');
+addColumn('phone', 'phone');
+addColumn('created_at', 'timestamp');
+
+document.getElementById('add-column').addEventListener('click', () => addColumn());
+
+function readColumns() {
+  const cols = [];
+  const rows = columnsList.querySelectorAll('.column-row');
+  rows.forEach(row => {
+    const name = row.querySelector('.col-name').value.trim() || 'column';
+    const type = row.querySelector('.col-type').value;
+    const opts = {};
+    if (type === 'number') {
+      opts.min = parseInt(row.querySelector('.col-min').value, 10);
+      opts.max = parseInt(row.querySelector('.col-max').value, 10);
+      if (isNaN(opts.min)) opts.min = 1;
+      if (isNaN(opts.max)) opts.max = 100;
+    }
+    cols.push({name, type, options: opts});
+  });
+  return cols;
+}
+
+// ─── Generation ──────────────────────────────────────
+function generateData(cols, rowCount) {
+  const rows = [];
+  for (let i = 0; i < rowCount; i++) {
+    const row = {};
+    cols.forEach(col => {
+      row[col.name] = generateValue(col.type, col.options);
+    });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function formatJSON(rows) {
+  return JSON.stringify(rows, null, 2);
+}
+
+function formatCSV(rows, cols) {
+  const header = cols.map(c => '"' + c.name.replace(/"/g, '""') + '"').join(',');
+  const lines = rows.map(row =>
+    cols.map(c => {
+      const v = row[c.name];
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'boolean') return v ? 'true' : 'false';
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    }).join(',')
+  );
+  return [header].concat(lines).join('\n');
+}
+
+function formatSQL(rows, cols, tableName) {
+  const colNames = cols.map(c => c.name).join(', ');
+  return rows.map(row => {
+    const vals = cols.map(c => {
+      const v = row[c.name];
+      if (v === null || v === undefined) return 'NULL';
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+      return "'" + String(v).replace(/'/g, "''") + "'";
+    }).join(', ');
+    return 'INSERT INTO ' + tableName + ' (' + colNames + ') VALUES (' + vals + ');';
+  }).join('\n');
+}
+
+// ─── UI Actions ──────────────────────────────────────
+const outputEl = document.getElementById('output');
+const generateBtn = document.getElementById('generate');
+const formatSelect = document.getElementById('format');
+const tableNameWrap = document.getElementById('table-name-wrap');
+const savedReadout = document.getElementById('saved-readout');
+
+let lastCols = [];
+let lastRows = [];
+let lastFormat = '';
+
+formatSelect.addEventListener('change', () => {
+  tableNameWrap.style.display = (formatSelect.value === 'sql') ? 'flex' : 'none';
+});
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+generateBtn.addEventListener('click', () => {
+  const cols = readColumns();
+  if (cols.length === 0) {
+    outputEl.textContent = 'Error: Add at least one column.';
+    return;
+  }
+  let rowCount = parseInt(document.getElementById('row-count').value, 10);
+  if (isNaN(rowCount) || rowCount < 1) rowCount = 1;
+  if (rowCount > 50000) rowCount = 50000;
+
+  generateBtn.disabled = true;
+  generateBtn.textContent = 'Generating...';
+
+  // Use setTimeout to let UI update before heavy work
+  setTimeout(() => {
+    const rows = generateData(cols, rowCount);
+    lastCols = cols;
+    lastRows = rows;
+    lastFormat = formatSelect.value;
+
+    let outputText;
+    if (lastFormat === 'json') {
+      outputText = formatJSON(rows);
+    } else if (lastFormat === 'csv') {
+      outputText = formatCSV(rows, cols);
+    } else {
+      const tableName = document.getElementById('table-name').value.trim() || 'mock_data';
+      outputText = formatSQL(rows, cols, tableName);
+    }
+
+    outputEl.textContent = outputText;
+    generateBtn.disabled = false;
+    generateBtn.textContent = 'Generate';
+
+    // Update saved readout
+    updateReadout(cols, rowCount);
+  }, 10);
+});
+
+function updateReadout(cols, rowCount) {
+  const dataPoints = cols.length * rowCount;
+  const secsPerField = 3;
+  const totalSecs = dataPoints * secsPerField;
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+
+  let timeStr;
+  if (hours > 0) {
+    timeStr = hours + 'h ' + mins + 'm';
+  } else {
+    timeStr = mins + 'm';
+  }
+
+  const mockarooNote = rowCount > 1000
+    ? 'Mockaroo free tier: 1,000 rows/download — you generated ' + rowCount.toLocaleString() + '.'
+    : 'Mockaroo free tier: 1,000 rows/download.';
+
+  savedReadout.innerHTML =
+    '<span class="big-number">' + timeStr + '</span> est. time saved<br>' +
+    '<span class="assumption">Assumption: ~' + secsPerField + ' sec/field × ' + cols.length + ' fields × ' + rowCount.toLocaleString() + ' rows = ' + dataPoints.toLocaleString() + ' data points</span>' +
+    '<span class="mockaroo-note">' + mockarooNote + ' (source: mockaroo.com)</span>';
+}
+
+// Copy output
+document.getElementById('copy-output').addEventListener('click', () => {
+  const text = outputEl.textContent;
+  if (!text) { showToast('Nothing to copy'); return; }
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Copied to clipboard');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); showToast('Copied'); } catch(e) { showToast('Copy failed'); }
+    ta.remove();
+  });
+});
+
+// Download output
+document.getElementById('download-output').addEventListener('click', () => {
+  const text = outputEl.textContent;
+  if (!text) { showToast('Nothing to download'); return; }
+  const ext = lastFormat === 'json' ? 'json' : lastFormat === 'csv' ? 'csv' : 'sql';
+  const mime = lastFormat === 'json' ? 'application/json' : lastFormat === 'csv' ? 'text/csv' : 'text/plain';
+  const blob = new Blob([text], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mock_data.' + ext;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded mock_data.' + ext);
+});
+
+// Copy as zcac JSON
+document.getElementById('copy-json').addEventListener('click', () => {
+  if (lastRows.length === 0) { showToast('Generate data first'); return; }
+  const zcac = {
+    zcac: true,
+    kind: 'mock-data',
+    data: {
+      columns: lastCols.map(c => ({
+        name: c.name,
+        type: c.type,
+        options: c.options
+      })),
+      rowCount: lastRows.length,
+      rows: lastRows
+    }
+  };
+  const text = JSON.stringify(zcac, null, 2);
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Copied zcac JSON to clipboard');
+  }).catch(() => {
+    showToast('Copy failed');
+  });
+});
+
+// Import
+document.getElementById('import-btn').addEventListener('click', () => {
+  const msg = document.getElementById('import-msg');
+  const text = document.getElementById('import-box').value.trim();
+  msg.className = '';
+  msg.textContent = '';
+  if (!text) {
+    msg.className = 'error';
+    msg.textContent = 'Paste JSON first.';
+    return;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed.zcac) {
+      msg.className = 'error';
+      msg.textContent = 'Not a zcac JSON object (missing "zcac": true).';
+      return;
+    }
+    if (parsed.kind !== 'mock-data') {
+      msg.className = 'error';
+      msg.textContent = 'Not recognized — this tool expects kind "mock-data", got "' + parsed.kind + '".';
+      return;
+    }
+    const cols = (parsed.data && parsed.data.columns) || [];
+    if (!Array.isArray(cols) || cols.length === 0) {
+      msg.className = 'error';
+      msg.textContent = 'No columns found in the JSON data.';
+      return;
+    }
+    // Clear existing and load
+    columnsList.innerHTML = '';
+    cols.forEach(c => {
+      addColumn(c.name, c.type, c.options);
+    });
+    msg.className = 'success';
+    msg.textContent = 'Loaded ' + cols.length + ' columns.';
+  } catch (e) {
+    msg.className = 'error';
+    msg.textContent = 'Invalid JSON: ' + e.message;
+  }
+});
+
+// Copy link
+document.getElementById('copy-link-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    showToast('Link copied');
+  }).catch(() => {
+    showToast('Copy failed');
+  });
+});
+
+// Theme toggle
+const themeToggle = document.getElementById('theme-toggle');
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+  try { localStorage.setItem('zcac-theme', theme); } catch(e) {}
+}
+const savedTheme = (() => {
+  try { return localStorage.getItem('zcac-theme'); } catch(e) { return null; }
+})();
+if (savedTheme) {
+  setTheme(savedTheme);
+} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+  setTheme('light');
+}
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  setTheme(current === 'dark' ? 'light' : 'dark');
+});
+</script>
+</body>
+</html>
