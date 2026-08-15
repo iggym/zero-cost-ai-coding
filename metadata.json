@@ -88,6 +88,38 @@
   "reading_time_minutes": 2,
   "pinned": false,
   "verified": "2026-08-16"
+},{
+  "id": "0002",
+  "slug": "regex-forge",
+  "title": "Regex Forge",
+  "hook": "Describe what you want to match in plain English, get a working regex with explanation and a live tester — 1,500 requests/day on Gemini free tier, no card needed.",
+  "path": "tools/regex-forge.html",
+  "date": "2025-07-09",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "connector",
+  "how_free": "Google Gemini 2.0 Flash free tier: 15 RPM, 1,500 RPD, no credit card — verified at ai.google.dev/gemini-api/docs/rate-limits",
+  "source_url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+  "tags": ["regex", "pattern-matching", "gemini", "developer-tools", "text-processing"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2025-07-09"
+},{
+  "id": "0417",
+  "slug": "dead-export-finder",
+  "title": "Dead Export Finder",
+  "hook": "Drop a repo folder in your browser and get every unused export and unreachable file in it — full import graph, client-side, no upload and no quota.",
+  "path": "tools/dead-export-finder.html",
+  "date": "2026-08-15",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Runs entirely client-side so there is no API or quota; hosting is GitHub Pages, soft 100 GB/month bandwidth and 1 GB site size, verified against GitHub's own limits doc.",
+  "source_url": "https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits",
+  "tags": ["dead-code", "typescript", "static-analysis", "refactoring", "browser-native"],
+  "reading_time_minutes": 4,
+  "pinned": false,
+  "verified": "2026-08-15"
 }
   ]
 }
