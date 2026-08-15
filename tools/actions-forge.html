@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Actions Forge — GitHub Actions CI Workflow Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a; --surface: #161616; --surface2: #1e1e1e; --border: #2a2a2a;
+      --text: #e0e0e0; --text-dim: #888; --accent: #00e676; --accent-dim: #00e67633;
+      --danger: #ff5252;
+      --font-mono: 'JetBrains Mono', monospace; --font-body: 'Inter', system-ui, sans-serif;
+    }
+    [data-theme="light"] {
+      --bg: #f5f5f5; --surface: #ffffff; --surface2: #eee; --border: #d0d0d0;
+      --text: #1a1a1a; --text-dim: #666; --accent: #00c853; --accent-dim: #00c85322;
+      --danger: #d32f2f;
+    }
+    body { font-family: var(--font-body); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 100; background: var(--surface);
+      border-bottom: 1px solid var(--border); padding: 0.5rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(8px);
+    }
+    .topbar-left, .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .home-link {
+      font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim);
+      text-decoration: none; padding: 0.25rem 0.5rem; border: 1px solid var(--border);
+      border-radius: 4px; transition: color 0.15s, border-color 0.15s;
+    }
+    .home-link:hover { color: var(--accent); border-color: var(--accent); }
+    .tool-title { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+    .theme-toggle {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.85rem; transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+    main { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+    .pitch h1 { font-family: var(--font-mono); font-size: 1.65rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+    .pitch h1 span { color: var(--accent); }
+    .pitch p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 0.35rem; }
+    .pitch .replaces { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+    .pitch .replaces strong { color: var(--text); }
+    .limit-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 0.72rem;
+      background: var(--accent-dim); color: var(--accent); padding: 0.15rem 0.5rem;
+      border-radius: 3px; margin-top: 0.5rem; margin-bottom: 0.75rem;
+    }
+    .share-row { display: flex; gap: 0.5rem; margin-bottom: 1.75rem; }
+    .share-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.78rem; font-family: var(--font-mono);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .share-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .section-label {
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 0.5rem; margin-top: 1.25rem;
+    }
+
+    /* Type selector */
+    .type-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .type-btn {
+      font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+      padding: 0.4rem 0.85rem; border-radius: 4px; cursor: pointer; transition: all 0.15s;
+    }
+    .type-btn:hover { color: var(--text); border-color: var(--text-dim); }
+    .type-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+    /* Feature checkboxes */
+    .feat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .feat-label {
+      display: flex; align-items: center; gap: 0.35rem; cursor: pointer;
+      font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-dim); transition: color 0.15s;
+    }
+    .feat-label:hover { color: var(--text); }
+    .feat-label input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+    .feat-label input:checked + span { color: var(--accent); }
+
+    /* Options */
+    .opts-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center; }
+    .opt-group { display: flex; align-items: center; gap: 0.35rem; }
+    .opt-label { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim); }
+    .opt-select {
+      font-family: var(--font-mono); font-size: 0.78rem; background: var(--surface);
+      border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.5rem;
+      border-radius: 4px; outline: none; cursor: pointer;
+    }
+    .opt-select:focus { border-color: var(--accent); }
+
+    /* Output */
+    .output-wrap {
+      margin-top: 1.25rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 4px; position: relative;
+    }
+    .output-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border);
+    }
+    .output-title { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+    .copy-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.2rem 0.55rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.68rem;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+    .output-body {
+      padding: 0.65rem; font-family: var(--font-mono); font-size: 0.75rem;
+      line-height: 1.55; white-space: pre; overflow-x: auto; color: var(--text);
+      max-height: 600px; overflow-y: auto;
+    }
+    .output-body .cm { color: var(--text-dim); }
+    .output-body .ky { color: var(--accent); }
+    .output-body .vl { color: #7dd3fc; }
+    [data-theme="light"] .output-body .vl { color: #0369a1; }
+
+    /* Deploy steps */
+    .deploy-steps {
+      margin-top: 0.75rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.65rem 0.85rem;
+    }
+    .deploy-steps p { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+    .deploy-steps code {
+      font-family: var(--font-mono); font-size: 0.76rem;
+      background: var(--surface2); padding: 0.1rem 0.35rem; border-radius: 3px; color: var(--accent);
+    }
+
+    .info-section { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+    .info-section h2 { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; margin-bottom: 0.6rem; }
+    .info-section ol, .info-section ul { padding-left: 1.25rem; margin-bottom: 1rem; }
+    .info-section li { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.35rem; line-height: 1.55; }
+    .info-section li strong { color: var(--text); }
+    .info-section li code {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      background: var(--surface2); padding: 0.1rem 0.35rem; border-radius: 3px;
+    }
+
+    footer {
+      max-width: 760px; margin: 0 auto; padding: 0 1.25rem 2rem;
+      font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 1rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← zero-cost</a>
+    </div>
+    <div class="topbar-right">
+      <span class="tool-title">actions-forge</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">☀</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="pitch">
+      <h1>Actions <span>Forge</span></h1>
+      <p>Configure a GitHub Actions CI workflow for your project — pick your stack, pick your steps, get a complete <code>.github/workflows/ci.yml</code> with proper caching, action versions, and job ordering. No AI, no API, runs in your browser.</p>
+      <p class="replaces">Replaces: copy-pasting from old repos (<strong>stale action versions, broken cache</strong>), GitHub's starter workflows (<strong>minimal, no caching</strong>), writing from scratch (<strong>15-30 min of boilerplate</strong>)</p>
+      <span class="limit-badge">Generator mode — 100% browser-native, no API calls. GitHub Actions free for public repos.</span>
+      <div class="share-row">
+        <button class="share-btn" onclick="shareX()">Share on X</button>
+        <button class="share-btn" onclick="copyLink()">Copy link</button>
+      </div>
+    </section>
+
+    <!-- Project type -->
+    <div class="section-label">Project type</div>
+    <div class="type-row" id="typeRow">
+      <button class="type-btn active" data-type="node">Node.js</button>
+      <button class="type-btn" data-type="python">Python</button>
+      <button class="type-btn" data-type="go">Go</button>
+      <button class="type-btn" data-type="rust">Rust</button>
+    </div>
+
+    <!-- Features -->
+    <div class="section-label">Steps</div>
+    <div class="feat-row" id="featRow">
+      <label class="feat-label"><input type="checkbox" id="featLint" checked><span>Lint</span></label>
+      <label class="feat-label"><input type="checkbox" id="featTest" checked><span>Test</span></label>
+      <label class="feat-label"><input type="checkbox" id="featBuild"><span>Build</span></label>
+      <label class="feat-label"><input type="checkbox" id="featDeploy"><span>Deploy</span></label>
+    </div>
+
+    <!-- Options -->
+    <div class="section-label">Options</div>
+    <div class="opts-row" id="optsRow">
+      <div class="opt-group" id="optVersion">
+        <span class="opt-label">Version:</span>
+        <select class="opt-select" id="selVersion">
+          <option value="22">22</option><option value="20" selected>20</option><option value="18">18</option>
+        </select>
+      </div>
+      <div class="opt-group" id="optPkg">
+        <span class="opt-label">Package manager:</span>
+        <select class="opt-select" id="selPkg">
+          <option value="npm" selected>npm</option><option value="yarn">yarn</option><option value="pnpm">pnpm</option>
+        </select>
+      </div>
+      <div class="opt-group" id="optDeployTarget" style="display:none">
+        <span class="opt-label">Deploy to:</span>
+        <select class="opt-select" id="selDeploy">
+          <option value="pages" selected>GitHub Pages</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="output-wrap" id="outputWrap">
+      <div class="output-header">
+        <span class="output-title">.github/workflows/ci.yml</span>
+        <button class="copy-btn" id="copyBtn" onclick="copyYaml()">Copy</button>
+      </div>
+      <div class="output-body" id="outputBody"></div>
+    </div>
+
+    <div class="deploy-steps">
+      <p><strong>Deploy it:</strong></p>
+      <p>1. <code>mkdir -p .github/workflows</code></p>
+      <p>2. Create <code>.github/workflows/ci.yml</code> and paste the generated YAML</p>
+      <p>3. <code>git add .github/workflows/ci.yml && git commit -m "add CI" && git push</code></p>
+      <p>4. Check the <strong>Actions</strong> tab in your GitHub repo</p>
+    </div>
+
+    <section class="info-section">
+      <h2>How to use</h2>
+      <ol>
+        <li><strong>Pick your project type</strong> — Node.js, Python, Go, or Rust.</li>
+        <li><strong>Check the steps you need</strong> — lint, test, build, deploy. The workflow regenerates live as you change options.</li>
+        <li><strong>Set your version</strong> and package manager (Node.js only for pkg manager).</li>
+        <li><strong>Copy the YAML</strong> into <code>.github/workflows/ci.yml</code> in your repo.</li>
+        <li><strong>Commit and push</strong> — GitHub Actions picks it up automatically.</li>
+      </ol>
+
+      <h2>What you get that starters don't give you</h2>
+      <ul>
+        <li><strong>Dependency caching</strong> — keyed to your lockfile, so CI runs are fast after the first one.</li>
+        <li><strong>Current action versions</strong> — v4 checkout, v4 setup-node, v5 setup-python, v5 setup-go. No deprecated warnings.</li>
+        <li><strong>Job ordering</strong> — build waits for lint+test, deploy waits for build. No wasted minutes on broken code.</li>
+        <li><strong>Manual trigger</strong> — <code>workflow_dispatch</code> is included so you can re-run from the Actions tab.</li>
+        <li><strong>Deploy guard</strong> — deploy only runs on <code>main</code>, not on PRs.</li>
+      </ul>
+
+      <h2>What breaks</h2>
+      <ul>
+        <li><strong>Private repos:</strong> GitHub Actions free tier is 2,000 minutes/month. A typical lint+test run is 2-5 minutes — you'd need 400+ runs/month to hit it.</li>
+        <li><strong>Custom commands:</strong> The workflow assumes standard commands (<code>npm test</code>, <code>npm run lint</code>, <code>npm run build</code>). If your project uses different commands, edit the YAML after copying.</li>
+        <li><strong>Monorepos:</strong> This generates a single-project workflow. Monorepo setups need path filters and separate jobs — edit accordingly.</li>
+        <li><strong>Action versions change:</strong> The generated YAML pins to current major versions (v4, v5). If GitHub releases v5 for checkout, update the action ref.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    GitHub Actions free tier: unlimited for public repos, 2,000 min/month for private — <a href="https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions" target="_blank" rel="noopener">docs.github.gov</a>. Generated workflows use actions from <a href="https://github.com/actions" target="_blank" rel="noopener">github.com/actions</a>.
+  </footer>
+
+  <script>
+    /* Theme */
+    const themeToggle = document.getElementById('themeToggle');
+    function setTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      themeToggle.textContent = t === 'dark' ? '☀' : '☾';
+      localStorage.setItem('af-theme', t);
+    }
+    const st = localStorage.getItem('af-theme');
+    if (st) setTheme(st); else if (window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
+    themeToggle.addEventListener('click', () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+    /* Share */
+    function shareX() { window.open(`https://x.com/intent/tweet?text=${encodeURIComponent('Actions Forge — generate GitHub Actions CI workflows with proper caching, free for public repos')}&url=${encodeURIComponent(location.href)}`, '_blank'); }
+    function copyLink() { navigator.clipboard.writeText(location.href); }
+
+    /* State */
+    let projectType = 'node';
+
+    /* Type selector */
+    const typeRow = document.getElementById('typeRow');
+    typeRow.addEventListener('click', e => {
+      const btn = e.target.closest('.type-btn');
+      if (!btn) return;
+      typeRow.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      projectType = btn.dataset.type;
+      updateOptions();
+      generate();
+    });
+
+    /* Update options visibility */
+    function updateOptions() {
+      const optPkg = document.getElementById('optPkg');
+      const optVersion = document.getElementById('optVersion');
+      const selVersion = document.getElementById('selVersion');
+      const optDeploy = document.getElementById('optDeployTarget');
+      const featDeploy = document.getElementById('featDeploy');
+
+      optPkg.style.display = projectType === 'node' ? 'flex' : 'none';
+      optDeploy.style.display = featDeploy.checked ? 'flex' : 'none';
+
+      // Update version options
+      const versions = { node: ['22','20','18'], python: ['3.12','3.11','3.10','3.9'], go: ['1.23','1.22','1.21'], rust: ['stable'] };
+      selVersion.innerHTML = '';
+      for (const v of versions[projectType]) {
+        const opt = document.createElement('option');
+        opt.value = v; opt.textContent = v;
+        if ((projectType === 'node' && v === '20') || (projectType === 'python' && v === '3.12') || (projectType === 'go' && v === '1.23') || (projectType === 'rust')) opt.selected = true;
+        selVersion.appendChild(opt);
+      }
+    }
+
+    /* Feature/option change listeners */
+    ['featLint','featTest','featBuild','featDeploy'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => { updateOptions(); generate(); });
+    });
+    document.getElementById('selVersion').addEventListener('change', generate);
+    document.getElementById('selPkg').addEventListener('change', generate);
+    document.getElementById('selDeploy').addEventListener('change', generate);
+
+    /* YAML generation */
+    function generate() {
+      const lint = document.getElementById('featLint').checked;
+      const test = document.getElementById('featTest').checked;
+      const build = document.getElementById('featBuild').checked;
+      const deploy = document.getElementById('featDeploy').checked;
+      const version = document.getElementById('selVersion').value;
+      const pkg = document.getElementById('selPkg').value;
+      const deployTarget = document.getElementById('selDeploy').value;
+
+      const needs = [];
+      if (lint) needs.push('lint');
+      if (test) needs.push('test');
+
+      const buildNeeds = needs.length ? needs : [];
+      const deployNeeds = build ? ['build'] : (needs.length ? needs : []);
+
+      let y = '';
+
+      // Header
+      y += `name: CI\n\n`;
+      y += `on:\n`;
+      y += `  push:\n    branches: [main]\n`;
+      y += `  pull_request:\n    branches: [main]\n`;
+      y += `  workflow_dispatch:\n\n`;
+
+      // Jobs
+      y += `jobs:\n`;
+
+      if (projectType === 'node') y += generateNode(lint, test, build, deploy, version, pkg, buildNeeds, deployNeeds, deployTarget);
+      else if (projectType === 'python') y += generatePython(lint, test, build, deploy, version, buildNeeds, deployNeeds, deployTarget);
+      else if (projectType === 'go') y += generateGo(lint, test, build, deploy, version, buildNeeds, deployNeeds, deployTarget);
+      else if (projectType === 'rust') y += generateRust(lint, test, build, deploy, version, buildNeeds, deployNeeds, deployTarget);
+
+      // Render with syntax highlighting
+      renderYaml(y);
+    }
+
+    function installCmd(pkg) {
+      if (pkg === 'npm') return 'npm ci';
+      if (pkg === 'yarn') return 'yarn install --immutable';
+      if (pkg === 'pnpm') return 'pnpm install --frozen-lockfile';
+      return 'npm ci';
+    }
+
+    function cacheKey(pkg) {
+      if (pkg === 'npm') return 'npm';
+      if (pkg === 'yarn') return 'yarn';
+      if (pkg === 'pnpm') return 'pnpm';
+      return 'npm';
+    }
+
+    function setupNode(version, pkg) {
+      let s = '';
+      s += `      - uses: actions/checkout@v4\n`;
+      if (pkg === 'pnpm') {
+        s += `      - uses: pnpm/action-setup@v4\n        with:\n          version: 9\n`;
+      }
+      s += `      - uses: actions/setup-node@v4\n        with:\n          node-version: ${version}\n          cache: ${cacheKey(pkg)}\n`;
+      s += `      - run: ${installCmd(pkg)}\n`;
+      return s;
+    }
+
+    function generateNode(lint, test, build, deploy, version, pkg, buildNeeds, deployNeeds, deployTarget) {
+      let y = '';
+      if (lint) {
+        y += `  lint:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += setupNode(version, pkg);
+        y += `      - run: ${pkg} run lint\n\n`;
+      }
+      if (test) {
+        y += `  test:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += setupNode(version, pkg);
+        y += `      - run: ${pkg} test\n\n`;
+      }
+      if (build) {
+        y += `  build:\n    runs-on: ubuntu-latest`;
+        if (buildNeeds.length) y += `\n    needs: [${buildNeeds.join(', ')}]`;
+        y += `\n    steps:\n`;
+        y += setupNode(version, pkg);
+        y += `      - run: ${pkg} run build\n\n`;
+      }
+      if (deploy) {
+        y += generateNodeDeploy(deployNeeds, version, pkg, deployTarget);
+      }
+      return y;
+    }
+
+    function generateNodeDeploy(deployNeeds, version, pkg, deployTarget) {
+      let y = '';
+      if (deployTarget === 'pages') {
+        y += `  deploy:\n    runs-on: ubuntu-latest\n`;
+        if (deployNeeds.length) y += `    needs: [${deployNeeds.join(', ')}]\n`;
+        y += `    if: github.ref == 'refs/heads/main'\n`;
+        y += `    permissions:\n      pages: write\n      id-token: write\n`;
+        y += `    environment:\n      name: github-pages\n      url: \${{ steps.deployment.outputs.page_url }}\n`;
+        y += `    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        if (pkg === 'pnpm') y += `      - uses: pnpm/action-setup@v4\n        with:\n          version: 9\n`;
+        y += `      - uses: actions/setup-node@v4\n        with:\n          node-version: ${version}\n          cache: ${cacheKey(pkg)}\n`;
+        y += `      - run: ${installCmd(pkg)}\n`;
+        y += `      - run: ${pkg} run build\n`;
+        y += `      - uses: actions/upload-pages-artifact@v3\n        with:\n          path: dist\n`;
+        y += `      - id: deployment\n        uses: actions/deploy-pages@v4\n`;
+      }
+      return y;
+    }
+
+    function generatePython(lint, test, build, deploy, version, buildNeeds, deployNeeds, deployTarget) {
+      let y = '';
+      if (lint) {
+        y += `  lint:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-python@v5\n        with:\n          python-version: '${version}'\n`;
+        y += `      - run: pip install flake8\n`;
+        y += `      - run: flake8 . --count --show-source --statistics\n\n`;
+      }
+      if (test) {
+        y += `  test:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-python@v5\n        with:\n          python-version: '${version}'\n          cache: pip\n`;
+        y += `      - run: pip install -r requirements.txt\n`;
+        y += `      - run: pytest\n\n`;
+      }
+      if (build) {
+        y += `  build:\n    runs-on: ubuntu-latest`;
+        if (buildNeeds.length) y += `\n    needs: [${buildNeeds.join(', ')}]`;
+        y += `\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-python@v5\n        with:\n          python-version: '${version}'\n          cache: pip\n`;
+        y += `      - run: pip install -r requirements.txt\n`;
+        y += `      - run: python -m build\n\n`;
+      }
+      if (deploy) {
+        y += `  deploy:\n    runs-on: ubuntu-latest\n`;
+        if (deployNeeds.length) y += `    needs: [${deployNeeds.join(', ')}]\n`;
+        y += `    if: github.ref == 'refs/heads/main'\n`;
+        y += `    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-python@v5\n        with:\n          python-version: '${version}'\n          cache: pip\n`;
+        y += `      - run: pip install -r requirements.txt\n`;
+        y += `      # Add your deploy commands here\n`;
+        y += `      - run: echo "Add deploy command"\n`;
+      }
+      return y;
+    }
+
+    function generateGo(lint, test, build, deploy, version, buildNeeds, deployNeeds, deployTarget) {
+      let y = '';
+      if (lint) {
+        y += `  lint:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-go@v5\n        with:\n          go-version: '${version}'\n`;
+        y += `      - run: go vet ./...\n`;
+        y += `      - uses: golangci/golangci-lint-action@v6\n\n`;
+      }
+      if (test) {
+        y += `  test:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-go@v5\n        with:\n          go-version: '${version}'\n          cache: true\n`;
+        y += `      - run: go test -v ./...\n\n`;
+      }
+      if (build) {
+        y += `  build:\n    runs-on: ubuntu-latest`;
+        if (buildNeeds.length) y += `\n    needs: [${buildNeeds.join(', ')}]`;
+        y += `\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-go@v5\n        with:\n          go-version: '${version}'\n          cache: true\n`;
+        y += `      - run: go build -v ./...\n\n`;
+      }
+      if (deploy) {
+        y += `  deploy:\n    runs-on: ubuntu-latest\n`;
+        if (deployNeeds.length) y += `    needs: [${deployNeeds.join(', ')}]\n`;
+        y += `    if: github.ref == 'refs/heads/main'\n`;
+        y += `    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - uses: actions/setup-go@v5\n        with:\n          go-version: '${version}'\n          cache: true\n`;
+        y += `      # Add your deploy commands here\n`;
+        y += `      - run: echo "Add deploy command"\n`;
+      }
+      return y;
+    }
+
+    function generateRust(lint, test, build, deploy, version, buildNeeds, deployNeeds, deployTarget) {
+      let y = '';
+      if (lint) {
+        y += `  lint:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - run: rustup component add clippy rustfmt\n`;
+        y += `      - run: cargo fmt --check\n`;
+        y += `      - run: cargo clippy -- -D warnings\n\n`;
+      }
+      if (test) {
+        y += `  test:\n    runs-on: ubuntu-latest\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - run: cargo test\n\n`;
+      }
+      if (build) {
+        y += `  build:\n    runs-on: ubuntu-latest`;
+        if (buildNeeds.length) y += `\n    needs: [${buildNeeds.join(', ')}]`;
+        y += `\n    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      - run: cargo build --release\n\n`;
+      }
+      if (deploy) {
+        y += `  deploy:\n    runs-on: ubuntu-latest\n`;
+        if (deployNeeds.length) y += `    needs: [${deployNeeds.join(', ')}]\n`;
+        y += `    if: github.ref == 'refs/heads/main'\n`;
+        y += `    steps:\n`;
+        y += `      - uses: actions/checkout@v4\n`;
+        y += `      # Add your deploy commands here\n`;
+        y += `      - run: echo "Add deploy command"\n`;
+      }
+      return y;
+    }
+
+    /* YAML syntax highlighting (basic) */
+    function highlightYaml(yaml) {
+      const esc = yaml.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return esc.split('\n').map(line => {
+        // Comments
+        if (line.trimStart().startsWith('#')) return `<span class="cm">${line}</span>`;
+        // Key: value lines
+        const m = line.match(/^(\s*)([\w_-]+)(:)(.*)$/);
+        if (m) {
+          let val = m[4];
+          // Highlight string values
+          val = val.replace(/'([^']*)'/g, `'<span class="vl">$1</span>'`);
+          val = val.replace(/"([^"]*)"/g, `"<span class="vl">$1</span>"`);
+          // Highlight boolean/number values
+          val = val.replace(/:\s+(true|false)/g, (match, b) => `: <span class="vl">${b}</span>`);
+          return `${m[1]}<span class="ky">${m[2]}</span>${m[3]}${val}`;
+        }
+        // List items with - key: value
+        const lm = line.match(/^(\s*- )([\w_-]+)(:)(.*)$/);
+        if (lm) {
+          return `${lm[1]}<span class="ky">${lm[2]}</span>${lm[3]}${lm[4]}`;
+        }
+        return line;
+      }).join('\n');
+    }
+
+    let currentYaml = '';
+
+    function renderYaml(yaml) {
+      currentYaml = yaml;
+      const body = document.getElementById('outputBody');
+      body.innerHTML = highlightYaml(yaml);
+    }
+
+    /* Copy */
+    function copyYaml() {
+      if (!currentYaml) return;
+      const btn = document.getElementById('copyBtn');
+      navigator.clipboard.writeText(currentYaml).then(() => {
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      });
+    }
+
+    /* Initial generation */
+    generate();
+  </script>
+</body>
+</html>
