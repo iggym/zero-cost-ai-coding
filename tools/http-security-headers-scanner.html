@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTTP Security Headers Scanner — zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #161922;
+    --surface-2: #1d2130;
+    --border: #2a2f3e;
+    --text: #e6e8ef;
+    --text-dim: #8b92a8;
+    --accent: #22c55e;
+    --accent-dim: #15803d;
+    --warn: #f59e0b;
+    --fail: #ef4444;
+    --pass: #22c55e;
+    --code-bg: #0a0c12;
+  }
+  html[data-theme="light"] {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #f0f2f6;
+    --border: #d7dbe4;
+    --text: #1a1d27;
+    --text-dim: #5a6175;
+    --code-bg: #f0f2f6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    min-height: 100vh;
+    padding-top: 56px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+  }
+  .topbar a { color: var(--text); text-decoration: none; font-weight: 500; }
+  .topbar .title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    margin: 0 0 12px;
+    letter-spacing: -0.02em;
+  }
+  .pitch {
+    font-size: 15px;
+    color: var(--text);
+    margin: 0 0 20px;
+    max-width: 720px;
+  }
+  .replaces {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0 0 28px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .share-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  button, .btn {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.12s ease;
+  }
+  button:hover, .btn:hover { background: var(--border); }
+  button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button.primary {
+    background: var(--accent);
+    color: #04130a;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  button.primary:hover { background: var(--accent-dim); color: #fff; }
+  textarea, input, select {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    width: 100%;
+    resize: vertical;
+  }
+  textarea { min-height: 200px; line-height: 1.5; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .field { margin-bottom: 16px; }
+  .how-to {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 4px 0 14px;
+  }
+  .results {
+    margin-top: 28px;
+  }
+  .result-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  .item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .item-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-pass { background: rgba(34, 197, 94, 0.15); color: var(--pass); }
+  .status-fail { background: rgba(239, 68, 68, 0.15); color: var(--fail); }
+  .status-warn { background: rgba(245, 158, 11, 0.15); color: var(--warn); }
+  .status-info { background: rgba(139, 146, 168, 0.15); color: var(--text-dim); }
+  .header-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .header-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    word-break: break-all;
+  }
+  .desc { font-size: 13px; margin: 6px 0; color: var(--text); }
+  .fix {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    position: relative;
+  }
+  .fix-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  .saved-row {
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .saved-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .saved-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    max-width: 520px;
+  }
+  .limit-note {
+    margin-top: 22px;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  footer a { color: var(--text-dim); }
+  .io-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 20px;
+  }
+  @media (min-width: 700px) {
+    .io-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .hidden { display: none !important; }
+  .notice {
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--warn);
+    border-radius: 6px;
+    font-size: 13px;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a>
+  <span class="title">HTTP Security Headers Scanner</span>
+</nav>
+
+<main class="container">
+
+  <h1>HTTP Security Headers Scanner</h1>
+
+  <p class="pitch">
+    Paste response headers from <code>curl -I</code> or DevTools and get a pass/fail for each security header with a one-line fix. Unlimited runs — runs entirely in your browser, no external service, no limit.
+  </p>
+
+  <p class="replaces">
+    <strong>Replaces:</strong> Detectify starts at $89/mo with no free tier for full scans (<a href="https://zeriflow.com/blog/detectify-alternatives-2026" target="_blank" rel="noopener">source</a>).
+    This tool audits the static header set only — it doesn't run active probes like a full DAST scanner.
+  </p>
+
+  <div class="share-row">
+    <a class="btn" id="copyLinkBtn" href="#">Copy link</a>
+    <a class="btn" id="shareX" target="_blank" rel="noopener">Share on X</a>
+  </div>
+
+  <section>
+    <label for="headersInput">Paste response headers</label>
+    <p class="how-to">Run <code>curl -I https://yoursite.com</code> and paste the output, or copy headers from the DevTools Network tab. One header per line — <code>Name: value</code> format.</p>
+    <textarea id="headersInput" placeholder="HTTP/2 200
+strict-transport-security: max-age=63072000; includeSubDomains
+content-security-policy: default-src 'self'
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: strict-origin-when-cross-origin
+..."></textarea>
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+      <button class="primary" id="scanBtn">Scan headers</button>
+      <button id="loadExampleBtn">Load example</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+  </section>
+
+  <div class="results hidden" id="results">
+    <div class="result-head">
+      <div>
+        <strong>Scan results</strong>
+        <span class="score" id="score">—</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="copyAllFixesBtn">Copy all fixes</button>
+        <button id="exportJsonBtn">Copy as JSON</button>
+        <button id="downloadJsonBtn">Download JSON</button>
+      </div>
+    </div>
+    <div id="itemsContainer"></div>
+    <div class="saved-row">
+      <div>
+        <div class="saved-num" id="savedTime">0 min</div>
+        <div class="saved-note">
+          <strong>What this just saved you:</strong> assumes ~3 min/header to look up the spec, the fix, and write the server config snippet by hand.
+          Your run processed <span id="checkedCount">0</span> headers against <span id="rulesCount">0</span> rules.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="io-grid" style="margin-top:28px;">
+    <div>
+      <label for="importBox">Import a previous audit (JSON)</label>
+      <textarea id="importBox" style="min-height:100px;" placeholder='Paste a {"zcac": true, "kind": "security-headers-audit", ...} blob here.'></textarea>
+      <button id="importBtn" style="margin-top:8px;">Load import</button>
+    </div>
+    <div>
+      <label>Output shape (for composability)</label>
+      <div class="fix" style="min-height:100px;">
+{
+  "zcac": true,
+  "kind": "security-headers-audit",
+  "data": {
+    "headers": { ... },
+    "results": [ ... ],
+    "score": { "pass": 0, "fail": 0, "warn": 0 }
+  }
+}</div>
+    </div>
+  </section>
+
+  <div class="limit-note">
+    <strong>What breaks:</strong> This tool only knows about a fixed set of well-known security headers (HSTS, CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, COOP/CORP/COEP). It does not detect unknown or custom headers, and it does not validate that your CSP actually blocks anything useful — a syntactically present <code>Content-Security-Policy</code> counts as a pass even if it's <code>default-src *</code>. For real-world CSP evaluation, use <a href="https://csp-evaluator.withgoogle.com/" target="_blank" rel="noopener">Google's CSP Evaluator</a>.
+  </div>
+
+  <footer>
+    Verified against MDN HTTP header reference: <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers" target="_blank" rel="noopener">developer.mozilla.org/en-US/docs/Web/HTTP/Headers</a> — Aug 16, 2026.
+  </footer>
+
+</main>
+
+<script>
+(function() {
+  const $ = (id) => document.getElementById(id);
+
+  // Theme toggle via system preference + manual override
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+  }
+  const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  applyTheme(prefersLight ? 'light' : 'dark');
+
+  // --- Header rules ---
+  // Each rule: { name, check(value, headers) -> 'pass'|'warn'|'fail', desc, fix }
+  const RULES = [
+    {
+      name: 'Strict-Transport-Security',
+      match: (h) => h['strict-transport-security'],
+      check: (v) => {
+        if (!v) return 'fail';
+        const m = /max-age\s*=\s*(\d+)/i.exec(v);
+        if (!m) return 'warn';
+        const age = parseInt(m[1], 10);
+        if (age < 31536000) return 'warn'; // < 1 year
+        if (!/includesubdomains/i.test(v)) return 'warn';
+        return 'pass';
+      },
+      desc: 'Forces browsers to only connect over HTTPS. Recommended: max-age of at least 1 year with includeSubDomains.',
+      fix: (v) => {
+        if (!v) return 'strict-transport-security: max-age=63072000; includeSubDomains';
+        return `Current: ${v}\nRecommended: max-age=63072000; includeSubDomains; preload`;
+      }
+    },
+    {
+      name: 'Content-Security-Policy',
+      match: (h) => h['content-security-policy'],
+      check: (v) => {
+        if (!v) return 'fail';
+        // syntactic-only check: warn if obviously wide open
+        if (/\bdefault-src\s+\*/i.test(v)) return 'warn';
+        if (/\bunsafe-inline\b/i.test(v) && /script-src/i.test(v)) return 'warn';
+        return 'pass';
+      },
+      desc: 'Controls which resources the browser may load. Prevents XSS and data injection.',
+      fix: (v) => {
+        if (!v) return `content-security-policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';`;
+        return `Present: ${v}\nTip: avoid 'unsafe-inline' on script-src, and set frame-ancestors to replace X-Frame-Options.`;
+      }
+    },
+    {
+      name: 'X-Content-Type-Options',
+      match: (h) => h['x-content-type-options'],
+      check: (v) => {
+        if (!v) return 'fail';
+        if (v.trim().toLowerCase() !== 'nosniff') return 'fail';
+        return 'pass';
+      },
+      desc: 'Prevents browsers from MIME-sniffing responses away from the declared Content-Type.',
+      fix: () => 'x-content-type-options: nosniff'
+    },
+    {
+      name: 'X-Frame-Options',
+      match: (h) => h['x-frame-options'],
+      check: (v, headers) => {
+        // CSP frame-ancestors overrides this; if CSP is present with frame-ancestors, this is informational
+        const csp = headers['content-security-policy'] || '';
+        if (/frame-ancestors/i.test(csp)) return v ? 'info' : 'info';
+        if (!v) return 'warn';
+        const u = v.trim().toUpperCase();
+        if (u === 'DENY' || u === 'SAMEORIGIN') return 'pass';
+        return 'warn';
+      },
+      desc: 'Prevents the page from being embedded in iframes (clickjacking defense). CSP frame-ancestors supersedes this header.',
+      fix: (v) => {
+        if (!v) return `x-frame-options: DENY\n# Or prefer CSP: add "frame-ancestors 'none'" to Content-Security-Policy`;
+        return `Current: ${v}`;
+      }
+    },
+    {
+      name: 'Referrer-Policy',
+      match: (h) => h['referrer-policy'],
+      check: (v) => {
+        if (!v) return 'warn';
+        const ok = ['no-referrer', 'no-referrer-when-downgrade', 'origin', 'origin-when-cross-origin', 'same-origin', 'strict-origin', 'strict-origin-when-cross-origin'];
+        return ok.includes(v.trim().toLowerCase()) ? 'pass' : 'warn';
+      },
+      desc: 'Controls how much referrer info is sent with navigations and resource requests.',
+      fix: () => 'referrer-policy: strict-origin-when-cross-origin'
+    },
+    {
+      name: 'Permissions-Policy',
+      match: (h) => h['permissions-policy'],
+      check: (v) => {
+        if (!v) return 'warn';
+        return 'pass';
+      },
+      desc: 'Controls which browser features (camera, mic, geolocation, etc.) the page may use. Replaces the deprecated Feature-Policy.',
+      fix: () => `permissions-policy: geolocation=(), camera=(), microphone=()`
+    },
+    {
+      name: 'Cross-Origin-Opener-Policy',
+      match: (h) => h['cross-origin-opener-policy'],
+      check: (v) => {
+        if (!v) return 'warn';
+        const ok = ['same-origin', 'same-origin-allow-popups', 'unsafe-none'];
+        return ok.includes(v.trim().toLowerCase()) ? 'pass' : 'warn';
+      },
+      desc: 'Isolates the browsing context. Required for SharedArrayBuffer and cross-origin isolation.',
+      fix: () => 'cross-origin-opener-policy: same-origin'
+    },
+    {
+      name: 'Cross-Origin-Resource-Policy',
+      match: (h) => h['cross-origin-resource-policy'],
+      check: (v) => {
+        if (!v) return 'info';
+        const ok = ['same-origin', 'same-site', 'cross-origin'];
+        return ok.includes(v.trim().toLowerCase()) ? 'pass' : 'warn';
+      },
+      desc: 'Prevents other origins from reading your resources (CORB protection).',
+      fix: () => 'cross-origin-resource-policy: same-origin'
+    },
+    {
+      name: 'Cross-Origin-Embedder-Policy',
+      match: (h) => h['cross-origin-embedder-policy'],
+      check: (v) => {
+        if (!v) return 'info';
+        const ok = ['require-corp', 'credentialless', 'unsafe-none'];
+        return ok.includes(v.trim().toLowerCase()) ? 'pass' : 'warn';
+      },
+      desc: 'Requires explicitly-allowed cross-origin resources. Needed for cross-origin isolation.',
+      fix: () => 'cross-origin-embedder-policy: require-corp'
+    },
+    {
+      name: 'X-XSS-Protection',
+      match: (h) => h['x-xss-protection'],
+      check: (v) => {
+        if (!v) return 'info'; // not set = fine, it's deprecated
+        // The legacy "1; mode=block" is deprecated; recommended is "0" if set at all
+        if (v.trim() === '0') return 'pass';
+        return 'warn';
+      },
+      desc: 'Legacy header; deprecated. Modern browsers ignore it. If set, should be "0" to disable the legacy XSS auditor.',
+      fix: () => `# X-XSS-Protection is deprecated. Either remove it, or set:\nx-xss-protection: 0`
+    },
+    {
+      name: 'Server',
+      match: (h) => h['server'],
+      check: (v) => {
+        if (!v) return 'pass';
+        // warn if it reveals specific version
+        if (/\d+\.\d+/.test(v)) return 'warn';
+        return 'info';
+      },
+      desc: 'Not strictly a security header, but can leak server identity and version.',
+      fix: (v) => `Current: ${v}\nTip: strip version details (e.g. just "nginx") or remove entirely.`
+    }
+  ];
+
+  function parseHeaders(raw) {
+    const headers = {};
+    const lines = raw.split(/\r?\n/);
+    for (const line of lines) {
+      const m = /^([A-Za-z0-9\-]+)\s*:\s*(.+)$/i.exec(line.trim());
+      if (m) headers[m[1].toLowerCase()] = m[2].trim();
+    }
+    return headers;
+  }
+
+  function evaluate(headers) {
+    const results = [];
+    const score = { pass: 0, fail: 0, warn: 0, info: 0 };
+    for (const rule of RULES) {
+      const value = rule.match(headers);
+      const status = rule.check(value, headers);
+      results.push({
+        name: rule.name,
+        value: value || null,
+        status,
+        desc: rule.desc,
+        fix: rule.fix(value)
+      });
+      score[status] = (score[status] || 0) + 1;
+    }
+    return { headers, results, score };
+  }
+
+  const EXAMPLE = `HTTP/2 200
+server: nginx
+date: Fri, 16 Aug 2026 12:00:00 GMT
+content-type: text/html; charset=utf-8
+content-length: 1256
+x-powered-by: Express
+set-cookie: session=abc; Path=/; HttpOnly`;
+
+  let currentAudit = null;
+
+  function render(audit) {
+    currentAudit = audit;
+    $('results').classList.remove('hidden');
+    $('score').textContent = `${audit.score.pass} pass · ${audit.score.fail} fail · ${audit.score.warn} warn`;
+
+    const container = $('itemsContainer');
+    container.innerHTML = '';
+    const statusOrder = { fail: 0, warn: 1, pass: 2, info: 3 };
+    const sorted = [...audit.results].sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+
+    for (const r of sorted) {
+      const div = document.createElement('div');
+      div.className = 'item';
+      const pillClass = 'status-' + r.status;
+      const pillLabel = r.status.toUpperCase();
+      const valueLine = r.value
+        ? `<div class="header-value">${escapeHtml(r.value)}</div>`
+        : `<div class="header-value" style="font-style:italic;">not present in response</div>`;
+
+      div.innerHTML = `
+        <div class="item-head">
+          <span class="status-pill ${pillClass}">${pillLabel}</span>
+          <span class="header-name">${escapeHtml(r.name)}</span>
+        </div>
+        ${valueLine}
+        <div class="desc">${escapeHtml(r.desc)}</div>
+        <div class="fix" data-fix="${encodeURIComponent(r.fix)}">${escapeHtml(r.fix)}<button class="fix-copy" type="button" data-copy-fix>Copy fix</button></div>
+      `;
+      container.appendChild(div);
+    }
+
+    // saved time: ~3 min per non-info rule checked
+    const checked = audit.results.filter(r => r.status !== 'info').length;
+    $('checkedCount').textContent = checked;
+    $('rulesCount').textContent = RULES.length;
+    const minutes = Math.max(0, checked * 3);
+    $('savedTime').textContent = `${minutes} min`;
+
+    // wire up per-fix copy
+    container.querySelectorAll('[data-copy-fix]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const fix = decodeURIComponent(e.target.parentElement.getAttribute('data-fix'));
+        copyToClipboard(fix, btn);
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const prev = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = prev; }, 1200);
+    }).catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch(e) {}
+      document.body.removeChild(ta);
+      const prev = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = prev; }, 1200);
+    });
+  }
+
+  $('scanBtn').addEventListener('click', () => {
+    const raw = $('headersInput').value;
+    if (!raw.trim()) return;
+    const headers = parseHeaders(raw);
+    if (Object.keys(headers).length === 0) {
+      alert('No headers detected. Make sure each line is in the form "Name: value".');
+      return;
+    }
+    const audit = evaluate(headers);
+    render(audit);
+  });
+
+  $('loadExampleBtn').addEventListener('click', () => {
+    $('headersInput').value = EXAMPLE;
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    $('headersInput').value = '';
+    $('results').classList.add('hidden');
+  });
+
+  $('copyAllFixesBtn').addEventListener('click', (e) => {
+    if (!currentAudit) return;
+    const missing = currentAudit.results.filter(r => r.status === 'fail' || r.status === 'warn');
+    const text = missing.map(r => `# ${r.name}\n${r.fix}`).join('\n\n');
+    copyToClipboard(text, e.target);
+  });
+
+  function makeExport() {
+    if (!currentAudit) return null;
+    return {
+      zcac: true,
+      kind: 'security-headers-audit',
+      data: {
+        headers: currentAudit.headers,
+        results: currentAudit.results,
+        score: currentAudit.score,
+        exported_at: new Date().toISOString()
+      }
+    };
+  }
+
+  $('exportJsonBtn').addEventListener('click', (e) => {
+    const obj = makeExport();
+    if (!obj) return;
+    copyToClipboard(JSON.stringify(obj, null, 2), e.target);
+  });
+
+  $('downloadJsonBtn').addEventListener('click', () => {
+    const obj = makeExport();
+    if (!obj) return;
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'security-headers-audit.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  $('importBtn').addEventListener('click', () => {
+    const raw = $('importBox').value.trim();
+    if (!raw) return;
+    let obj;
+    try { obj = JSON.parse(raw); }
+    catch (e) {
+      $('importBox').value = 'Could not parse JSON: ' + e.message;
+      return;
+    }
+    if (!obj || !obj.zcac || obj.kind !== 'security-headers-audit') {
+      $('importBox').value = 'Not recognized — expected kind "security-headers-audit".';
+      return;
+    }
+    if (obj.data && obj.data.results) {
+      // Rebuild a minimal audit shape
+      render({
+        headers: obj.data.headers || {},
+        results: obj.data.results,
+        score: obj.data.score || { pass: 0, fail: 0, warn: 0, info: 0 }
+      });
+      // Also populate the input so the user can re-run against the same raw
+      if (obj.data.headers) {
+        const lines = Object.entries(obj.data.headers).map(([k, v]) => `${k}: ${v}`);
+        $('headersInput').value = lines.join('\n');
+      }
+    }
+  });
+
+  // Copy link + share on X
+  $('copyLinkBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    copyToClipboard(window.location.href, e.target);
+  });
+  $('shareX').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent('HTTP Security Headers Scanner — free, browser-native, no signup:')}&url=${encodeURIComponent(window.location.href)}`;
+
+  // Auto-scan on Enter with Ctrl/Cmd
+  $('headersInput').addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      $('scanBtn').click();
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
