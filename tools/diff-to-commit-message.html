@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diff to Commit Message — zero-cost-ai-coding</title>
+<meta name="description" content="Paste a git diff, get a conventional commit message. Runs a small LLM entirely in your browser — no API key, no server, no request limit.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e0d;
+    --bg-panel: #131816;
+    --bg-input: #0f1412;
+    --border: #26302c;
+    --text: #e7ece9;
+    --text-dim: #9aa6a0;
+    --accent: #3ddc84;
+    --accent-dim: #1f8f52;
+    --danger: #e2665a;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  html[data-theme="light"] {
+    --bg: #f6f7f5;
+    --bg-panel: #ffffff;
+    --bg-input: #f0f2ef;
+    --border: #d6dbd7;
+    --text: #14201a;
+    --text-dim: #4b5a53;
+    --accent: #1f8f52;
+    --accent-dim: #17703f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  h1, h2, h3, .mono, code, pre, button, .btn {
+    font-family: var(--font-mono);
+  }
+  a { color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  /* Top bar */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .home-link {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+  }
+  .home-link:hover { color: var(--accent); border-color: var(--accent); }
+  .topbar-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 0.4rem 0.7rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .theme-toggle:hover { border-color: var(--accent); }
+
+  main {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin: 0.25rem 0 0.5rem;
+  }
+  .pitch {
+    color: var(--text-dim);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+  .limit-line {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    background: rgba(61, 220, 132, 0.08);
+    border: 1px solid var(--accent-dim);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .share-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+  }
+  .share-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .share-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  section {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  section h2 {
+    font-size: 0.95rem;
+    margin: 0 0 0.75rem;
+    color: var(--text);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    resize: vertical;
+    tab-size: 2;
+  }
+  textarea:focus, button:focus-visible, .theme-toggle:focus-visible, .home-link:focus-visible, .share-btn:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.85rem;
+  }
+  select {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #06110b;
+    border: none;
+    border-radius: 6px;
+    padding: 0.6rem 1.1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-dim); color: #fff; }
+
+  .status-line {
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    min-height: 1.2em;
+  }
+  .status-line[data-error="true"] { color: var(--danger); }
+
+  .progress-wrap {
+    margin-top: 0.5rem;
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    display: none;
+  }
+  .progress-wrap.active { display: block; }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.2s ease;
+  }
+
+  .output-box {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 3.5rem;
+  }
+  .output-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .btn-secondary {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .saved-readout {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .saved-readout .big {
+    font-size: 1.6rem;
+    color: var(--accent);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .saved-readout .assumption {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  details p, details li { color: var(--text-dim); font-size: 0.88rem; }
+
+  footer {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 1.25rem 3rem;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+  }
+  footer a { color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="home-link" href="https://iggym.github.io/zero-cost-ai-coding/">&larr; zero-cost-ai-coding</a>
+  <div style="display:flex; align-items:center; gap:0.75rem;">
+    <span class="topbar-title">Diff → Commit Message</span>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light/dark theme">🌙 Dark</button>
+  </div>
+</div>
+
+<main>
+  <h1>Diff to Commit Message</h1>
+  <p class="pitch">
+    Paste a staged git diff, get a conventional commit message back — generated by a small language
+    model that downloads once and then runs entirely in your browser tab, so there's no per-request limit to hit.
+  </p>
+  <span class="limit-line">Free tier: none — it's your device, not a quota. One-time ~300MB model download, cached after that.</span>
+
+  <div class="share-row">
+    <a class="share-btn" id="shareX" href="#" target="_blank" rel="noopener">Share on X</a>
+    <button class="share-btn" id="copyLink" type="button">Copy link</button>
+  </div>
+
+  <section>
+    <h2>What it replaces</h2>
+    <p style="color:var(--text-dim); margin:0; font-size:0.9rem;">
+      GitLens Pro gates its "AI commit message" feature behind a paid plan starting at
+      <strong>$9.50/user/month</strong> (GitKraken's GitLens pricing page). This tool does the same core
+      job — draft a commit message from a diff — for $0, with the tradeoff that a 0.5B-parameter local
+      model writes noticeably rougher messages than a frontier cloud model.
+    </p>
+  </section>
+
+  <section>
+    <h2>1. Paste your diff</h2>
+    <textarea id="diffInput" spellcheck="false" aria-label="Git diff input" placeholder="Paste the output of `git diff --staged` here...">diff --git a/src/utils/formatCurrency.js b/src/utils/formatCurrency.js
+index 3f2a1b0..9d8c7e1 100644
+--- a/src/utils/formatCurrency.js
++++ b/src/utils/formatCurrency.js
+@@ -1,8 +1,13 @@
+-export function formatCurrency(amount) {
+-  return '$' + amount.toFixed(2);
++export function formatCurrency(amount, currency = 'USD') {
++  if (typeof amount !== 'number' || Number.isNaN(amount)) {
++    throw new TypeError('amount must be a number');
++  }
++  return new Intl.NumberFormat('en-US', {
++    style: 'currency',
++    currency,
++  }).format(amount);
+ }</textarea>
+
+    <div class="controls">
+      <label for="styleSelect" style="font-size:0.85rem; color:var(--text-dim);">Style</label>
+      <select id="styleSelect">
+        <option value="conventional">Conventional Commits (feat:, fix:, ...)</option>
+        <option value="plain">Plain, imperative one-liner</option>
+      </select>
+      <button class="btn-primary" id="generateBtn" type="button">Load model &amp; generate</button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="status-line" id="statusLine" role="status" aria-live="polite">
+      Model loads on first click (~300MB, cached by your browser afterward). Needs WebGPU for speed; falls back to slower CPU mode otherwise.
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Generated commit message</h2>
+    <div class="output-box" id="outputBox" aria-live="polite">Nothing generated yet.</div>
+    <div class="output-actions">
+      <button class="btn-secondary" id="copyMsgBtn" type="button">Copy message</button>
+      <button class="btn-secondary" id="copyJsonBtn" type="button">Copy as JSON</button>
+      <button class="btn-secondary" id="downloadJsonBtn" type="button">Download JSON</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>What this just saved you</h2>
+    <div class="saved-readout">
+      <span class="big" id="savedTime">0 sec</span>
+      <span id="savedDetail">0 diffs generated, 0 lines of diff processed.</span>
+      <div class="assumption">Assumption: ~45 sec to read a diff and hand-write a conventional commit message
+        (rough estimate, not a cited source — treat it as a ballpark). Timer only counts completed generations.</div>
+    </div>
+  </section>
+
+  <details>
+    <summary>How to use it / what breaks</summary>
+    <p><strong>How to use it:</strong> paste a diff (or use the pre-filled example), pick a style, click
+      "Load model &amp; generate." The first click downloads the model — that's the slow part. Every
+      generation after that reuses the cached model and is much faster.</p>
+    <ul>
+      <li>Needs a browser with WebGPU (recent Chrome, Edge, or Firefox with the flag on) for reasonable
+        speed. Without it, this falls back to CPU/WebAssembly, which still works but can take 20–60+
+        seconds per message on a laptop.</li>
+      <li>Runs a 0.5B-parameter model (Qwen2.5-0.5B-Instruct), not a frontier model — it's genuinely free,
+        not genuinely as good as a paid cloud model. Expect it to need a quick human edit on nontrivial
+        diffs.</li>
+      <li>Very large diffs get truncated (first ~6,000 characters) before being sent to the model, so the
+        message may miss context buried deep in a huge diff.</li>
+      <li>Nothing you paste leaves your device — there's no server here to send it to.</li>
+      <li>If the model fails to load (unsupported browser, blocked download, out of memory), you'll see the
+        error in the status line above the button, not a silent failure.</li>
+    </ul>
+  </details>
+</main>
+
+<footer>
+  Free-tier claim verified against Hugging Face's Transformers.js v3 documentation and the
+  onnx-community/Qwen2.5-0.5B-Instruct model card (huggingface.co/docs/transformers.js, huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct).
+  Paid-alternative price verified against GitKraken's GitLens pricing page.
+</footer>
+
+<script type="module">
+  const themeToggle = document.getElementById('themeToggle');
+  const root = document.documentElement;
+  function applyTheme(t) {
+    root.setAttribute('data-theme', t);
+    themeToggle.textContent = t === 'light' ? '☀️ Light' : '🌙 Dark';
+  }
+  let savedTheme = 'dark';
+  try { savedTheme = sessionStorage.getItem('zcac-theme') || 'dark'; } catch (e) {}
+  applyTheme(savedTheme);
+  themeToggle.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    try { sessionStorage.setItem('zcac-theme', next); } catch (e) {}
+  });
+
+  const shareX = document.getElementById('shareX');
+  const pageUrl = () => window.location.href;
+  shareX.href = 'https://twitter.com/intent/tweet?text=' +
+    encodeURIComponent('A free, in-browser tool that turns a git diff into a commit message — no API key, no server:') +
+    '&url=' + encodeURIComponent(pageUrl());
+  document.getElementById('copyLink').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(pageUrl());
+      const btn = document.getElementById('copyLink');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    } catch (e) {}
+  });
+
+  const diffInput = document.getElementById('diffInput');
+  const styleSelect = document.getElementById('styleSelect');
+  const generateBtn = document.getElementById('generateBtn');
+  const statusLine = document.getElementById('statusLine');
+  const outputBox = document.getElementById('outputBox');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const savedTime = document.getElementById('savedTime');
+  const savedDetail = document.getElementById('savedDetail');
+
+  let generator = null;
+  let generationCount = 0;
+  let linesProcessedTotal = 0;
+  let lastMessage = '';
+
+  function setStatus(text, isError) {
+    statusLine.textContent = text;
+    statusLine.setAttribute('data-error', isError ? 'true' : 'false');
+  }
+
+  function countChangedLines(diffText) {
+    return diffText.split('\n').filter(l => (l.startsWith('+') && !l.startsWith('+++')) ||
+      (l.startsWith('-') && !l.startsWith('---'))).length;
+  }
+
+  function updateSavedReadout() {
+    const totalSeconds = generationCount * 45;
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    savedTime.textContent = mins > 0 ? `${mins} min ${secs} sec` : `${totalSeconds} sec`;
+    savedDetail.textContent = `${generationCount} message${generationCount === 1 ? '' : 's'} generated, ${linesProcessedTotal} changed line${linesProcessedTotal === 1 ? '' : 's'} of diff processed.`;
+  }
+
+  async function ensureModel() {
+    if (generator) return generator;
+    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2');
+
+    let device = 'wasm';
+    let dtype = 'q8';
+    if (typeof navigator !== 'undefined' && navigator.gpu) {
+      device = 'webgpu';
+      dtype = 'q4';
+    }
+
+    progressWrap.classList.add('active');
+    setStatus(`Loading model on ${device === 'webgpu' ? 'GPU (WebGPU)' : 'CPU (WebAssembly, slower)'}...`, false);
+
+    generator = await pipeline('text-generation', 'onnx-community/Qwen2.5-0.5B-Instruct', {
+      dtype,
+      device,
+      progress_callback: (p) => {
+        if (p && p.status === 'progress' && typeof p.progress === 'number') {
+          progressBar.style.width = Math.min(100, p.progress) + '%';
+          setStatus(`Downloading model: ${Math.round(p.progress)}%${p.file ? ' (' + p.file + ')' : ''}`, false);
+        }
+      },
+    });
+
+    progressWrap.classList.remove('active');
+    setStatus('Model ready. Generating...', false);
+    return generator;
+  }
+
+  function buildPrompt(diffText, style) {
+    const truncated = diffText.length > 6000 ? diffText.slice(0, 6000) + '\n[diff truncated]' : diffText;
+    const system = style === 'conventional'
+      ? 'You write git commit messages in the Conventional Commits format (e.g. "feat: add X", "fix: correct Y", "refactor: simplify Z"). Reply with ONLY the commit message: a one-line summary under 72 characters, optionally followed by a blank line and 1-3 short bullet points explaining what changed. No preamble, no explanation, no markdown fences.'
+      : 'You write short, plain, imperative git commit messages (e.g. "Add input validation to formatCurrency"). Reply with ONLY a single-line commit message under 72 characters. No preamble, no explanation, no quotes.';
+    return [
+      { role: 'system', content: system },
+      { role: 'user', content: `Here is a git diff. Write the commit message for it:\n\n${truncated}` },
+    ];
+  }
+
+  function cleanOutput(text) {
+    return text.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
+  }
+
+  generateBtn.addEventListener('click', async () => {
+    const diffText = diffInput.value.trim();
+    if (!diffText) {
+      setStatus('Paste a diff first.', true);
+      return;
+    }
+    generateBtn.disabled = true;
+    outputBox.textContent = 'Generating...';
+    try {
+      const gen = await ensureModel();
+      const messages = buildPrompt(diffText, styleSelect.value);
+      const output = await gen(messages, { max_new_tokens: 120, do_sample: false });
+      const last = output[0].generated_text.at(-1);
+      const text = cleanOutput(last.content);
+      lastMessage = text;
+      outputBox.textContent = text;
+      generationCount += 1;
+      linesProcessedTotal += countChangedLines(diffText);
+      updateSavedReadout();
+      setStatus('Done. Generated locally in your browser.', false);
+    } catch (err) {
+      console.error(err);
+      setStatus('Generation failed: ' + (err && err.message ? err.message : 'unknown error') +
+        '. Your browser may not support WebGPU/WASM inference, or the model download was interrupted — try reloading.', true);
+      outputBox.textContent = 'Nothing generated yet.';
+    } finally {
+      generateBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('copyMsgBtn').addEventListener('click', async () => {
+    if (!lastMessage) return;
+    try { await navigator.clipboard.writeText(lastMessage); } catch (e) {}
+  });
+
+  function currentJson() {
+    return JSON.stringify({
+      zcac: true,
+      kind: 'commit-message',
+      data: {
+        message: lastMessage,
+        style: styleSelect.value,
+        generatedAt: new Date().toISOString(),
+        model: 'onnx-community/Qwen2.5-0.5B-Instruct',
+      },
+    }, null, 2);
+  }
+
+  document.getElementById('copyJsonBtn').addEventListener('click', async () => {
+    if (!lastMessage) return;
+    try { await navigator.clipboard.writeText(currentJson()); } catch (e) {}
+  });
+
+  document.getElementById('downloadJsonBtn').addEventListener('click', () => {
+    if (!lastMessage) return;
+    const blob = new Blob([currentJson()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'commit-message.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+</script>
+
+</body>
+</html>
