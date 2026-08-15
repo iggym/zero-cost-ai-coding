@@ -416,7 +416,7 @@
             <h1>AI Code Validator</h1>
             <p class="sub">
                 Paste AI-generated code, get a structured review: correctness, security, edge cases, and style.
-                Powered by Google's Gemini 2.5 Flash free tier — <strong>15 req/min, 1,500 req/day</strong>, no card required
+                Powered by Google's Gemini 3.6 Flash free tier — <strong>15 req/min, 1,500 req/day</strong>, no card required
                 [<a href="https://ai.google.dev/pricing" target="_blank" rel="noopener">source</a>].
                 Bring your own free API key (stored only in this tab's session).
             </p>
@@ -438,8 +438,8 @@
                 <div class="field" style="flex:1;">
                     <label for="modelSelect">Model</label>
                     <select id="modelSelect" style="width:100%;padding:0.7rem;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-sans);font-size:0.85rem;">
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                        <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
                     </select>
                 </div>
             </div>
@@ -479,7 +479,7 @@
         <footer class="footer">
             Free-tier verified at
             <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener">ai.google.dev/pricing</a>
-            (Gemini 2.5 Flash: 15 RPM, 1,500 RPD, no card).
+            (Gemini 3.6 Flash: 15 RPM, 1,500 RPD, no card).
             Key stored in <code>sessionStorage</code> only — cleared on tab close.
         </footer>
 
@@ -526,7 +526,6 @@
             });
 
             // --- session key ---
-            // restore key from sessionStorage if present
             const savedKey = sessionStorage.getItem('gemini-api-key');
             if (savedKey) apiKeyInput.value = savedKey;
 
@@ -568,41 +567,74 @@
             function buildPrompt(code) {
                 return `You are an expert code reviewer. Analyze the following code and provide a structured review.
 
-    Focus on:
-    1. Correctness — does it do what it intends? Any bugs?
-    2. Security — any vulnerabilities (injection, unsafe eval, etc.)?
-    3. Edge cases — does it handle empty inputs, unexpected types, etc.?
-    4. Style & clarity — is it readable? Any anti-patterns?
+Focus on:
+1. Correctness — does it do what it intends? Any bugs?
+2. Security — any vulnerabilities (injection, unsafe eval, etc.)?
+3. Edge cases — does it handle empty inputs, unexpected types, etc.?
+4. Style & clarity — is it readable? Any anti-patterns?
 
-    Return ONLY valid JSON with this exact shape:
-    {
-      "issues": [
-        { "severity": "error" | "warning" | "info", "line": number or null, "message": "string" }
-      ],
-      "summary": "one sentence overall assessment"
-    }
+Return ONLY valid JSON with this exact shape:
+{
+  "issues": [
+    { "severity": "error" | "warning" | "info", "line": number or null, "message": "string" }
+  ],
+  "summary": "one sentence overall assessment"
+}
 
-    Code to review:
-    \`\`\`
-    ${code}
-    \`\`\``;
+Code to review:
+\`\`\`
+${code}
+\`\`\``;
+            }
+
+            // --- sanitize JSON ---
+            function sanitizeJsonString(rawStr) {
+                let cleaned = rawStr.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+                return cleaned.replace(/[\u0000-\u001F]+/g, (match) => {
+                    if (match === '\n') return '\\n';
+                    if (match === '\r') return '\\r';
+                    if (match === '\t') return '\\t';
+                    return '';
+                });
             }
 
             // --- call Gemini ---
             async function callGemini(apiKey, model, code) {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
                 const prompt = buildPrompt(code);
+
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        maxOutputTokens: 1024,
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                issues: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            severity: { type: "STRING", enum: ["error", "warning", "info"] },
+                                            line: { type: "INTEGER", nullable: true },
+                                            message: { type: "STRING" }
+                                        },
+                                        required: ["severity", "message"]
+                                    }
+                                },
+                                summary: { type: "STRING" }
+                            },
+                            required: ["issues", "summary"]
+                        }
+                    }
+                };
 
                 const resp = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: {
-                            temperature: 0.2,
-                            maxOutputTokens: 1024,
-                        }
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (!resp.ok) {
@@ -611,17 +643,25 @@
                     try {
                         const errJson = JSON.parse(errText);
                         msg = errJson.error?.message || msg;
-                    } catch (_) { /* ignore */ }
+                    } catch (_) {
+                        msg = errText.slice(0, 200) || msg;
+                    }
                     throw new Error(msg);
                 }
 
                 const data = await resp.json();
-                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                // try to extract JSON from the response
-                let jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) throw new Error('No JSON found in response');
-                const parsed = JSON.parse(jsonMatch[0]);
-                return parsed;
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error('Empty response received from Gemini API');
+
+                try {
+                    return JSON.parse(sanitizeJsonString(text));
+                } catch (parseErr) {
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        return JSON.parse(sanitizeJsonString(jsonMatch[0]));
+                    }
+                    throw new Error('Failed to parse validation output from Gemini API');
+                }
             }
 
             // --- render output ---
@@ -648,7 +688,6 @@
                 outputArea.innerHTML = html;
                 outputArea.classList.add('visible');
 
-                // saved time: assume 2 min per 100 lines
                 const saved = Math.round((lines / 100) * 2);
                 lastResult = { issues: issues, lines: lines, savedMinutes: saved };
                 savedNum.textContent = saved;
@@ -686,7 +725,6 @@
             }
 
             validateBtn.addEventListener('click', validate);
-            // Ctrl+Enter shortcut
             codeInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
@@ -734,13 +772,11 @@
                         if (data.zcac && data.kind === 'code-validation' && data.data) {
                             const d = data.data;
                             if (d.issues && typeof d.lines === 'number') {
-                                // re-render from imported data
                                 const issues = d.issues || [];
                                 const lines = d.lines || 0;
                                 const summary = issues.length === 0 ? 'No issues found.' : `${issues.length} issues found.`;
                                 renderResult({ issues, summary }, lines);
                                 statusText.textContent = `📤 Imported from ${file.name}`;
-                                // also fill the code input if we have code? not stored in export, but fine.
                             } else {
                                 throw new Error('Invalid data shape');
                             }
@@ -754,13 +790,9 @@
                     }
                 };
                 reader.readAsText(file);
-                importFileInput.value = ''; // allow re-import
+                importFileInput.value = '';
             });
 
-            // --- prefill example with a simple case (editable) ---
-            // done via the textarea placeholder.
-
-            // --- keyboard-only: focus visible handled by CSS ---
             console.log('AI Code Validator ready');
         })();
     </script>
