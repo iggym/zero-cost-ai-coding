@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON to SQL Migration Generator — Zero-Cost AI Coding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --panel-bg: #161b22;
+      --border-color: #30363d;
+      --text-main: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent-color: #2ea043;
+      --accent-hover: #3fb950;
+      --code-bg: #010409;
+      --focus-ring: 0 0 0 3px rgba(46, 160, 67, 0.4);
+    }
+
+    [data-theme="light"] {
+      --bg-color: #ffffff;
+      --panel-bg: #f6f8fa;
+      --border-color: #d0d7de;
+      --text-main: #1f2328;
+      --text-muted: #656d76;
+      --accent-color: #1f883d;
+      --accent-hover: #1a7f37;
+      --code-bg: #eff1f3;
+      --focus-ring: 0 0 0 3px rgba(31, 136, 61, 0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      padding-top: 60px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Sticky Navigation */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      z-index: 1000;
+    }
+
+    header a.home-link {
+      color: var(--accent-color);
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+
+    header a.home-link:hover { text-decoration: underline; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .tool-title-nav {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .theme-toggle {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .theme-toggle:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      flex: 1;
+      width: 100%;
+    }
+
+    .pitch-section {
+      margin-bottom: 2rem;
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .pitch-text {
+      margin-bottom: 1rem;
+      color: var(--text-main);
+    }
+
+    .meta-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+      font-size: 0.9rem;
+    }
+
+    .meta-item strong { color: var(--text-main); }
+    .meta-item span { color: var(--text-muted); }
+
+    .share-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .btn {
+      background-color: var(--accent-color);
+      color: #ffffff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 0.875rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn:hover { background-color: var(--accent-hover); }
+
+    .btn-secondary {
+      background-color: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border-color);
+    }
+
+    /* Tool Interface */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 850px) {
+      .workspace { grid-template-columns: 1fr; }
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .pane-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      height: 380px;
+      background-color: var(--code-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .controls-bar {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    select, input[type="text"] {
+      background-color: var(--code-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.875rem;
+    }
+
+    .readout-card {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+
+    .readout-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--accent-color);
+    }
+
+    .readout-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 1.5rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--text-main); }
+    
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: var(--accent-color);
+      color: #fff;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      display: none;
+      z-index: 2000;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← Zero-Cost AI Coding</a>
+    <div class="header-right">
+      <span class="tool-title-nav">JSON to SQL Generator</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Light Mode</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="pitch-section">
+      <h1>JSON to SQL Migration Generator</h1>
+      <p class="pitch-text">
+        Infers relational SQL schemas and generates safe, batch `INSERT INTO` DDL migrations from raw JSON payloads entirely client-side, capped only by your browser's local memory performance.
+      </p>
+      
+      <div class="share-buttons">
+        <button class="btn btn-secondary" id="shareXBtn">Share on X</button>
+        <button class="btn btn-secondary" id="copyLinkBtn">Copy Link</button>
+      </div>
+
+      <div class="meta-details">
+        <div class="meta-item">
+          <strong>What it replaces:</strong> <span>TablePlus Pro ($89 perpetual) or paid schema conversion tools.</span>
+        </div>
+        <div class="meta-item">
+          <strong>How to use:</strong> <span>Paste a JSON object or array of objects, set table configuration, and instantly copy the generated DDL statement.</span>
+        </div>
+        <div class="meta-item">
+          <strong>What breaks:</strong> <span>Extremely large files (>50MB) may lock browser execution main threads during schema parsing.</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="controls-bar">
+      <div class="control-group">
+        <label for="tableName">Table Name:</label>
+        <input type="text" id="tableName" value="imported_records" aria-label="Table name">
+      </div>
+      
+      <div class="control-group">
+        <label for="sqlDialect">Dialect:</label>
+        <select id="sqlDialect" aria-label="SQL Dialect">
+          <option value="postgresql">PostgreSQL</option>
+          <option value="mysql">MySQL / MariaDB</option>
+          <option value="sqlite">SQLite</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <button class="btn btn-secondary" id="importJsonBtn">Import ZCAC JSON</button>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="pane">
+        <div class="pane-header">
+          <label for="jsonInput">Input JSON Payload</label>
+        </div>
+        <textarea id="jsonInput" spellcheck="false" aria-label="Input JSON Payload">[
+  {
+    "id": 101,
+    "username": "alex_dev",
+    "email": "alex@example.com",
+    "is_active": true,
+    "score": 98.5,
+    "metadata": { "role": "admin", "tags": ["beta", "v2"] },
+    "created_at": "2026-03-15T08:30:00Z"
+  },
+  {
+    "id": 102,
+    "username": "sam_builder",
+    "email": "sam@example.com",
+    "is_active": false,
+    "score": 84.0,
+    "metadata": { "role": "user" },
+    "created_at": "2026-04-01T14:15:22Z"
+  }
+]</textarea>
+      </div>
+
+      <div class="pane">
+        <div class="pane-header">
+          <label for="sqlOutput">Generated SQL DDL</label>
+          <div style="display: flex; gap: 0.4rem;">
+            <button class="btn" id="copySqlBtn">Copy SQL</button>
+            <button class="btn btn-secondary" id="exportZcacBtn">Export JSON</button>
+          </div>
+        </div>
+        <textarea id="sqlOutput" readonly spellcheck="false" aria-label="Generated SQL Output"></textarea>
+      </div>
+    </div>
+
+    <div class="readout-card">
+      <div>
+        <div class="readout-label">Estimated Time Saved</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Assumes ~15 seconds per column type/insert mapping done manually</div>
+      </div>
+      <div class="readout-value" id="timeSavedReadout">0 sec</div>
+    </div>
+  </main>
+
+  <footer>
+    Verified Browser-Native computation via pure JavaScript Web APIs | Documentation &amp; Verification Source: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank" rel="noopener">MDN Web Docs</a>
+  </footer>
+
+  <div class="toast" id="toast">Copied to clipboard</div>
+
+  <script>
+    const jsonInput = document.getElementById('jsonInput');
+    const sqlOutput = document.getElementById('sqlOutput');
+    const tableNameInput = document.getElementById('tableName');
+    const sqlDialectSelect = document.getElementById('sqlDialect');
+    const timeSavedReadout = document.getElementById('timeSavedReadout');
+    const themeToggle = document.getElementById('themeToggle');
+    const toast = document.getElementById('toast');
+
+    // Theme Toggle
+    themeToggle.addEventListener('click', () => {
+      const isLight = document.body.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        document.body.removeAttribute('data-theme');
+        themeToggle.textContent = 'Light Mode';
+      } else {
+        document.body.setAttribute('data-theme', 'light');
+        themeToggle.textContent = 'Dark Mode';
+      }
+    });
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+
+    function sanitizeIdentifier(name) {
+      return name.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+    }
+
+    function inferType(value, dialect) {
+      if (value === null || value === undefined) return 'VARCHAR(255)';
+      if (typeof value === 'boolean') return dialect === 'sqlite' ? 'INTEGER' : 'BOOLEAN';
+      if (typeof value === 'number') {
+        return Number.isInteger(value) ? 'INTEGER' : 'NUMERIC';
+      }
+      if (typeof value === 'string') {
+        if (!isNaN(Date.parse(value)) && value.length >= 10 && (value.includes('-') || value.includes('T'))) {
+          return dialect === 'sqlite' ? 'TEXT' : 'TIMESTAMP';
+        }
+        return 'TEXT';
+      }
+      if (typeof value === 'object') {
+        return dialect === 'postgresql' ? 'JSONB' : 'TEXT';
+      }
+      return 'TEXT';
+    }
+
+    function generateSQL() {
+      let rawText = jsonInput.value.trim();
+      if (!rawText) {
+        sqlOutput.value = '-- Paste JSON above to generate SQL migration';
+        timeSavedReadout.textContent = '0 sec';
+        return;
+      }
+
+      try {
+        let parsed = JSON.parse(rawText);
+        let records = Array.isArray(parsed) ? parsed : [parsed];
+
+        if (records.length === 0 || typeof records[0] !== 'object' || records[0] === null) {
+          sqlOutput.value = '-- Input JSON must contain an object or array of objects';
+          timeSavedReadout.textContent = '0 sec';
+          return;
+        }
+
+        const rawTableName = tableNameInput.value.trim() || 'imported_records';
+        const tableName = sanitizeIdentifier(rawTableName);
+        const dialect = sqlDialectSelect.value;
+
+        // Collect all distinct fields across all records
+        const schemaMap = {};
+        records.forEach(record => {
+          if (typeof record === 'object' && record !== null) {
+            Object.keys(record).forEach(key => {
+              const cleanKey = sanitizeIdentifier(key);
+              if (!schemaMap[cleanKey]) {
+                schemaMap[cleanKey] = inferType(record[key], dialect);
+              }
+            });
+          }
+        });
+
+        const columns = Object.keys(schemaMap);
+        if (columns.length === 0) {
+          sqlOutput.value = '-- No valid fields detected in JSON';
+          timeSavedReadout.textContent = '0 sec';
+          return;
+        }
+
+        // Build CREATE TABLE Statement
+        let quoteChar = dialect === 'mysql' ? '`' : '"';
+        let ddl = `-- Generated via Zero-Cost AI Coding\n`;
+        ddl += `CREATE TABLE IF NOT EXISTS ${quoteChar}${tableName}${quoteChar} (\n`;
+        ddl += `  ${quoteChar}id${quoteChar} ${dialect === 'sqlite' ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'SERIAL PRIMARY KEY'},\n`;
+        
+        const columnDefs = columns.map(col => `  ${quoteChar}${col}${quoteChar} ${schemaMap[col]}`);
+        ddl += columnDefs.join(',\n');
+        ddl += `\n);\n\n`;
+
+        // Build INSERT INTO Statements
+        ddl += `INSERT INTO ${quoteChar}${tableName}${quoteChar} (${columns.map(c => `${quoteChar}${c}${quoteChar}`).join(', ')}) VALUES\n`;
+        
+        const valueRows = records.map(record => {
+          const vals = columns.map(col => {
+            const rawVal = record[col];
+            if (rawVal === undefined || rawVal === null) return 'NULL';
+            if (typeof rawVal === 'boolean') {
+              return dialect === 'sqlite' ? (rawVal ? '1' : '0') : (rawVal ? 'TRUE' : 'FALSE');
+            }
+            if (typeof rawVal === 'number') return rawVal.toString();
+            if (typeof rawVal === 'object') {
+              const strified = JSON.stringify(rawVal).replace(/'/g, "''");
+              return `'${strified}'`;
+            }
+            const strified = String(rawVal).replace(/'/g, "''");
+            return `'${strified}'`;
+          });
+          return `(${vals.join(', ')})`;
+        });
+
+        ddl += valueRows.join(',\n') + `;\n`;
+
+        sqlOutput.value = ddl;
+
+        // Update Readout Savings (~15 seconds per column + insert batching work)
+        const fieldsCount = columns.length * records.length;
+        const totalSeconds = fieldsCount * 15;
+        if (totalSeconds < 60) {
+          timeSavedReadout.textContent = `${totalSeconds} sec`;
+        } else {
+          const mins = (totalSeconds / 60).toFixed(1);
+          timeSavedReadout.textContent = `${mins} min`;
+        }
+
+      } catch (err) {
+        sqlOutput.value = `-- Invalid JSON: ${err.message}`;
+        timeSavedReadout.textContent = '0 sec';
+      }
+    }
+
+    // Event Listeners
+    jsonInput.addEventListener('input', generateSQL);
+    tableNameInput.addEventListener('input', generateSQL);
+    sqlDialectSelect.addEventListener('change', generateSQL);
+
+    document.getElementById('copySqlBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(sqlOutput.value);
+      showToast('SQL copied to clipboard');
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href);
+      showToast('Page link copied');
+    });
+
+    document.getElementById('shareXBtn').addEventListener('click', () => {
+      const text = encodeURIComponent('Convert JSON payloads to SQL DDL migrations client-side with Zero-Cost AI Coding');
+      window.open(`https://x.com/intent/post?text=${text}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+    });
+
+    // Composability: Export & Import JSON
+    document.getElementById('exportZcacBtn').addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(jsonInput.value);
+        const exportPayload = {
+          zcac: true,
+          kind: "sql-migration-schema",
+          data: {
+            table_name: tableNameInput.value || "imported_records",
+            dialect: sqlDialectSelect.value,
+            records: parsed
+          }
+        };
+        navigator.clipboard.writeText(JSON.stringify(exportPayload, null, 2));
+        showToast('Exported ZCAC JSON copied');
+      } catch (e) {
+        showToast('Invalid JSON in input');
+      }
+    });
+
+    document.getElementById('importJsonBtn').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const parsed = JSON.parse(text);
+        if (parsed && parsed.zcac === true && parsed.kind === "sql-migration-schema") {
+          if (parsed.data.table_name) tableNameInput.value = parsed.data.table_name;
+          if (parsed.data.dialect) sqlDialectSelect.value = parsed.data.dialect;
+          if (parsed.data.records) jsonInput.value = JSON.stringify(parsed.data.records, null, 2);
+          generateSQL();
+          showToast('Imported ZCAC payload');
+        } else {
+          showToast('JSON not recognized as valid ZCAC format');
+        }
+      } catch (e) {
+        showToast('Clipboard paste denied or invalid JSON');
+      }
+    });
+
+    // Initialize
+    generateSQL();
+  </script>
+</body>
+</html>
