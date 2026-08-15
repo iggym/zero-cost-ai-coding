@@ -136,6 +136,93 @@
   "reading_time_minutes": 1,
   "pinned": false,
   "verified": "2025-07-09"
+}, {
+  "id": "0004",
+  "slug": "actions-forge",
+  "title": "Actions Forge",
+  "hook": "Configure a GitHub Actions CI workflow for your stack — pick steps, get a complete ci.yml with proper caching, current action versions, and job ordering. Free for public repos.",
+  "path": "tools/actions-forge.html",
+  "date": "2025-07-09",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "generator",
+  "how_free": "GitHub Actions: unlimited minutes for public repos, 2,000 min/month for private repos on free tier — no card needed. Verified at docs.github.com/en/billing/managing-billing-for-github-actions",
+  "source_url": "https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions",
+  "tags": ["github-actions", "ci-cd", "workflow", "yaml", "automation"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2025-07-09"
+},{
+  "id": "0043",
+  "slug": "cron-expression-builder",
+  "title": "Cron Expression Builder",
+  "hook": "Build a cron expression with live plain-English explanation and next-runs preview — works for crontab, GitHub Actions, Airflow, and anything that takes 5-field POSIX cron.",
+  "path": "tools/cron-expression-builder.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "∞ runs — pure client-side parsing and next-run calculation in the browser tab, no external service, no key, no rate limit.",
+  "source_url": "https://crontab.guru/",
+  "tags": ["browser-native", "devops", "scheduling", "cron", "github-actions"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-16"
+},{
+  "id": "1001",
+  "slug": "browser-native-regex-stream-extractor",
+  "title": "Browser-Native Regex & Stream Extractor",
+  "hook": "Extract structured JSON, clean sensitive logs, or test complex regex directly in your browser with 100% zero network overhead and unlimited free local compute.",
+  "path": "tools/browser-native-regex-stream-extractor.html",
+  "date": "2026-08-15",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "100% Client-Side Native JS Engine - Unlimited local processing",
+  "source_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions",
+  "tags": ["regex", "logs", "browser-native", "developer-tools"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-15"
+},{
+  "id": "0001",
+  "slug": "favicon-pwa-generator",
+  "title": "Zero-Cost Favicon & PWA Generator",
+  "hook": "Generate all standard favicon and PWA icon sizes (including a real .ico) from one image, 100% client-side with no limits.",
+  "path": "tools/favicon-pwa-generator.html",
+  "date": "2024-05-22",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "100% client-side using Canvas API and JSZip; no external API limits.",
+  "source_url": "https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API",
+  "tags": ["assets", "pwa", "browser-native"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2024-05-22"
+},{
+  "id": "0001",
+  "slug": "log-pattern-triage",
+  "title": "Log Pattern Triage",
+  "hook": "Paste or open NDJSON and plain-text logs to group recurring messages, count levels, redact likely secrets, and export a triage report at $0 with no provider quota.",
+  "path": "tools/log-pattern-triage.html",
+  "date": "2026-08-15",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Browser-local File API processing has no provider request quota; MDN publishes no hard file-size limit, so practical capacity is bounded by device memory.",
+  "source_url": "https://developer.mozilla.org/en-US/docs/Web/API/FileReader",
+  "produces": "log-triage-report",
+  "accepts": [
+    "log-triage-report"
+  ],
+  "tags": [
+    "logs",
+    "error-triage"
+  ],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-15"
 }
   ]
 }
