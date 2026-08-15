@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Source Map Stack Remapper — zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #21262d;
+  --fg: #e6edf3;
+  --fg-2: #8b949e;
+  --accent: #3fb950;
+  --accent-dim: #238636;
+  --red: #f85149;
+  --yellow: #d29922;
+  --border: #30363d;
+  --radius: 6px;
+  --focus: #3fb950;
+}
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-2: #f6f8fa;
+  --bg-3: #eaeef2;
+  --fg: #1f2328;
+  --fg-2: #656d76;
+  --accent: #1a7f37;
+  --accent-dim: #116329;
+  --red: #cf222e;
+  --yellow: #9a6700;
+  --border: #d0d7de;
+  --focus: #1a7f37;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+h1, h2, h3, code, pre, .mono, kbd {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+h1 { font-size: 1.45rem; margin: 0 0 0.5rem; line-height: 1.3; }
+h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--fg-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+p { margin: 0.45rem 0; }
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+.topbar a {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.topbar a:hover { text-decoration: underline; }
+.topbar .title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-align: right;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.pitch {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.pitch p { font-size: 0.95rem; }
+.limit {
+  display: inline-block;
+  background: var(--bg-3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.share-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.share-btn, .theme-toggle, button.secondary, .copy-btn, .linkish {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 40px;
+}
+.theme-toggle { min-height: 40px; }
+.share-btn:hover, .theme-toggle:hover, button.secondary:hover, .copy-btn:hover {
+  background: var(--border);
+}
+label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--fg-2);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+textarea, input[type="text"] {
+  width: 100%;
+  background: var(--bg-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  resize: vertical;
+  tab-size: 2;
+}
+textarea { min-height: 150px; }
+textarea:focus, input[type="text"]:focus, button:focus-visible, a:focus-visible,
+.share-btn:focus-visible, .theme-toggle:focus-visible, .copy-btn:focus-visible,
+input[type="file"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.drop {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-2);
+}
+.drop.dragover { border-color: var(--accent); background: rgba(63, 185, 80, 0.08); }
+.drop input[type="file"] { width: 100%; color: var(--fg); font-size: 0.85rem; }
+.btn-row { display: flex; gap: 0.5rem; margin: 1rem 0; flex-wrap: wrap; }
+button.primary {
+  background: var(--accent-dim);
+  color: #fff;
+  border: none;
+  padding: 0.65rem 1.2rem;
+  border-radius: var(--radius);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+button.primary:hover { background: var(--accent); color: #0d1117; }
+.output-box {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.output-box pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.82rem;
+  max-height: 360px;
+  overflow: auto;
+}
+.output-box .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; }
+.saved-readout {
+  background: var(--bg-3);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  margin: 1rem 0;
+}
+.saved-readout .big-num {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.saved-readout .assumption {
+  color: var(--fg-2);
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+.error-msg {
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  margin: 0.5rem 0;
+}
+.ok-msg {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  margin: 0.35rem 0;
+}
+.frame {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.8rem;
+  margin: 0.5rem 0;
+  background: var(--bg-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+}
+.frame.unmapped { border-left-color: var(--yellow); }
+.frame .gen { color: var(--fg-2); }
+.frame .orig { color: var(--accent); font-weight: 600; }
+.frame .third { color: var(--yellow); font-size: 0.75rem; }
+.snippet {
+  margin-top: 0.45rem;
+  background: var(--bg-3);
+  border-radius: 4px;
+  padding: 0.45rem 0.55rem;
+  overflow-x: auto;
+}
+.snippet .ln { color: var(--fg-2); display: inline-block; min-width: 2.4em; text-align: right; margin-right: 0.6em; }
+.snippet .cur { background: rgba(63, 185, 80, 0.18); display: block; border-radius: 3px; }
+.muted { color: var(--fg-2); font-size: 0.9rem; }
+details {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+summary {
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--fg-2);
+  min-height: 32px;
+}
+details[open] summary { margin-bottom: 0.5rem; }
+footer {
+  border-top: 1px solid var(--border);
+  padding: 1rem 0 0;
+  margin-top: 2rem;
+  font-size: 0.75rem;
+  color: var(--fg-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+footer a { color: var(--accent); }
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  border: 0;
+}
+@media (max-width: 640px) {
+  h1 { font-size: 1.2rem; }
+  textarea { min-height: 120px; }
+  .topbar .title { font-size: 0.75rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← home</a>
+  <div style="display:flex;align-items:center;gap:0.6rem;">
+    <span class="title">Source Map Remapper</span>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light or dark theme">◑ theme</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="pitch">
+    <h1>Source Map Stack Remapper</h1>
+    <p>Paste a minified stack trace and a <code>.map</code> file, get original <code>file:line:column</code> plus a snippet from <code>sourcesContent</code>. VLQ decode runs in this tab. <span class="limit">∞ runs — no API, no key, no quota</span></p>
+    <p><strong>What it replaces:</strong> the source-map unminification step people buy <a href="https://sentry.io/pricing/" rel="noopener">Sentry Team</a> for ($26/mo billed annually, 50k errors included). This does only that lookup. Sentry is a full error tracker; this is not.</p>
+    <div class="share-row">
+      <button type="button" class="share-btn" id="copyLinkBtn">copy link</button>
+      <button type="button" class="share-btn" id="shareXBtn">share on X</button>
+    </div>
+  </div>
+
+  <h2>How to use</h2>
+  <ol class="muted">
+    <li>Drop or paste a v3 source map (the JSON <code>.map</code> from your build). Nothing is uploaded.</li>
+    <li>Paste the production stack (V8/Node <code>at …</code> or Firefox <code>fn@file:line:col</code>).</li>
+    <li>Hit Remap. Copy the rewritten stack or the JSON.</li>
+  </ol>
+
+  <div>
+    <div class="label-row">
+      <label for="mapInput">Source map (.map JSON)</label>
+      <button type="button" class="linkish" id="loadSampleBtn">load sample</button>
+    </div>
+    <div class="drop" id="mapDrop">
+      <label for="mapFile" class="sr-only">Choose a .map file</label>
+      <input type="file" id="mapFile" accept=".map,.json,.txt,.js,application/json">
+      <p class="muted" style="margin:0.4rem 0 0;font-size:0.8rem;">or drop a file here · also accepts a JS file with a <code>sourceMappingURL=data:…base64</code> comment</p>
+    </div>
+    <textarea id="mapInput" spellcheck="false" aria-describedby="mapHint" placeholder='{"version":3,"file":"app.min.js","sources":["src/app.ts"],"mappings":"…"}'></textarea>
+    <p id="mapHint" class="muted" style="font-size:0.8rem;">Map stays in this tab. If it contains <code>sourcesContent</code>, that is your original source — treat it like source code, not a secret-free artifact.</p>
+    <p id="mapMeta" class="ok-msg" hidden></p>
+  </div>
+
+  <div style="margin-top:1.1rem;">
+    <label for="stackInput">Stack trace</label>
+    <textarea id="stackInput" spellcheck="false" placeholder="Error: boom: world
+    at greet (https://cdn.example.com/assets/app.min.js:1:19)
+    at https://cdn.example.com/assets/app.min.js:1:47"></textarea>
+  </div>
+
+  <div class="btn-row">
+    <button type="button" class="primary" id="remapBtn">Remap</button>
+    <button type="button" class="secondary" id="clearBtn">Clear</button>
+  </div>
+
+  <div id="errorBox" class="error-msg" hidden role="alert"></div>
+
+  <div id="results" hidden>
+    <div class="saved-readout" aria-live="polite">
+      <span class="big-num" id="savedNum">0s</span> saved on this remap
+      <span class="assumption" id="savedAssume">assumption: est. 45s per remapped frame to match a generated line:col against a raw mappings string by hand — not a published study</span>
+    </div>
+
+    <h2>Remapped stack</h2>
+    <div class="output-box">
+      <button type="button" class="copy-btn" data-copy="remappedStack">copy</button>
+      <pre id="remappedStack"></pre>
+    </div>
+
+    <h2>Frames</h2>
+    <div id="frameList"></div>
+
+    <div class="btn-row">
+      <button type="button" class="secondary" id="copyJsonBtn">copy JSON</button>
+      <button type="button" class="secondary" id="downloadJsonBtn">download JSON</button>
+    </div>
+    <div class="output-box">
+      <pre id="jsonOut"></pre>
+    </div>
+  </div>
+
+  <h2>Import another tool’s JSON</h2>
+  <label for="importBox">Paste <code>{"zcac":true,"kind":"…"}</code></label>
+  <textarea id="importBox" style="min-height:90px;" spellcheck="false" placeholder='{"zcac":true,"kind":"sourcemap-remap","data":{…}}'></textarea>
+  <div class="btn-row">
+    <button type="button" class="secondary" id="importBtn">Import</button>
+  </div>
+  <p id="importMsg" class="ok-msg" hidden></p>
+
+  <h2>What breaks</h2>
+  <ul class="muted">
+    <li>Index maps whose sections only have a <code>url</code> (not an inline <code>map</code>) — this page does not fetch.</li>
+    <li>Very large maps (tens of MB) can stall the tab while VLQ-decoding <code>mappings</code>.</li>
+    <li>Frames without a column (<code>at foo (file.js:12)</code>) are not parsed — V8/Firefox stacks almost always include one.</li>
+    <li>One-field mapping segments are unmapped generated code; they stay as-is.</li>
+    <li>No <code>sourcesContent</code> means you get a path but no snippet.</li>
+  </ul>
+
+  <footer>
+    free-tier claim: none to exceed — decode is local JS.
+    format verified 2026-08-15 against
+    <a href="https://tc39.es/ecma426/2024/" rel="noopener">tc39.es/ecma426/2024</a>
+    (Source Map format, Stage 4; VLQ examples <code>iB=17</code>, <code>V=-10</code>).
+    Sentry Team price verified at
+    <a href="https://sentry.io/pricing/" rel="noopener">sentry.io/pricing</a>.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var ALPHA_INDEX = {};
+  for (var ai = 0; ai < ALPHA.length; ai++) ALPHA_INDEX[ALPHA[ai]] = ai;
+
+  var SEC_PER_FRAME = 45;
+  var lastExport = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function decodeVLQ(str, pos) {
+    var result = 0, shift = 0, first = true, sign = 0, cont;
+    do {
+      if (pos.i >= str.length) throw new Error("truncated VLQ");
+      var idx = ALPHA_INDEX[str[pos.i++]];
+      if (idx === undefined) throw new Error("invalid VLQ character");
+      cont = idx & 32;
+      var payload = idx & 31;
+      if (first) {
+        sign = payload & 1;
+        result = payload >> 1;
+        shift = 4;
+        first = false;
+      } else {
+        result += payload << shift;
+        shift += 5;
+      }
+    } while (cont);
+    return sign ? -result : result;
+  }
+
+  function encodeVLQ(n) {
+    var v = n < 0 ? ((-n) << 1) | 1 : (n << 1);
+    var out = "";
+    do {
+      var digit = v & 31;
+      v >>>= 5;
+      if (v > 0) digit |= 32;
+      out += ALPHA[digit];
+    } while (v > 0);
+    return out;
+  }
+
+  function decodeMappingsString(mappings) {
+    var lines = String(mappings).split(";");
+    var src = 0, ol = 0, oc = 0, nm = 0;
+    var byLine = new Map();
+    var count = 0;
+    for (var gl = 0; gl < lines.length; gl++) {
+      var group = lines[gl];
+      if (!group) continue;
+      var gc = 0;
+      var segs = [];
+      var parts = group.split(",");
+      for (var p = 0; p < parts.length; p++) {
+        var seg = parts[p];
+        if (!seg) continue;
+        var pos = { i: 0 };
+        var fields = [];
+        while (pos.i < seg.length) fields.push(decodeVLQ(seg, pos));
+        gc += fields[0];
+        var rec = { generatedLine: gl, generatedColumn: gc };
+        if (fields.length >= 4) {
+          src += fields[1];
+          ol += fields[2];
+          oc += fields[3];
+          rec.sourceIndex = src;
+          rec.originalLine = ol;
+          rec.originalColumn = oc;
+          if (fields.length >= 5) {
+            nm += fields[4];
+            rec.nameIndex = nm;
+          }
+        }
+        segs.push(rec);
+        count++;
+      }
+      byLine.set(gl, segs);
+    }
+    return { byLine: byLine, count: count };
+  }
+
+  function resolveSource(sourceRoot, source) {
+    if (source == null || source === "") return source;
+    if (!sourceRoot) return source;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(source) || source.charAt(0) === "/") return source;
+    return String(sourceRoot).replace(/\/?$/, "/") + String(source).replace(/^\//, "");
+  }
+
+  function lookupSeg(byLine, gl, gc) {
+    var segs = byLine.get(gl);
+    if (!segs || !segs.length) return null;
+    var lo = 0, hi = segs.length - 1, best = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (segs[mid].generatedColumn <= gc) { best = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    return best < 0 ? null : segs[best];
+  }
+
+  function buildSimpleConsumer(map) {
+    var decoded = decodeMappingsString(map.mappings || "");
+    var sources = map.sources || [];
+    var names = map.names || [];
+    var contents = map.sourcesContent || [];
+    var ignore = {};
+    var ig = map.ignoreList || map.x_google_ignoreList || [];
+    for (var i = 0; i < ig.length; i++) ignore[ig[i]] = true;
+    var sourceRoot = map.sourceRoot || "";
+
+    return {
+      file: map.file || "",
+      segmentCount: decoded.count,
+      sources: sources,
+      originalPositionFor: function (line1, col1) {
+        var gl = Math.max(0, (line1 || 1) - 1);
+        var gc = Math.max(0, (col1 == null ? 1 : col1) - 1);
+        var seg = lookupSeg(decoded.byLine, gl, gc);
+        if (!seg) return null;
+        if (seg.sourceIndex == null) return { unmapped: true };
+        var src = sources[seg.sourceIndex];
+        if (src == null) return { unmapped: true };
+        var name = (seg.nameIndex != null) ? names[seg.nameIndex] : null;
+        return {
+          source: resolveSource(sourceRoot, src),
+          line: seg.originalLine + 1,
+          column: seg.originalColumn + 1,
+          name: name || null,
+          sourceIndex: seg.sourceIndex,
+          ignored: !!ignore[seg.sourceIndex],
+          snippet: snippetFor(contents[seg.sourceIndex], seg.originalLine)
+        };
+      }
+    };
+  }
+
+  function snippetFor(content, origLine0) {
+    if (typeof content !== "string") return null;
+    var lines = content.split(/\r?\n/);
+    var i = origLine0;
+    if (i < 0 || i >= lines.length) return { lines: [], current: i };
+    var start = Math.max(0, i - 2);
+    var end = Math.min(lines.length, i + 3);
+    var out = [];
+    for (var n = start; n < end; n++) {
+      out.push({ n: n + 1, text: lines[n], current: n === i });
+    }
+    return { lines: out, current: i + 1 };
+  }
+
+  function buildConsumer(map) {
+    if (map && Array.isArray(map.sections)) {
+      var sections = [];
+      for (var s = 0; s < map.sections.length; s++) {
+        var sec = map.sections[s];
+        if (!sec || !sec.map) {
+          throw new Error("index map section " + s + " has no inline map (url-only sections are not fetched)");
+        }
+        var off = sec.offset || { line: 0, column: 0 };
+        sections.push({
+          line: off.line || 0,
+          column: off.column || 0,
+          consumer: buildSimpleConsumer(sec.map)
+        });
+      }
+      var total = 0;
+      var allSources = [];
+      for (var t = 0; t < sections.length; t++) {
+        total += sections[t].consumer.segmentCount;
+        allSources = allSources.concat(sections[t].consumer.sources || []);
+      }
+      return {
+        file: map.file || "",
+        segmentCount: total,
+        sources: allSources,
+        originalPositionFor: function (line1, col1) {
+          var gl = Math.max(0, (line1 || 1) - 1);
+          var gc = Math.max(0, (col1 == null ? 1 : col1) - 1);
+          var chosen = null;
+          for (var i = 0; i < sections.length; i++) {
+            var sec = sections[i];
+            if (sec.line < gl || (sec.line === gl && sec.column <= gc)) chosen = sec;
+            else break;
+          }
+          if (!chosen) return null;
+          var relLine = gl - chosen.line;
+          var relCol = (gl === chosen.line) ? (gc - chosen.column) : gc;
+          return chosen.consumer.originalPositionFor(relLine + 1, relCol + 1);
+        }
+      };
+    }
+    return buildSimpleConsumer(map);
+  }
+
+  function extractMapFromText(text) {
+    if (!text || !String(text).trim()) throw new Error("source map is empty");
+    var raw = String(text).replace(/^\uFEFF/, "");
+    var dataUri = raw.match(/sourceMappingURL\s*=\s*data:application\/json(?:;charset=[^;,]+)?;base64,([A-Za-z0-9+/=\s]+)/i);
+    if (dataUri) {
+      raw = atob(dataUri[1].replace(/\s+/g, ""));
+    }
+    raw = raw.replace(/^\)\]\}['"]?\s*/, "");
+    var obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (e) {
+      throw new Error("source map is not valid JSON");
+    }
+    if (!obj || typeof obj !== "object") throw new Error("source map JSON is not an object");
+    if (obj.mappings == null && !Array.isArray(obj.sections)) {
+      throw new Error("JSON has no mappings or sections — not a v3 source map");
+    }
+    if (obj.version != null && obj.version !== 3) {
+      throw new Error("unsupported source map version " + obj.version + " (need 3)");
+    }
+    return obj;
+  }
+
+  function parseFrameLine(line) {
+    var s = line.replace(/\s+$/, "");
+    var m = s.match(/^\s*at\s+(?:async\s+)?(\S.+?)\s+\((.+):(\d+):(\d+)\)$/);
+    if (m && m[2] !== "native") {
+      return { func: m[1], file: m[2], line: +m[3], column: +m[4], raw: s.trim(), indent: line.match(/^\s*/)[0] };
+    }
+    m = s.match(/^\s*at\s+(.+):(\d+):(\d+)$/);
+    if (m) {
+      return { func: null, file: m[1], line: +m[2], column: +m[3], raw: s.trim(), indent: line.match(/^\s*/)[0] };
+    }
+    m = s.match(/^(.*)@(.+):(\d+):(\d+)$/);
+    if (m) {
+      return { func: m[1] || null, file: m[2], line: +m[3], column: +m[4], raw: s.trim(), indent: line.match(/^\s*/)[0] };
+    }
+    m = s.trim().match(/^(\S+):(\d+):(\d+)$/);
+    if (m) {
+      return { func: null, file: m[1], line: +m[2], column: +m[3], raw: s.trim(), indent: line.match(/^\s*/)[0] };
+    }
+    return null;
+  }
+
+  function parseStack(text) {
+    var lines = String(text).replace(/\r\n/g, "\n").split("\n");
+    var frames = [];
+    for (var i = 0; i < lines.length; i++) {
+      var f = parseFrameLine(lines[i]);
+      if (f) frames.push(f);
+    }
+    return { lines: lines, frames: frames };
+  }
+
+  function formatFrameLine(frame, orig) {
+    var indent = frame.indent || "    ";
+    var loc = orig.source + ":" + orig.line + ":" + orig.column;
+    var fn = orig.name || frame.func;
+    if (fn) return indent + "at " + fn + " (" + loc + ")";
+    return indent + "at " + loc;
+  }
+
+  function showError(msg) {
+    var box = $("errorBox");
+    if (!msg) { box.hidden = true; box.textContent = ""; return; }
+    box.hidden = false;
+    box.textContent = msg;
+  }
+
+  function formatDuration(sec) {
+    if (sec < 60) return sec + "s";
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return s ? (m + "m " + s + "s") : (m + "m");
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderSnippet(sn) {
+    if (!sn || !sn.lines || !sn.lines.length) return "";
+    var html = '<div class="snippet" aria-label="original source excerpt">';
+    for (var i = 0; i < sn.lines.length; i++) {
+      var L = sn.lines[i];
+      var cls = L.current ? ' class="cur"' : "";
+      html += "<div" + cls + "><span class=\"ln\">" + L.n + "</span>" + escapeHtml(L.text) + "</div>";
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function setMapMeta(consumer, elapsedMs) {
+    var el = $("mapMeta");
+    el.hidden = false;
+    var srcCount = (consumer.sources || []).length;
+    el.textContent = "decoded " + consumer.segmentCount.toLocaleString() + " segments · " +
+      srcCount + " original file" + (srcCount === 1 ? "" : "s") +
+      (consumer.file ? " · file=" + consumer.file : "") +
+      " · " + elapsedMs + "ms";
+  }
+
+  function runRemap() {
+    showError("");
+    $("importMsg").hidden = true;
+    var mapText = $("mapInput").value;
+    var stackText = $("stackInput").value;
+    if (!stackText.trim()) {
+      showError("paste a stack trace");
+      $("results").hidden = true;
+      return;
+    }
+    var map, consumer, t0, t1;
+    try {
+      t0 = performance.now();
+      map = extractMapFromText(mapText);
+      consumer = buildConsumer(map);
+      t1 = performance.now();
+    } catch (e) {
+      showError(e.message || String(e));
+      $("results").hidden = true;
+      return;
+    }
+    setMapMeta(consumer, Math.round(t1 - t0));
+
+    var parsed = parseStack(stackText);
+    if (!parsed.frames.length) {
+      showError("no stack frames found (need V8 `at file:line:col`, Firefox `fn@file:line:col`, or bare file:line:col)");
+      $("results").hidden = true;
+      return;
+    }
+
+    var mapped = 0, unmapped = 0;
+    var outLines = parsed.lines.slice();
+    var frameViews = [];
+
+    for (var i = 0; i < parsed.lines.length; i++) {
+      var fr = parseFrameLine(parsed.lines[i]);
+      if (!fr) continue;
+      var orig = consumer.originalPositionFor(fr.line, fr.column);
+      var view = {
+        raw: fr.raw,
+        func: fr.func,
+        generated: { file: fr.file, line: fr.line, column: fr.column },
+        original: null
+      };
+      if (orig && !orig.unmapped && orig.source) {
+        mapped++;
+        view.original = {
+          source: orig.source,
+          line: orig.line,
+          column: orig.column,
+          name: orig.name,
+          ignored: orig.ignored,
+          snippet: orig.snippet
+        };
+        outLines[i] = formatFrameLine(fr, orig);
+      } else {
+        unmapped++;
+      }
+      frameViews.push(view);
+    }
+
+    var remapped = outLines.join("\n");
+    $("remappedStack").textContent = remapped;
+
+    var list = $("frameList");
+    list.innerHTML = "";
+    for (var f = 0; f < frameViews.length; f++) {
+      var v = frameViews[f];
+      var div = document.createElement("div");
+      div.className = "frame" + (v.original ? "" : " unmapped");
+      var gen = escapeHtml((v.func ? v.func + " · " : "") + v.generated.file + ":" + v.generated.line + ":" + v.generated.column);
+      if (v.original) {
+        var o = v.original;
+        div.innerHTML =
+          '<div class="gen">generated ' + gen + "</div>" +
+          '<div class="orig">original ' + escapeHtml((o.name ? o.name + " · " : "") + o.source + ":" + o.line + ":" + o.column) + "</div>" +
+          (o.ignored ? '<div class="third">on ignoreList (third-party)</div>' : "") +
+          renderSnippet(o.snippet);
+      } else {
+        div.innerHTML = '<div class="gen">unmapped ' + gen + "</div>";
+      }
+      list.appendChild(div);
+    }
+
+    var savedSec = mapped * SEC_PER_FRAME;
+    $("savedNum").textContent = formatDuration(savedSec);
+    $("savedAssume").textContent =
+      "assumption: est. " + SEC_PER_FRAME + "s per remapped frame to match a generated line:col against a raw mappings string by hand — not a published study · " +
+      mapped + " remapped, " + unmapped + " unmapped";
+
+    lastExport = {
+      zcac: true,
+      kind: "sourcemap-remap",
+      data: {
+        generatedFile: consumer.file || null,
+        mapped: mapped,
+        unmapped: unmapped,
+        stack: stackText,
+        remapped: remapped,
+        frames: frameViews.map(function (v) {
+          return {
+            raw: v.raw,
+            func: v.func,
+            generated: v.generated,
+            original: v.original ? {
+              source: v.original.source,
+              line: v.original.line,
+              column: v.original.column,
+              name: v.original.name,
+              ignored: v.original.ignored
+            } : null
+          };
+        })
+      }
+    };
+    $("jsonOut").textContent = JSON.stringify(lastExport, null, 2);
+    $("results").hidden = false;
+  }
+
+  function buildSample() {
+    var original = [
+      "export function greet(name) {",
+      "  throw new Error(\"boom: \" + name);",
+      "}",
+      "greet(\"world\");"
+    ].join("\n");
+    var map = {
+      version: 3,
+      file: "app.min.js",
+      sources: ["src/app.ts"],
+      names: ["greet"],
+      sourcesContent: [original],
+      mappings: "AAAAA,kBACE,4BAEF"
+    };
+    $("mapInput").value = JSON.stringify(map, null, 2);
+    $("stackInput").value = [
+      "Error: boom: world",
+      "    at greet (https://cdn.example.com/assets/app.min.js:1:19)",
+      "    at https://cdn.example.com/assets/app.min.js:1:47"
+    ].join("\n");
+  }
+
+  function readFile(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result || "")); };
+      r.onerror = function () { reject(new Error("could not read file")); };
+      r.readAsText(file);
+    });
+  }
+
+  function applyImported(obj) {
+    if (!obj || obj.zcac !== true || !obj.kind) {
+      throw new Error("not recognized — need {\"zcac\":true,\"kind\":\"…\"}");
+    }
+    if (obj.kind !== "sourcemap-remap") {
+      throw new Error("not recognized — this tool accepts kind \"sourcemap-remap\", got \"" + obj.kind + "\"");
+    }
+    var data = obj.data || {};
+    if (data.stack) $("stackInput").value = data.stack;
+    if (data.map) $("mapInput").value = typeof data.map === "string" ? data.map : JSON.stringify(data.map, null, 2);
+    if (data.stack) runRemap();
+    else if (Array.isArray(data.frames) && data.remapped) {
+      $("remappedStack").textContent = data.remapped;
+      $("jsonOut").textContent = JSON.stringify(obj, null, 2);
+      lastExport = obj;
+      $("results").hidden = false;
+    }
+  }
+
+  function copyText(text, btn) {
+    function done() {
+      if (!btn) return;
+      var prev = btn.textContent;
+      btn.textContent = "copied";
+      setTimeout(function () { btn.textContent = prev; }, 1200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        fallbackCopy(text); done();
+      });
+    } else {
+      fallbackCopy(text); done();
+    }
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  /* theme */
+  var themeToggle = $("themeToggle");
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    themeToggle.textContent = t === "light" ? "◐ dark" : "◑ light";
+  }
+  var savedTheme = localStorage.getItem("zca-theme");
+  if (!savedTheme && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+    savedTheme = "light";
+  }
+  applyTheme(savedTheme || "dark");
+  themeToggle.addEventListener("click", function () {
+    var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+    applyTheme(next);
+    localStorage.setItem("zca-theme", next);
+  });
+
+  $("remapBtn").addEventListener("click", runRemap);
+  $("clearBtn").addEventListener("click", function () {
+    $("mapInput").value = "";
+    $("stackInput").value = "";
+    $("importBox").value = "";
+    $("results").hidden = true;
+    $("mapMeta").hidden = true;
+    showError("");
+    lastExport = null;
+  });
+  $("loadSampleBtn").addEventListener("click", function () {
+    buildSample();
+    runRemap();
+  });
+
+  $("mapFile").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    readFile(file).then(function (text) {
+      $("mapInput").value = text;
+      showError("");
+    }).catch(function (err) { showError(err.message); });
+  });
+
+  var drop = $("mapDrop");
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) {
+      e.preventDefault();
+      drop.classList.add("dragover");
+    });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) {
+      e.preventDefault();
+      drop.classList.remove("dragover");
+    });
+  });
+  drop.addEventListener("drop", function (e) {
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    readFile(file).then(function (text) {
+      $("mapInput").value = text;
+      showError("");
+    }).catch(function (err) { showError(err.message); });
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-copy]");
+    if (!btn) return;
+    var id = btn.getAttribute("data-copy");
+    var el = $(id);
+    if (el) copyText(el.textContent, btn);
+  });
+
+  $("copyJsonBtn").addEventListener("click", function () {
+    if (lastExport) copyText(JSON.stringify(lastExport, null, 2), $("copyJsonBtn"));
+  });
+  $("downloadJsonBtn").addEventListener("click", function () {
+    if (!lastExport) return;
+    var blob = new Blob([JSON.stringify(lastExport, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "sourcemap-remap.json";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+
+  $("importBtn").addEventListener("click", function () {
+    $("importMsg").hidden = true;
+    showError("");
+    var raw = $("importBox").value.trim();
+    if (!raw) { showError("paste JSON to import"); return; }
+    var obj;
+    try { obj = JSON.parse(raw); }
+    catch (e) { showError("import is not valid JSON"); return; }
+    try {
+      applyImported(obj);
+      var msg = $("importMsg");
+      msg.hidden = false;
+      msg.textContent = "imported kind=sourcemap-remap";
+    } catch (e) {
+      showError(e.message || String(e));
+    }
+  });
+
+  $("copyLinkBtn").addEventListener("click", function () {
+    copyText(location.href, $("copyLinkBtn"));
+  });
+  $("shareXBtn").addEventListener("click", function () {
+    var url = "https://twitter.com/intent/tweet?text=" +
+      encodeURIComponent("Source Map Stack Remapper — remap a minified stack in the browser, no API") +
+      "&url=" + encodeURIComponent(location.href);
+    window.open(url, "_blank", "noopener");
+  });
+
+  // Expose for the execution-check harness (no-op in the browser).
+  window.__SM = {
+    decodeVLQ: decodeVLQ,
+    encodeVLQ: encodeVLQ,
+    extractMapFromText: extractMapFromText,
+    buildConsumer: buildConsumer,
+    parseStack: parseStack,
+    parseFrameLine: parseFrameLine,
+    formatFrameLine: formatFrameLine,
+    runRemap: runRemap,
+    buildSample: buildSample
+  };
+})();
+</script>
+</body>
+</html>
