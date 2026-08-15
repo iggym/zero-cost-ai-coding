@@ -42,5 +42,28 @@
   "reading_time_minutes": 3,
   "pinned": false,
   "verified": "2025-11-18"
+},{
+  "id": "1043",
+  "slug": "turn-raw-server-logs-into-triage-reports",
+  "title": "Turn Raw Server Error Logs Into Actionable Triage Reports",
+  "hook": "Parse messy server logs and crash reports entirely client-side in your browser, clustering error signatures into triage tickets at zero cost.",
+  "path": "tools/turn-raw-server-logs-into-triage-reports.html",
+  "date": "2026-01-24",
+  "status": "published",
+  "format": "tool",
+  "category": "logs",
+  "solution_mode": "browser-native",
+  "waste_source": "Raw server error logs and unread daemon outputs",
+  "free_ai_mechanism": "Client-side heuristic regex tokenization and frequency clustering engine",
+  "free_infra": ["GitHub Pages"],
+  "ladder_tier": "T0",
+  "stack_weakest_link": null,
+  "asymmetry_note": "Enterprise APM platforms charge for centralized ingestion pipelines; client-side execution bypasses server infrastructure costs entirely.",
+  "source_urls": ["https://pages.github.com/"],
+  "tags": ["logs", "telemetry", "browser-native", "triage", "zero-cost"],
+  "reading_time_minutes": 3,
+  "pinned": false,
+  "verified": "2026-01-24"
 }
+
 ]
