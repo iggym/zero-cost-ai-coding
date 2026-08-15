@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zero-Cost Favicon & PWA Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-alt: #161b22;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #2ea043;
+    --border: #30363d;
+    --code-bg: #161b22;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff;
+    --bg-alt: #f6f8fa;
+    --text: #24292f;
+    --text-muted: #57606a;
+    --accent: #1a7f37;
+    --border: #d0d7de;
+    --code-bg: #f6f8fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding-top: 60px;
+  }
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 50px;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+  }
+  .topbar a, .topbar span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .theme-toggle {
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+  h1, h2, h3 {
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.3;
+  }
+  h1 { font-size: 2rem; margin-bottom: 10px; }
+  h2 { font-size: 1.2rem; margin: 30px 0 10px; color: var(--text-muted); }
+  h3 { font-size: 1rem; margin-bottom: 10px; color: var(--text-muted); }
+  .pitch { margin-bottom: 30px; }
+  .pitch p { margin-bottom: 15px; }
+  .accent { color: var(--accent); }
+  .share-btns { margin: 20px 0; display: flex; gap: 10px; }
+  .btn {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    background: var(--bg-alt);
+    transition: background 0.2s;
+  }
+  .btn:hover { background: var(--border); }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { filter: brightness(1.1); background: var(--accent); }
+  .tool-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    background: var(--bg-alt);
+    margin-bottom: 20px;
+  }
+  input[type="file"] { margin-bottom: 15px; color: var(--text-muted); }
+  .preview-img {
+    max-width: 100px;
+    max-height: 100px;
+    border: 1px dashed var(--border);
+    padding: 5px;
+    margin-bottom: 15px;
+    display: none;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 15px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status {
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">Home</a>
+  <div style="display:flex; gap:15px; align-items:center;">
+    <span>Favicon & PWA Gen</span>
+    <button class="theme-toggle" onclick="toggleTheme()">Theme</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="pitch">
+    <h1>Zero-Cost Favicon & PWA Generator</h1>
+    <p>
+      <span class="accent">Pitch:</span> Generate all standard favicon and PWA icon sizes (including a real <code>.ico</code> file) from one image directly in your browser. 100% client-side, no upload limits, no API caps.
+    </p>
+    <p style="font-size: 12px; color: var(--text-muted); border-left: 2px solid var(--accent); padding-left: 10px; margin-bottom: 20px;">
+      <strong>Limit:</strong> 100% client-side. No API caps or server limits. Your image never leaves your browser.
+    </p>
+    <div class="share-btns">
+      <a class="btn" href="https://twitter.com/intent/tweet?text=Zero-cost%20Favicon%20%26%20PWA%20Generator%20-%20100%25%20client-side&url=https://iggym.github.io/zero-cost-ai-coding/" target="_blank">Share on X</a>
+      <button class="btn" onclick="copyLink()">Copy Link</button>
+    </div>
+    
+    <h2>What it replaces</h2>
+    <p>Paid or ad-heavy favicon generators that require uploading your assets to their servers, or manually resizing images in Photoshop and hand-writing the manifest.</p>
+    
+    <h2>How to use it</h2>
+    <p>1. Select a PNG, JPG, or SVG source image (square works best).<br>
+    2. Click "Generate Assets".<br>
+    3. Download the ZIP containing <code>favicon.ico</code>, PNGs, and <code>site.webmanifest</code>.<br>
+    4. Copy the HTML snippet into your <code>&lt;head&gt;</code>.</p>
+    
+    <h2>What breaks</h2>
+    <p>Extremely large source images (>5000x5000px) might crash the browser tab due to memory limits. Keep your source image reasonably sized (e.g., 512x512 or 1024x1024).</p>
+  </div>
+
+  <div class="tool-box">
+    <h3>Upload Source Image</h3><br>
+    <input type="file" id="fileInput" accept="image/png, image/jpeg, image/svg+xml">
+    <br>
+    <img id="preview" class="preview-img" alt="Preview">
+    <br>
+    <button class="btn btn-primary" id="generateBtn" disabled>Generate Assets</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="tool-box" id="results" style="display:none;">
+    <h3>HTML Snippet (paste in &lt;head&gt;)</h3><br>
+    <pre><code id="htmlSnippet"></code><button class="copy-btn" onclick="copyCode('htmlSnippet')">Copy</button></pre>
+    <br>
+    <button class="btn btn-primary" id="downloadBtn">Download .zip</button>
+  </div>
+
+  <footer>
+    <p>Verified free: Runs entirely in your browser using the Canvas API and pure JavaScript for .ico packing. No external API limits. <br>Source: <a href="https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API" target="_blank" style="color:var(--accent)">MDN Canvas API</a> & <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Typed_arrays" target="_blank" style="color:var(--accent)">MDN Typed Arrays</a></p>
+  </footer>
+</div>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const generateBtn = document.getElementById('generateBtn');
+  const preview = document.getElementById('preview');
+  const status = document.getElementById('status');
+  const results = document.getElementById('results');
+  const downloadBtn = document.getElementById('downloadBtn');
+  
+  let sourceImg = null;
+  let zipBlobUrl = null;
+  
+  function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+  }
+  
+  function copyLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      alert('Link copied!');
+    });
+  }
+  
+  function copyCode(id) {
+    const text = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Copied!');
+    });
+  }
+  
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      preview.src = event.target.result;
+      preview.style.display = 'block';
+      sourceImg = new Image();
+      sourceImg.src = event.target.result;
+      sourceImg.onload = () => {
+        generateBtn.disabled = false;
+        status.innerText = 'Image loaded. Ready to generate.';
+      };
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  function resizeToCanvas(img, size) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
+    // scale and center (cover fit)
+    const scale = Math.max(size / img.width, size / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    return canvas;
+  }
+  
+  function canvasToBlob(canvas) {
+    return new Promise((resolve) => {
+      canvas.toBlob(resolve, 'image/png');
+    });
+  }
+  
+  // Creates a valid .ico file by packing a 32x32 PNG
+  function createIco(pngBlob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const pngData = new Uint8Array(e.target.result);
+        const icoSize = 6 + 16 + pngData.length; // Header + Directory Entry + Image
+        const buffer = new ArrayBuffer(icoSize);
+        const view = new DataView(buffer);
+        
+        // ICONDIR Header
+        view.setUint16(0, 0, true); // Reserved
+        view.setUint16(2, 1, true); // Type (1 = Icon)
+        view.setUint16(4, 1, true); // Count (1 image)
+        
+        // ICONDIRENTRY
+        view.setUint8(6, 32); // Width (0 means 256, but we use 32)
+        view.setUint8(7, 32); // Height
+        view.setUint8(8, 0);  // Color count (0 if >=8bpp)
+        view.setUint8(9, 0);  // Reserved
+        view.setUint16(10, 1, true); // Color planes
+        view.setUint16(12, 32, true); // Bits per pixel
+        view.setUint32(14, pngData.length, true); // Image size
+        view.setUint32(18, 22, true); // Offset to image data (6 + 16)
+        
+        // Append PNG data
+        const icoBytes = new Uint8Array(buffer);
+        icoBytes.set(pngData, 22);
+        
+        resolve(new Blob([buffer], {type: 'image/x-icon'}));
+      };
+      reader.readAsArrayBuffer(pngBlob);
+    });
+  }
+  
+  generateBtn.addEventListener('click', async () => {
+    if (!sourceImg) return;
+    if (typeof JSZip === 'undefined') {
+      status.innerText = 'Error: JSZip library failed to load.';
+      return;
+    }
+    
+    status.innerText = 'Generating...';
+    generateBtn.disabled = true;
+    
+    try {
+      const sizes = [
+        { name: 'favicon-16x16.png', size: 16 },
+        { name: 'favicon-32x32.png', size: 32 },
+        { name: 'apple-touch-icon.png', size: 180 },
+        { name: 'android-chrome-192x192.png', size: 192 },
+        { name: 'android-chrome-512x512.png', size: 512 },
+      ];
+      
+      const zip = new JSZip();
+      
+      // Generate PNGs
+      for (const item of sizes) {
+        const canvas = resizeToCanvas(sourceImg, item.size);
+        const blob = await canvasToBlob(canvas);
+        zip.file(item.name, blob);
+      }
+      
+      // Generate ICO
+      const canvas32 = resizeToCanvas(sourceImg, 32);
+      const png32Blob = await canvasToBlob(canvas32);
+      const icoBlob = await createIco(png32Blob);
+      zip.file('favicon.ico', icoBlob);
+      
+      // Generate Manifest
+      const manifest = {
+        name: '',
+        short_name: '',
+        icons: [
+          { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' }
+        ],
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone'
+      };
+      zip.file('site.webmanifest', JSON.stringify(manifest, null, 2));
+      
+      // Generate HTML Snippet
+      const snippet = `<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">`;
+      
+      document.getElementById('htmlSnippet').textContent = snippet;
+      
+      // Generate ZIP
+      zip.generateAsync({type: 'blob'}).then((content) => {
+        if (zipBlobUrl) URL.revokeObjectURL(zipBlobUrl);
+        zipBlobUrl = URL.createObjectURL(content);
+        downloadBtn.onclick = () => {
+          const a = document.createElement('a');
+          a.href = zipBlobUrl;
+          a.download = 'favicon-assets.zip';
+          a.click();
+        };
+        
+        results.style.display = 'block';
+        status.innerText = 'Done.';
+        generateBtn.disabled = false;
+      });
+      
+    } catch (err) {
+      status.innerText = 'Error: ' + err.message;
+      generateBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
