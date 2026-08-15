@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regex Forge — Free AI Regex Generator + Live Tester</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: #2a2a2a;
+      --text: #e0e0e0;
+      --text-dim: #888;
+      --accent: #00e676;
+      --accent-dim: #00e67633;
+      --danger: #ff5252;
+      --mark-bg: #00e67630;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-body: 'Inter', system-ui, sans-serif;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --surface2: #eeeeee;
+      --border: #d0d0d0;
+      --text: #1a1a1a;
+      --text-dim: #666;
+      --accent: #00c853;
+      --accent-dim: #00c85322;
+      --danger: #d32f2f;
+      --mark-bg: #00c85325;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1.25rem; display: flex; align-items: center; justify-content: space-between;
+      backdrop-filter: blur(8px);
+    }
+    .topbar-left, .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .home-link {
+      font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim);
+      text-decoration: none; padding: 0.25rem 0.5rem; border: 1px solid var(--border);
+      border-radius: 4px; transition: color 0.15s, border-color 0.15s;
+    }
+    .home-link:hover { color: var(--accent); border-color: var(--accent); }
+    .tool-title { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+    .theme-toggle {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.85rem; transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+    main { max-width: 740px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+    .pitch h1 {
+      font-family: var(--font-mono); font-size: 1.65rem; font-weight: 700;
+      letter-spacing: -0.03em; margin-bottom: 0.5rem;
+    }
+    .pitch h1 span { color: var(--accent); }
+    .pitch p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 0.35rem; }
+    .pitch .replaces { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+    .pitch .replaces strong { color: var(--text); }
+    .limit-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 0.72rem;
+      background: var(--accent-dim); color: var(--accent); padding: 0.15rem 0.5rem;
+      border-radius: 3px; margin-top: 0.5rem; margin-bottom: 0.75rem;
+    }
+    .share-row { display: flex; gap: 0.5rem; margin-bottom: 1.75rem; }
+    .share-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.78rem; font-family: var(--font-mono);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .share-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .section-label {
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 0.5rem;
+    }
+
+    .key-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.35rem; }
+    .key-row input {
+      flex: 1; font-family: var(--font-mono); font-size: 0.82rem;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 0.5rem 0.65rem; border-radius: 4px; outline: none; transition: border-color 0.15s;
+    }
+    .key-row input:focus { border-color: var(--accent); }
+    .key-hint { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 1.25rem; line-height: 1.5; }
+    .key-hint a { color: var(--accent); text-decoration: none; }
+    .key-hint a:hover { text-decoration: underline; }
+
+    .desc-area {
+      width: 100%; min-height: 100px; max-height: 300px;
+      font-family: var(--font-body); font-size: 0.88rem; line-height: 1.55;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 0.65rem; border-radius: 4px; resize: vertical; outline: none; transition: border-color 0.15s;
+    }
+    .desc-area:focus { border-color: var(--accent); }
+    .desc-area::placeholder { color: var(--text-dim); }
+
+    .flavor-row { display: flex; gap: 0.4rem; margin-top: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .flavor-btn {
+      font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
+      padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; transition: all 0.15s;
+    }
+    .flavor-btn:hover { color: var(--text); border-color: var(--text-dim); }
+    .flavor-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+    .gen-btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700;
+      background: var(--accent); color: #0a0a0a; border: none;
+      padding: 0.55rem 1.2rem; border-radius: 4px; cursor: pointer; transition: opacity 0.15s;
+    }
+    .gen-btn:hover { opacity: 0.88; }
+    .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .output-box {
+      margin-top: 1.25rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.85rem; position: relative; display: none;
+    }
+    .output-box.visible { display: block; }
+    .pattern-display {
+      font-family: var(--font-mono); font-size: 1rem; font-weight: 700;
+      color: var(--accent); word-break: break-all; margin-bottom: 0.65rem; line-height: 1.45;
+    }
+    .pattern-raw {
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim);
+      word-break: break-all; margin-bottom: 0.65rem;
+    }
+    .explanation-label {
+      font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 0.3rem;
+    }
+    .explanation-text {
+      font-family: var(--font-mono); font-size: 0.78rem; color: var(--text);
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6;
+    }
+    .copy-btn {
+      position: absolute; top: 0.5rem; right: 0.5rem;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim);
+      cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 3px;
+      font-family: var(--font-mono); font-size: 0.68rem; transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+    .error-box {
+      margin-top: 1rem; background: #ff52521a; border: 1px solid var(--danger);
+      border-radius: 4px; padding: 0.6rem 0.75rem; font-size: 0.8rem; color: var(--danger); display: none;
+    }
+    .error-box.visible { display: block; }
+
+    .test-section {
+      margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; display: none;
+    }
+    .test-section.visible { display: block; }
+    .test-area {
+      width: 100%; min-height: 80px; max-height: 250px;
+      font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.55;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 0.65rem; border-radius: 4px; resize: vertical; outline: none; transition: border-color 0.15s;
+    }
+    .test-area:focus { border-color: var(--accent); }
+    .test-area::placeholder { color: var(--text-dim); }
+    .test-result {
+      margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.65rem; white-space: pre-wrap; word-break: break-all; min-height: 2rem;
+    }
+    .test-result mark { background: var(--mark-bg); color: var(--accent); border-radius: 2px; padding: 0 2px; }
+    .match-count {
+      font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); margin-top: 0.35rem;
+    }
+    .match-count strong { color: var(--accent); }
+    .test-error { color: var(--danger); }
+
+    .info-section {
+      margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;
+    }
+    .info-section h2 {
+      font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; margin-bottom: 0.6rem;
+    }
+    .info-section ol, .info-section ul { padding-left: 1.25rem; margin-bottom: 1rem; }
+    .info-section li {
+      font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.35rem; line-height: 1.55;
+    }
+    .info-section li strong { color: var(--text); }
+    .info-section li code {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      background: var(--surface2); padding: 0.1rem 0.35rem; border-radius: 3px;
+    }
+
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid #0a0a0a44; border-top-color: #0a0a0a;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      max-width: 740px; margin: 0 auto; padding: 0 1.25rem 2rem;
+      font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 1rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← zero-cost</a>
+    </div>
+    <div class="topbar-right">
+      <span class="tool-title">regex-forge</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">☀</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="pitch">
+      <h1>Regex <span>Forge</span></h1>
+      <p>Describe what you want to match in plain English, get a working regex with an explanation — then test it live against your own strings.</p>
+      <p class="replaces">Replaces: regex.ai (<strong>paid</strong>), manual regex101 fiddling (<strong>your time</strong>), asking ChatGPT and copying broken patterns</p>
+      <span class="limit-badge">Free: 1,500 requests/day on Gemini — no card needed</span>
+      <div class="share-row">
+        <button class="share-btn" onclick="shareX()">Share on X</button>
+        <button class="share-btn" onclick="copyLink()">Copy link</button>
+      </div>
+    </section>
+
+    <div class="section-label">Gemini API Key</div>
+    <div class="key-row">
+      <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="key-hint">
+      Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> — no credit card. Stored in your browser's localStorage only, sent only to Google's API.
+    </div>
+
+    <div class="section-label">What do you want to match?</div>
+    <textarea class="desc-area" id="descInput" placeholder="e.g., US phone numbers like (555) 123-4567 or 555-123-4567&#10;&#10;e.g., hex color codes like #ff0044 or #0AF&#10;&#10;e.g., ISO 8601 dates in YYYY-MM-DD format"></textarea>
+
+    <div class="section-label">Flavor</div>
+    <div class="flavor-row" id="flavorRow">
+      <button class="flavor-btn active" data-flavor="js">JavaScript</button>
+      <button class="flavor-btn" data-flavor="python">Python</button>
+      <button class="flavor-btn" data-flavor="pcre">PCRE</button>
+      <button class="flavor-btn" data-flavor="go">Go</button>
+    </div>
+
+    <button class="gen-btn" id="genBtn" onclick="generate()">Generate regex</button>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="output-box" id="outputBox">
+      <button class="copy-btn" id="copyBtn" onclick="copyPattern()">Copy</button>
+      <div class="pattern-display" id="patternDisplay"></div>
+      <div class="pattern-raw" id="patternRaw"></div>
+      <div class="explanation-label">Explanation</div>
+      <div class="explanation-text" id="explanationText"></div>
+    </div>
+
+    <div class="test-section" id="testSection">
+      <div class="section-label">Test it live</div>
+      <textarea class="test-area" id="testInput" placeholder="Paste test strings here — one per line or mixed&#10;&#10;e.g., (555) 123-4567&#10;not-a-phone&#10;800-555-0199"></textarea>
+      <div class="test-result" id="testResult"></div>
+      <div class="match-count" id="matchCount"></div>
+    </div>
+
+    <section class="info-section">
+      <h2>How to use</h2>
+      <ol>
+        <li><strong>Get a Gemini API key</strong> — <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>, sign in with Google, click "Create API key". No card.</li>
+        <li><strong>Paste your key</strong> above. It persists in localStorage — come back anytime.</li>
+        <li><strong>Describe the pattern</strong> in plain English. Be specific: "US phone numbers with optional area code parentheses" works better than "phone numbers".</li>
+        <li><strong>Pick a flavor</strong> — this changes how the pattern is formatted for copying (JS literal, Python raw string, etc.). The regex itself is the same.</li>
+        <li><strong>Click Generate</strong>, then <strong>test it</strong> in the live tester below the output.</li>
+      </ol>
+
+      <h2>What breaks</h2>
+      <ul>
+        <li><strong>Rate limit:</strong> 15 req/min, 1,500/day on Gemini free tier. Hit it → wait a minute.</li>
+        <li><strong>LLM regexes aren't perfect:</strong> Always test the output. The pattern may match more or less than you intended. The live tester catches most issues.</li>
+        <li><strong>Flavor limits:</strong> The tester runs JavaScript's RegExp engine. PCRE-specific features (lookbehind before ES2018, atomic groups, recursive patterns) won't test correctly here even if the pattern is valid in Python/PCRE.</li>
+        <li><strong>Vague descriptions:</strong> "match emails" gives you a generic pattern. "match RFC-5322 emails" gives you a different one. Specificity matters.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Free-tier verified against <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" rel="noopener">ai.google.dev/gemini-api/docs/api-key</a> and <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank" rel="noopener">rate limits docs</a>.
+  </footer>
+
+  <script>
+    // Theme
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+    function setTheme(t) {
+      htmlEl.setAttribute('data-theme', t);
+      themeToggle.textContent = t === 'dark' ? '☀' : '☾';
+      localStorage.setItem('rf-theme', t);
+    }
+    const savedTheme = localStorage.getItem('rf-theme');
+    if (savedTheme) setTheme(savedTheme);
+    else if (window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
+    themeToggle.addEventListener('click', () => {
+      setTheme(htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+
+    // API key persistence
+    const apiKeyInput = document.getElementById('apiKey');
+    const savedKey = localStorage.getItem('rf-gemini-key');
+    if (savedKey) apiKeyInput.value = savedKey;
+    apiKeyInput.addEventListener('input', () => {
+      localStorage.setItem('rf-gemini-key', apiKeyInput.value.trim());
+    });
+
+    // Flavor selector
+    let currentFlavor = 'js';
+    const flavorRow = document.getElementById('flavorRow');
+    flavorRow.addEventListener('click', (e) => {
+      const btn = e.target.closest('.flavor-btn');
+      if (!btn) return;
+      flavorRow.querySelectorAll('.flavor-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFlavor = btn.dataset.flavor;
+      // Re-render pattern display if we have one
+      if (lastRawPattern && lastRawFlags !== null) {
+        renderPattern(lastRawPattern, lastRawFlags);
+      }
+    });
+
+    // Share
+    function shareX() {
+      const url = window.location.href;
+      const text = 'Regex Forge — free AI regex generator with live tester, no card needed';
+      window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    }
+    function copyLink() {
+      navigator.clipboard.writeText(window.location.href);
+    }
+
+    // State
+    let lastRawPattern = '';
+    let lastRawFlags = '';
+
+    // DOM refs
+    const genBtn = document.getElementById('genBtn');
+    const descInput = document.getElementById('descInput');
+    const outputBox = document.getElementById('outputBox');
+    const patternDisplay = document.getElementById('patternDisplay');
+    const patternRaw = document.getElementById('patternRaw');
+    const explanationText = document.getElementById('explanationText');
+    const errorBox = document.getElementById('errorBox');
+    const copyBtn = document.getElementById('copyBtn');
+    const testSection = document.getElementById('testSection');
+    const testInput = document.getElementById('testInput');
+    const testResult = document.getElementById('testResult');
+    const matchCount = document.getElementById('matchCount');
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.add('visible');
+    }
+    function hideError() {
+      errorBox.classList.remove('visible');
+    }
+
+    function formatPattern(raw, flags, flavor) {
+      const f = flags || '';
+      switch (flavor) {
+        case 'js': return `/${raw}/${f}`;
+        case 'python': {
+          const flagMap = { i: 're.IGNORECASE', m: 're.MULTILINE', s: 're.DOTALL' };
+          const pyFlags = [...f].map(c => flagMap[c]).filter(Boolean).join(' | ');
+          return pyFlags ? `r"${raw}", ${pyFlags}` : `r"${raw}"`;
+        }
+        case 'pcre': return `/${raw}/${f}`;
+        case 'go': return `regexp.MustCompile(\`${raw}\`)`;
+        default: return `/${raw}/${f}`;
+      }
+    }
+
+    function renderPattern(raw, flags) {
+      patternDisplay.textContent = formatPattern(raw, flags, currentFlavor);
+      patternRaw.textContent = `raw: ${raw}`;
+    }
+
+    // Generate
+    async function generate() {
+      hideError();
+      outputBox.classList.remove('visible');
+      testSection.classList.remove('visible');
+
+      const key = apiKeyInput.value.trim();
+      if (!key) { showError('Paste your Gemini API key first. Get one free at aistudio.google.com/apikey'); return; }
+
+      const desc = descInput.value.trim();
+      if (!desc) { showError('Describe what you want to match first.'); return; }
+
+      genBtn.disabled = true;
+      genBtn.innerHTML = '<span class="spinner"></span> Generating...';
+
+      const prompt = `You are a regular expression expert. Given a natural language description, generate a regex pattern.
+
+Output format — follow this exactly:
+PATTERN: <the raw regex pattern, no delimiters, no slashes>
+FLAGS: <the flags, e.g. gi or just i or empty>
+---
+<Explanation of each part of the regex, line by line. Be concise but clear.>
+
+Rules:
+- The pattern must work and be as simple as possible.
+- Avoid catastrophic backtracking. Prefer non-greedy quantifiers or possessive groups where needed.
+- Prefer character classes over alternation when possible.
+- Default to no flags unless the description implies case-insensitivity (then add i) or multiline matching (then add m).
+- Do not wrap the pattern in slashes or quotes on the PATTERN line.
+- Do not add flags that aren't needed.
+
+Flavor context: ${currentFlavor.toUpperCase()} (but output the raw pattern — formatting is handled elsewhere)
+
+Description:
+ ${desc}`;
+
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+            })
+          }
+        );
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || resp.statusText;
+          if (resp.status === 429) showError('Rate limited — Gemini free tier: 15 req/min. Wait and retry.');
+          else if (resp.status === 400 && errMsg.includes('API_KEY')) showError('Invalid API key. Check it at aistudio.google.com/apikey');
+          else showError(`API error (${resp.status}): ${errMsg}`);
+          genBtn.disabled = false;
+          genBtn.innerHTML = 'Generate regex';
+          return;
+        }
+
+        const data = await resp.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (!text) {
+          const reason = data?.candidates?.[0]?.finishReason;
+          showError(reason === 'SAFETY' ? 'Gemini blocked the response (safety filter). Rephrase your description.' : 'No output generated. Try a different description.');
+          genBtn.disabled = false;
+          genBtn.innerHTML = 'Generate regex';
+          return;
+        }
+
+        // Parse output
+        const lines = text.split('\n');
+        let rawPattern = '';
+        let rawFlags = '';
+        let explanationStart = -1;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.startsWith('PATTERN:')) {
+            rawPattern = line.replace(/^PATTERN:\s*/, '').trim();
+          } else if (line.startsWith('FLAGS:')) {
+            rawFlags = line.replace(/^FLAGS:\s*/, '').trim();
+          } else if (line.trim() === '---') {
+            explanationStart = i + 1;
+            break;
+          }
+        }
+
+        // Fallback: if parsing failed, try to extract pattern from first line
+        if (!rawPattern) {
+          // Try first line as the pattern
+          rawPattern = lines[0].replace(/^\/+|\/+$/g, '').trim();
+          rawFlags = '';
+          explanationStart = 1;
+        }
+
+        const explanation = explanationStart >= 0
+          ? lines.slice(explanationStart).join('\n').trim()
+          : 'No explanation provided.';
+
+        lastRawPattern = rawPattern;
+        lastRawFlags = rawFlags;
+
+        renderPattern(rawPattern, rawFlags);
+        explanationText.textContent = explanation;
+        outputBox.classList.add('visible');
+        testSection.classList.add('visible');
+        copyBtn.textContent = 'Copy';
+        copyBtn.classList.remove('copied');
+
+        // Auto-run test if there's already test text
+        if (testInput.value.trim()) runTest();
+
+      } catch (err) {
+        showError(`Network error: ${err.message}`);
+      }
+
+      genBtn.disabled = false;
+      genBtn.innerHTML = 'Generate regex';
+    }
+
+    // Copy pattern (formatted for current flavor)
+    function copyPattern() {
+      if (!lastRawPattern) return;
+      const text = formatPattern(lastRawPattern, lastRawFlags, currentFlavor);
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = 'Copied';
+        copyBtn.classList.add('copied');
+        setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 1500);
+      });
+    }
+
+    // Live regex tester
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function runTest() {
+      if (!lastRawPattern) return;
+      const testText = testInput.value;
+      if (!testText) {
+        testResult.innerHTML = '';
+        matchCount.textContent = '';
+        return;
+      }
+
+      try {
+        const flags = lastRawFlags.includes('g') ? lastRawFlags : lastRawFlags + 'g';
+        const re = new RegExp(lastRawPattern, flags);
+        const matches = [];
+        let m;
+        while ((m = re.exec(testText)) !== null) {
+          if (m[0].length === 0) { re.lastIndex++; continue; }
+          matches.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+          if (matches.length > 1000) break;
+        }
+
+        if (matches.length === 0) {
+          testResult.innerHTML = escapeHtml(testText);
+          matchCount.innerHTML = '<strong>0</strong> matches';
+          return;
+        }
+
+        let html = '';
+        let lastEnd = 0;
+        for (const m of matches) {
+          html += escapeHtml(testText.slice(lastEnd, m.start));
+          html += `<mark>${escapeHtml(m.text)}</mark>`;
+          lastEnd = m.end;
+        }
+        html += escapeHtml(testText.slice(lastEnd));
+
+        testResult.innerHTML = html;
+        matchCount.innerHTML = `<strong>${matches.length}</strong> match${matches.length !== 1 ? 'es' : ''} found`;
+      } catch (e) {
+        testResult.innerHTML = `<span class="test-error">Invalid regex in JS engine: ${escapeHtml(e.message)}</span>`;
+        matchCount.textContent = '';
+      }
+    }
+
+    testInput.addEventListener('input', runTest);
+
+    // Also re-test when flavor changes (pattern display changes but regex is same — no re-test needed,
+    // but re-render pattern)
+  </script>
+</body>
+</html>
