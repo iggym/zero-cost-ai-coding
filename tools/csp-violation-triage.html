@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSP Violation Triage — Zero-Cost AI Coding</title>
+<meta name="description" content="Paste raw CSP violation reports, get them grouped, extension noise separated out, and a corrected Content-Security-Policy header — entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#111820; --panel2:#0e141b; --line:#1f2b36;
+    --fg:#dbe5ef; --dim:#8ea0b4; --accent:#3ddc84; --accent-dim:#1d7a4a;
+    --warn:#ffb454; --bad:#ff6b6b; --noise:#7c8da3;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --body:"Inter",system-ui,-apple-system,Segoe UI,sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f6; --line:#d5dde5;
+    --fg:#16202b; --dim:#4d6070; --accent:#0f8a4a; --accent-dim:#0f8a4a;
+    --warn:#8a5a00; --bad:#b3261e; --noise:#5d6f80;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-text-size-adjust:100%}
+  a{color:var(--accent)}
+  code,kbd,pre,textarea,.mono{font-family:var(--mono)}
+  h1,h2,h3{font-family:var(--mono);line-height:1.25;letter-spacing:-.01em}
+  h1{font-size:1.6rem;margin:.2rem 0 .6rem}
+  h2{font-size:1.1rem;margin:2rem 0 .6rem;color:var(--fg)}
+  h2::before{content:"# ";color:var(--accent)}
+  h3{font-size:.95rem;margin:1.2rem 0 .4rem}
+  p{margin:.6rem 0}
+  .wrap{max-width:980px;margin:0 auto;padding:0 16px 64px}
+
+  /* top bar */
+  .bar{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--line);
+       display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;flex-wrap:wrap}
+  .bar a.home{font-family:var(--mono);font-size:.85rem;color:var(--accent);text-decoration:none;padding:8px 6px;display:inline-block;min-height:44px;display:inline-flex;align-items:center}
+  .bar a.home:hover{text-decoration:underline}
+  .bar .right{display:flex;align-items:center;gap:10px}
+  .bar .toolname{font-family:var(--mono);font-size:.85rem;color:var(--dim)}
+  button,.btn{font-family:var(--mono);font-size:.82rem;background:var(--panel2);color:var(--fg);
+    border:1px solid var(--line);border-radius:6px;padding:10px 12px;cursor:pointer;min-height:44px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#04140b;border-color:var(--accent);font-weight:700}
+  html[data-theme="light"] button.primary{color:#fff}
+  button.small{min-height:36px;padding:6px 10px;font-size:.75rem}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .pitch{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:18px 0}
+  .limit{font-family:var(--mono);font-size:.82rem;color:var(--accent);border:1px dashed var(--accent-dim);
+         border-radius:6px;padding:8px 10px;margin:12px 0;display:block}
+  .muted{color:var(--dim)}
+  .small{font-size:.85rem}
+
+  textarea{width:100%;min-height:200px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+    border-radius:8px;padding:12px;font-size:.8rem;line-height:1.5;resize:vertical}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;
+      font-size:.78rem;white-space:pre-wrap;word-break:break-word;margin:8px 0}
+
+  .stats{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;flex:1 1 130px}
+  .stat b{font-family:var(--mono);font-size:1.35rem;display:block;color:var(--accent)}
+  .stat span{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--dim)}
+  td.mono{font-family:var(--mono);font-size:.76rem;word-break:break-all}
+  .tblwrap{overflow-x:auto}
+  .tag{font-family:var(--mono);font-size:.68rem;padding:2px 6px;border-radius:4px;border:1px solid var(--line);white-space:nowrap}
+  .t-allow{color:var(--accent);border-color:var(--accent-dim)}
+  .t-fix{color:var(--bad);border-color:var(--bad)}
+  .t-review{color:var(--warn);border-color:var(--warn)}
+  .t-ignore{color:var(--noise)}
+  ol,ul{padding-left:1.2rem}
+  li{margin:.35rem 0}
+  .err{color:var(--bad);font-size:.85rem}
+  .ok{color:var(--accent);font-size:.85rem}
+  footer{border-top:1px solid var(--line);margin-top:36px;padding-top:14px;font-size:.78rem;color:var(--dim)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @media (prefers-reduced-motion:no-preference){button{transition:border-color .12s ease}}
+  @media (max-width:560px){h1{font-size:1.3rem}.stat b{font-size:1.15rem}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a>
+  <div class="right">
+    <button id="theme" class="small" aria-label="Toggle light or dark theme">◐ theme</button>
+    <span class="toolname">CSP Violation Triage</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>CSP Violation Triage</h1>
+
+  <div class="pitch">
+    <p>Paste a pile of raw CSP violation reports — the legacy <code>{"csp-report":{…}}</code> POST body, the
+    Reporting API <code>{"type":"csp-violation","body":{…}}</code> shape, or both mixed — and get them deduplicated
+    into groups, browser-extension noise pulled out separately, and a corrected
+    <code>Content-Security-Policy</code> header built from the <code>original-policy</code> in the reports themselves.
+    Runs entirely in the tab: no upload, no account, no report cap.</p>
+    <div class="row">
+      <button class="small" id="shareX">share on X</button>
+      <button class="small" id="shareLink">copy link</button>
+    </div>
+  </div>
+
+  <span class="limit" id="limitLine">Free-tier limit: none. Parsing and policy generation are plain JavaScript in your browser tab — no API call, no key, no per-report quota. The only ceiling is your device's memory.</span>
+
+  <h2>What it replaces</h2>
+  <p class="small">Hosted CSP report collectors charge by report volume:
+  <a href="https://csper.io/pricing" target="_blank" rel="noopener">Csper</a> Basic is <b>$50/month</b> for 3 sites and 100,000 reports/month (14-day trial, then billed);
+  <a href="https://report-uri.com/pricing" target="_blank" rel="noopener">Report URI</a> Starter is <b>$54.99/month</b> ($659.88/yr) for 1 domain and 100K monthly events.
+  Both prices read off their own pricing pages on 2026-08-15. Those products do things this page does not — a live
+  collection endpoint, retention, alerting. This page only does the part you do at 2am with a JSON blob in your
+  clipboard: group it, throw out the extension noise, and tell you what the policy should say.</p>
+
+  <h2>Paste reports</h2>
+  <p class="small muted">JSON array, a single object, or one object per line (NDJSON). Both report shapes are accepted, mixed freely. The box starts with an example — replace it with yours.</p>
+  <label class="sr" for="input">CSP violation reports JSON</label>
+  <textarea id="input" spellcheck="false" aria-describedby="parsestat"></textarea>
+  <div class="row">
+    <button class="primary" id="run">Triage reports</button>
+    <button id="clear">Clear</button>
+    <button id="loadEx">Load example</button>
+    <span id="parsestat" class="small muted" role="status" aria-live="polite"></span>
+  </div>
+
+  <div id="out" hidden>
+    <div class="stats" id="stats"></div>
+    <p class="small muted" id="costnote"></p>
+
+    <h2>Groups</h2>
+    <div class="tblwrap"><table id="groups">
+      <thead><tr><th>Action</th><th>Directive</th><th>Source / blocked</th><th>Count</th><th>Why</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+
+    <h2>Proposed policy</h2>
+    <p class="small muted" id="policybasis"></p>
+    <pre id="policy" tabindex="0"></pre>
+    <div class="row">
+      <button id="copyPolicy" class="small">Copy header value</button>
+      <button id="copyFull" class="small">Copy full header line</button>
+      <span id="copystat" class="small ok" role="status" aria-live="polite"></span>
+    </div>
+    <div id="changes"></div>
+
+    <h2>Export</h2>
+    <div class="row">
+      <button id="copyJson" class="small">Copy as JSON</button>
+      <button id="dlJson" class="small">Download JSON</button>
+      <span id="expstat" class="small ok" role="status" aria-live="polite"></span>
+    </div>
+    <p class="small muted">Shape: <code>{"zcac":true,"kind":"csp-violation-triage","data":{…}}</code></p>
+  </div>
+
+  <h2>Import a saved triage</h2>
+  <p class="small muted">Paste a <code>csp-violation-triage</code> JSON export (from this tool) to reload it. Anything else is ignored with a message.</p>
+  <label class="sr" for="importBox">Import JSON</label>
+  <textarea id="importBox" style="min-height:90px" spellcheck="false" placeholder='{"zcac":true,"kind":"csp-violation-triage","data":{...}}'></textarea>
+  <div class="row">
+    <button id="doImport" class="small">Import</button>
+    <span id="impstat" class="small" role="status" aria-live="polite"></span>
+  </div>
+
+  <h2>How to use it</h2>
+  <ol class="small">
+    <li>Deploy <code>Content-Security-Policy-Report-Only</code> with a reporting destination so nothing on your site actually breaks while you collect. Reports arrive as JSON POST bodies.</li>
+    <li>Dump the collected bodies into the box above — array, NDJSON, or a single one. Hit <b>Triage reports</b>.</li>
+    <li>Read the groups. <span class="tag t-ignore">ignore</span> rows are browser-extension traffic and shouldn't be added to your policy. <span class="tag t-fix">fix</span> rows are things allowlisting won't solve (mixed content). <span class="tag t-allow">allow</span> rows become source tokens in the generated header.</li>
+    <li>Copy the proposed header, ship it as report-only first, and re-triage the next batch before switching to enforcing.</li>
+  </ol>
+
+  <h2>What breaks</h2>
+  <ul class="small">
+    <li><b>Inline script/style violations can't be auto-fixed here.</b> <code>script-sample</code> is truncated to the first 40 characters by design (per MDN's report-uri docs), so a correct <code>'sha256-…'</code> hash cannot be computed from a report. Those groups are marked <span class="tag t-review">review</span> and suggest a nonce, not a blind <code>'unsafe-inline'</code>.</li>
+    <li><b>Cross-origin <code>blocked-uri</code> values are already truncated by the browser</b> to scheme/host/port when they differ from the document origin, so the generated allowlist is origin-level. If you want path-level sources you have to narrow them by hand.</li>
+    <li><b>If no report carries an <code>original-policy</code></b>, there's nothing to merge into, so the generator starts from <code>default-src 'self'</code> and says so above the output.</li>
+    <li>Chrome reports <code>script-src-elem</code>/<code>style-src-elem</code> even when you wrote <code>script-src</code>. The generator adds sources to whichever directive your original policy actually declares, falling back to the base directive.</li>
+    <li>Everything is in-memory. Reloading the tab loses the input — export the JSON if you want it back.</li>
+  </ul>
+
+  <footer>
+    Free-tier claim verified against the browser platform itself, not a vendor tier —
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-uri" target="_blank" rel="noopener">MDN: CSP report-uri violation report syntax</a>
+    and <a href="https://developer.mozilla.org/en-US/docs/Web/API/CSPViolationReport" target="_blank" rel="noopener">MDN: CSPViolationReport</a>.
+    Paid comparisons read on 2026-08-15 from <a href="https://csper.io/pricing" target="_blank" rel="noopener">csper.io/pricing</a> and <a href="https://report-uri.com/pricing" target="_blank" rel="noopener">report-uri.com/pricing</a>.
+  </footer>
+</div>
+
+<script>
+/* ---- LOGIC START ---- */
+function parseReports(text){
+  const out={reports:[],errors:0};
+  const t=(text||'').trim(); if(!t) return out;
+  const push=(v)=>{
+    if(Array.isArray(v)) v.forEach(push);
+    else if(v && typeof v==='object') out.reports.push(v);
+    else out.errors++;
+  };
+  try{ push(JSON.parse(t)); return out; }catch(e){/* fall through to scanner */}
+  let depth=0,start=-1,inStr=false,esc=false;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(inStr){ if(esc) esc=false; else if(c==='\\') esc=true; else if(c==='"') inStr=false; continue; }
+    if(c==='"'){ inStr=true; continue; }
+    if(c==='{'||c==='['){ if(depth===0) start=i; depth++; }
+    else if(c==='}'||c===']'){
+      depth--;
+      if(depth===0&&start>=0){
+        const chunk=t.slice(start,i+1);
+        try{ push(JSON.parse(chunk)); }catch(e){ out.errors++; }
+        start=-1;
+      }
+      if(depth<0) depth=0;
+    }
+  }
+  if(depth!==0) out.errors++;
+  return out;
+}
+
+function normalize(r){
+  if(!r||typeof r!=='object') return null;
+  let c=null,shape=null,docFallback=null;
+  if(r['csp-report']&&typeof r['csp-report']==='object'){ c=r['csp-report']; shape='report-uri'; }
+  else if(r.type==='csp-violation'&&r.body&&typeof r.body==='object'){ c=r.body; shape='reporting-api'; docFallback=r.url; }
+  else if('blocked-uri' in r||'effective-directive' in r||'violated-directive' in r){ c=r; shape='report-uri'; }
+  else if('blockedURL' in r||'effectiveDirective' in r){ c=r; shape='reporting-api'; }
+  else return null;
+  const pick=(a,b)=>c[a]!==undefined&&c[a]!==null?c[a]:c[b];
+  const n={
+    shape:shape,
+    documentURL: pick('documentURL','document-uri') || docFallback || '',
+    blockedURL: (pick('blockedURL','blocked-uri') || ''),
+    effectiveDirective: (pick('effectiveDirective','effective-directive') || c['violated-directive'] || '').trim(),
+    originalPolicy: pick('originalPolicy','original-policy') || '',
+    disposition: pick('disposition','disposition') || '',
+    sample: pick('sample','script-sample') || '',
+    sourceFile: pick('sourceFile','source-file') || '',
+    lineNumber: pick('lineNumber','line-number'),
+    statusCode: pick('statusCode','status-code')
+  };
+  if(!n.effectiveDirective && !n.blockedURL) return null;
+  if(!n.effectiveDirective) n.effectiveDirective='default-src';
+  return n;
+}
+
+function originOf(u){
+  try{
+    const p=new URL(u);
+    return p.protocol+'//'+p.host;
+  }catch(e){ return null; }
+}
+function schemeOf(u){
+  const m=/^([a-z][a-z0-9+.-]*):/i.exec(u||'');
+  return m?m[1].toLowerCase():null;
+}
+
+const EXT_SCHEMES=['chrome-extension','moz-extension','safari-extension','safari-web-extension','ms-browser-extension','webkit-masked-url','chrome','resource','about'];
+
+// returns {action, token, label, why}
+function classify(n){
+  const b=(n.blockedURL||'').trim();
+  const low=b.toLowerCase();
+  const scheme=schemeOf(b);
+  const dir=n.effectiveDirective;
+
+  // Browsers sometimes send the bare scheme word with no "://" (e.g. "chrome-extension").
+  const bareExt = EXT_SCHEMES.indexOf(low)>=0;
+  if(bareExt || (scheme && EXT_SCHEMES.indexOf(scheme)>=0)){
+    const s = bareExt ? low : scheme;
+    return {action:'ignore',token:null,label:s+':',why:'Browser extension / browser-internal URL. Not your page — allowlisting it would only weaken the policy.'};
+  }
+  if(low==='inline'||low==='inline-script'||low==='inline-style'){
+    const kind=dir.indexOf('style')>=0?'style':'script';
+    return {action:'review',token:"'unsafe-inline'",label:'inline',
+      why:'Inline '+kind+' blocked. Prefer a nonce or hash — the report only carries a 40-char truncated sample, so no hash can be derived here.'};
+  }
+  if(low==='eval'||low==='wasm-eval'||low==='wasm-unsafe-eval'){
+    return {action:'review',token: low==='eval'?"'unsafe-eval'":"'wasm-unsafe-eval'",label:low,
+      why:"Dynamic code evaluation. Adding "+(low==='eval'?"'unsafe-eval'":"'wasm-unsafe-eval'")+' removes a real protection — check whether the calling code can be changed first.'};
+  }
+  if(low==='data'||scheme==='data'){
+    return {action:'review',token:'data:',label:'data:',why:'data: URI source. Broad — data: in script-src is effectively unsafe-inline; in img-src it is usually fine.'};
+  }
+  if(low==='blob'||scheme==='blob'){
+    return {action:'review',token:'blob:',label:'blob:',why:'blob: URL source, commonly from workers or object URLs.'};
+  }
+  if(low==='filesystem'||scheme==='filesystem'){
+    return {action:'review',token:'filesystem:',label:'filesystem:',why:'filesystem: URL source.'};
+  }
+  if(low==='self'){
+    return {action:'allow',token:"'self'",label:"'self'",why:'Same-origin resource blocked by a policy that does not include \'self\' for this directive.'};
+  }
+  if(scheme==='http'||scheme==='https'){
+    const bo=originOf(b), doOrigin=originOf(n.documentURL);
+    if(scheme==='http' && doOrigin && doOrigin.indexOf('https://')===0){
+      return {action:'fix',token:null,label:bo||b,
+        why:'Mixed content: an http:// resource on an https:// page. Allowlisting will not help — browsers block or upgrade this. Fix the URL or add upgrade-insecure-requests.'};
+    }
+    if(bo && doOrigin && bo===doOrigin){
+      return {action:'allow',token:"'self'",label:"'self' ("+bo+')',why:'Same-origin resource blocked; this directive needs \'self\'.'};
+    }
+    return {action:'allow',token:bo||b,label:bo||b,why:'Third-party origin blocked. Add it if you actually depend on it.'};
+  }
+  if(!b){
+    return {action:'review',token:null,label:'(empty)',why:'No blocked URL in the report. Usually an inline violation reported without a sample, or a truncated report.'};
+  }
+  return {action:'review',token:b,label:b,why:'Unrecognised blocked-uri scheme. Inspect before allowlisting.'};
+}
+
+function baseDirective(d){
+  return d.replace(/-(elem|attr)$/,'');
+}
+
+function parsePolicy(s){
+  const map=new Map();
+  if(!s) return map;
+  String(s).split(';').forEach(part=>{
+    const toks=part.trim().split(/\s+/).filter(Boolean);
+    if(!toks.length) return;
+    const name=toks[0].toLowerCase();
+    if(!map.has(name)) map.set(name,toks.slice(1));
+    else map.set(name,map.get(name).concat(toks.slice(1)));
+  });
+  return map;
+}
+const REPORTING=['report-uri','report-to'];
+function serializePolicy(map){
+  const parts=[],tail=[];
+  map.forEach((v,k)=>{
+    const s=v.length?(k+' '+v.join(' ')):k;
+    (REPORTING.indexOf(k)>=0?tail:parts).push(s);
+  });
+  return parts.concat(tail).join('; ');
+}
+
+function triage(text){
+  const parsed=parseReports(text);
+  const groups=new Map();
+  let valid=0, unrecognised=0;
+  let policySrc='';
+  parsed.reports.forEach(raw=>{
+    const n=normalize(raw);
+    if(!n){ unrecognised++; return; }
+    valid++;
+    if(!policySrc && n.originalPolicy) policySrc=n.originalPolicy;
+    const c=classify(n);
+    const key=n.effectiveDirective+'|'+c.label;
+    let g=groups.get(key);
+    if(!g){
+      g={directive:n.effectiveDirective,label:c.label,token:c.token,action:c.action,why:c.why,count:0,samples:[],documents:new Set()};
+      groups.set(key,g);
+    }
+    g.count++;
+    if(n.documentURL) g.documents.add(n.documentURL);
+    if(n.sample && g.samples.length<3 && g.samples.indexOf(n.sample)<0) g.samples.push(n.sample);
+  });
+
+  const list=Array.from(groups.values()).map(g=>({
+    directive:g.directive,label:g.label,token:g.token,action:g.action,why:g.why,
+    count:g.count,samples:g.samples,documents:Array.from(g.documents)
+  }));
+  const rank={fix:0,allow:1,review:2,ignore:3};
+  list.sort((a,b)=> (rank[a.action]-rank[b.action]) || (b.count-a.count) || a.directive.localeCompare(b.directive));
+
+  // build policy
+  const fromScratch = !policySrc;
+  const map = fromScratch ? new Map([["default-src",["'self'"]]]) : parsePolicy(policySrc);
+  const changes=[];
+  list.forEach(g=>{
+    if(g.action!=='allow'||!g.token) return;
+    let target=g.directive, created=false, seeded='';
+    if(!map.has(target)){
+      const base=baseDirective(target);
+      if(map.has(base)) target=base;
+    }
+    if(!map.has(target)){
+      // New directive overrides default-src entirely, so seed it from default-src
+      // or the policy would silently get *looser* than before.
+      const fb=map.get('default-src');
+      map.set(target, fb?fb.slice():[]);
+      created=true;
+      if(fb&&fb.length) seeded='new directive seeded from default-src ('+fb.join(' ')+')';
+    }
+    const cur=map.get(target)||[];
+    if(cur.indexOf(g.token)>=0) return;
+    if(cur.indexOf("*")>=0) return;
+    map.set(target,cur.concat([g.token]));
+    const notes=[];
+    if(target!==g.directive) notes.push('reported as '+g.directive+', merged into declared '+target);
+    if(created&&seeded) notes.push(seeded);
+    changes.push({directive:target,added:g.token,reports:g.count,note:notes.join('; ')});
+  });
+  // strip reporting directives from the rebuilt value? keep them: they're still needed.
+  const header=serializePolicy(map);
+
+  const counts={
+    reports:valid,
+    groups:list.length,
+    parseErrors:parsed.errors,
+    unrecognised:unrecognised,
+    noise:list.filter(g=>g.action==='ignore').reduce((a,g)=>a+g.count,0),
+    actionable:list.filter(g=>g.action==='allow').reduce((a,g)=>a+g.count,0),
+    needsFix:list.filter(g=>g.action==='fix').reduce((a,g)=>a+g.count,0),
+    needsReview:list.filter(g=>g.action==='review').reduce((a,g)=>a+g.count,0)
+  };
+  return {counts:counts,groups:list,policy:{basedOn: fromScratch?null:policySrc, header:header, changes:changes, fromScratch:fromScratch}};
+}
+/* ---- LOGIC END ---- */
+
+if(typeof module!=='undefined'&&module.exports){ module.exports={parseReports,normalize,classify,triage,parsePolicy,serializePolicy}; }
+
+/* ---- UI ---- */
+(function(){
+  if(typeof document==='undefined') return;
+  const $=id=>document.getElementById(id);
+  const EXAMPLE = JSON.stringify([
+    {"csp-report":{"document-uri":"https://shop.example.com/checkout","referrer":"","blocked-uri":"https://fonts.googleapis.com","effective-directive":"style-src-elem","violated-directive":"style-src-elem","original-policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","disposition":"report","status-code":200}},
+    {"csp-report":{"document-uri":"https://shop.example.com/checkout","referrer":"","blocked-uri":"https://fonts.gstatic.com","effective-directive":"font-src","violated-directive":"font-src","original-policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","disposition":"report","status-code":200}},
+    {"csp-report":{"document-uri":"https://shop.example.com/cart","referrer":"","blocked-uri":"https://fonts.googleapis.com","effective-directive":"style-src-elem","violated-directive":"style-src-elem","original-policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","disposition":"report","status-code":200}},
+    {"csp-report":{"document-uri":"https://shop.example.com/cart","referrer":"","blocked-uri":"chrome-extension","effective-directive":"script-src-elem","violated-directive":"script-src-elem","original-policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","disposition":"report","status-code":200}},
+    {"csp-report":{"document-uri":"https://shop.example.com/cart","referrer":"","blocked-uri":"moz-extension://8b1a2c/contentscript.js","effective-directive":"script-src-elem","violated-directive":"script-src-elem","original-policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","disposition":"report","status-code":200}},
+    {"csp-report":{"document-uri":"https://shop.example.com/checkout","referrer":"","blocked-uri":"http://legacy-cdn.example.net/tracker.gif","effective-directive":"img-src","violated-directive":"img-src","original-policy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","disposition":"report","status-code":200}},
+    {"type":"csp-violation","url":"https://shop.example.com/checkout","body":{"documentURL":"https://shop.example.com/checkout","referrer":"","blockedURL":"inline","effectiveDirective":"script-src-elem","originalPolicy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","sample":"window.dataLayer=window.dataLayer||[];fu","disposition":"report","statusCode":200,"sourceFile":"https://shop.example.com/checkout","lineNumber":42,"columnNumber":9}},
+    {"type":"csp-violation","url":"https://shop.example.com/checkout","body":{"documentURL":"https://shop.example.com/checkout","referrer":"","blockedURL":"https://js.stripe.com","effectiveDirective":"script-src-elem","originalPolicy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","sample":"","disposition":"report","statusCode":200,"sourceFile":null,"lineNumber":null,"columnNumber":null}},
+    {"type":"csp-violation","url":"https://shop.example.com/checkout","body":{"documentURL":"https://shop.example.com/checkout","referrer":"","blockedURL":"https://js.stripe.com","effectiveDirective":"frame-src","originalPolicy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","sample":"","disposition":"report","statusCode":200}},
+    {"type":"csp-violation","url":"https://shop.example.com/account","body":{"documentURL":"https://shop.example.com/account","referrer":"","blockedURL":"eval","effectiveDirective":"script-src","originalPolicy":"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; report-uri /_/csp","sample":"","disposition":"report","statusCode":200}}
+  ],null,1);
+
+  let last=null;
+
+  // theme
+  const themeBtn=$('theme');
+  const saved=(function(){try{return localStorage.getItem('zcac-theme')}catch(e){return null}})();
+  if(saved) document.documentElement.setAttribute('data-theme',saved);
+  themeBtn.addEventListener('click',()=>{
+    const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',cur);
+    try{localStorage.setItem('zcac-theme',cur)}catch(e){}
+  });
+
+  function copy(text,statusEl,msg){
+    const done=()=>{ statusEl.textContent=msg||'copied'; setTimeout(()=>statusEl.textContent='',2000); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done,()=>fallback());
+    } else fallback();
+    function fallback(){
+      const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');done();}catch(e){statusEl.textContent='copy failed — select manually';}
+      document.body.removeChild(ta);
+    }
+  }
+
+  $('shareX').addEventListener('click',()=>{
+    const u='https://twitter.com/intent/tweet?text='+encodeURIComponent('CSP Violation Triage — paste raw CSP violation reports, get grouped violations, extension noise filtered, and a corrected Content-Security-Policy header. Runs in the browser, no quota.')+'&url='+encodeURIComponent(location.href);
+    window.open(u,'_blank','noopener');
+  });
+  $('shareLink').addEventListener('click',()=>copy(location.href,$('parsestat'),'link copied'));
+
+  function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+  function render(res){
+    last=res;
+    const c=res.counts;
+    $('out').hidden=false;
+    $('stats').innerHTML=[
+      ['reports parsed',c.reports],
+      ['distinct groups',c.groups],
+      ['extension noise',c.noise],
+      ['sources to allow',c.actionable],
+      ['need a code fix',c.needsFix]
+    ].map(([l,v])=>'<div class="stat"><b>'+v+'</b><span>'+l+'</span></div>').join('');
+
+    const cost=(c.reports*0.0005);
+    $('costnote').innerHTML='Volume handled: <b>'+c.reports+'</b> reports collapsed into <b>'+c.groups+'</b> groups. '+
+      'Assumption, shown so you can check it: Csper Basic is $50/month for 100,000 reports ('+
+      '<a href="https://csper.io/pricing" target="_blank" rel="noopener">csper.io/pricing</a>, read 2026-08-15) = $0.0005 per report, so this batch is <b>$'+cost.toFixed(4)+
+      '</b> of metered ingest. That is the only number here that comes from a published price — it is not a claim about your time.'+
+      (c.parseErrors||c.unrecognised ? ' <span class="err">'+c.parseErrors+' unparseable chunk(s), '+c.unrecognised+' object(s) not shaped like a CSP report.</span>':'');
+
+    const tb=$('groups').querySelector('tbody');
+    tb.innerHTML=res.groups.map(g=>{
+      const cls={allow:'t-allow',fix:'t-fix',review:'t-review',ignore:'t-ignore'}[g.action];
+      const samples=g.samples.length?'<div class="small muted mono">sample: '+esc(g.samples[0])+'</div>':'';
+      return '<tr><td><span class="tag '+cls+'">'+g.action+'</span></td>'+
+        '<td class="mono">'+esc(g.directive)+'</td>'+
+        '<td class="mono">'+esc(g.label)+(g.token&&g.token!==g.label?'<div class="muted">→ '+esc(g.token)+'</div>':'')+'</td>'+
+        '<td class="mono">'+g.count+'</td>'+
+        '<td class="small">'+esc(g.why)+samples+'</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="small muted">No violations recognised in that input.</td></tr>';
+
+    $('policybasis').innerHTML = res.policy.fromScratch
+      ? 'No <code>original-policy</code> present in any report, so this starts from <code>default-src \'self\'</code> and adds what the reports demand.'
+      : 'Merged into the <code>original-policy</code> carried by the reports: <code>'+esc(res.policy.basedOn)+'</code>';
+    $('policy').textContent=res.policy.header;
+
+    $('changes').innerHTML = res.policy.changes.length
+      ? '<h3>What changed</h3><ul class="small">'+res.policy.changes.map(ch=>
+          '<li><code>'+esc(ch.directive)+'</code> += <code>'+esc(ch.added)+'</code> <span class="muted">('+ch.reports+' report'+(ch.reports===1?'':'s')+(ch.note?'; '+esc(ch.note):'')+')</span></li>').join('')+'</ul>'
+      : '<p class="small muted">No source tokens were added — nothing in this batch is safely auto-allowlistable.</p>';
+  }
+
+  function exportObj(){
+    if(!last) return null;
+    return {zcac:true,kind:'csp-violation-triage',data:{
+      generated:new Date().toISOString(),
+      counts:last.counts,
+      groups:last.groups,
+      policy:last.policy
+    }};
+  }
+
+  function run(){
+    const txt=$('input').value;
+    const res=triage(txt);
+    if(res.counts.reports===0 && res.counts.unrecognised===0 && res.counts.parseErrors===0){
+      $('parsestat').innerHTML='<span class="err">Nothing to parse — paste at least one report object.</span>';
+      $('out').hidden=true; return;
+    }
+    $('parsestat').textContent='parsed '+res.counts.reports+' report(s)';
+    render(res);
+  }
+
+  $('run').addEventListener('click',run);
+  $('clear').addEventListener('click',()=>{ $('input').value=''; $('out').hidden=true; $('parsestat').textContent=''; last=null; $('input').focus(); });
+  $('loadEx').addEventListener('click',()=>{ $('input').value=EXAMPLE; run(); });
+  $('input').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') run(); });
+
+  $('copyPolicy').addEventListener('click',()=>copy($('policy').textContent,$('copystat')));
+  $('copyFull').addEventListener('click',()=>copy('Content-Security-Policy-Report-Only: '+$('policy').textContent,$('copystat'),'copied header line'));
+  $('copyJson').addEventListener('click',()=>{ const o=exportObj(); if(o) copy(JSON.stringify(o,null,2),$('expstat')); });
+  $('dlJson').addEventListener('click',()=>{
+    const o=exportObj(); if(!o) return;
+    const blob=new Blob([JSON.stringify(o,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='csp-violation-triage.json';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    $('expstat').textContent='downloaded'; setTimeout(()=>$('expstat').textContent='',2000);
+  });
+
+  $('doImport').addEventListener('click',()=>{
+    const st=$('impstat'); st.className='small';
+    let o;
+    try{ o=JSON.parse($('importBox').value); }
+    catch(e){ st.className='small err'; st.textContent='not valid JSON'; return; }
+    if(!o||o.zcac!==true||!o.kind){ st.className='small err'; st.textContent='not recognized — expected a zcac export object'; return; }
+    if(o.kind!=='csp-violation-triage'){ st.className='small err'; st.textContent='not recognized — this tool only imports kind "csp-violation-triage" (got "'+String(o.kind)+'")'; return; }
+    if(!o.data||!o.data.counts||!o.data.groups||!o.data.policy){ st.className='small err'; st.textContent='not recognized — export is missing counts/groups/policy'; return; }
+    render({counts:o.data.counts,groups:o.data.groups,policy:o.data.policy});
+    st.className='small ok'; st.textContent='imported '+o.data.groups.length+' group(s)';
+    const el=$('out');
+    if(el.scrollIntoView){
+      const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});
+    }
+  });
+
+  $('input').value=EXAMPLE;
+})();
+</script>
+</body>
+</html>
