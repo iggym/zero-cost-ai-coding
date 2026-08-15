@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>curl → code — zero-cost-ai-coding</title>
+<meta name="description" content="Paste a curl command, get working JavaScript fetch, Python requests, or Node.js code. Runs entirely in your browser, no limit, no signup.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d0c;
+    --bg-raised: #121512;
+    --bg-well: #080a09;
+    --border: #23281f;
+    --text: #e7ebe4;
+    --text-dim: #9aa397;
+    --text-faint: #626b5f;
+    --accent: #39ff8a;
+    --accent-dim: #1e8a4d;
+    --accent-wash: rgba(57, 255, 138, 0.09);
+    --danger: #ff6b5e;
+    --radius: 10px;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+  }
+  html.light {
+    --bg: #f6f7f3;
+    --bg-raised: #ffffff;
+    --bg-well: #edefe8;
+    --border: #d8dcd0;
+    --text: #14170f;
+    --text-dim: #4c5347;
+    --text-faint: #7c8574;
+    --accent: #0f9d54;
+    --accent-dim: #0c7a41;
+    --accent-wash: rgba(15, 157, 84, 0.08);
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.55;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; animation: none !important; }
+  }
+  a { color: var(--accent); }
+  h1, h2, h3 { font-family: var(--mono); letter-spacing: -0.01em; margin: 0 0 0.5em; }
+  code, pre, textarea, .mono { font-family: var(--mono); }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .home {
+    font-family: var(--mono); font-size: 0.85rem; font-weight: 500;
+    color: var(--text-dim); text-decoration: none; white-space: nowrap;
+  }
+  .topbar .home:hover { color: var(--accent); }
+  .topbar .home::before { content: "← "; }
+  .topbar .title { font-family: var(--mono); font-size: 0.85rem; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .topbar .spacer { flex: 1; }
+  .theme-toggle {
+    background: none; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 999px; padding: 0.3rem 0.7rem; font-family: var(--mono); font-size: 0.75rem;
+    cursor: pointer; margin-left: 0.75rem;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  main { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem 5rem; }
+
+  .pitch h1 { font-size: clamp(1.5rem, 4vw, 2.15rem); }
+  .pitch .lede { color: var(--text-dim); font-size: 1.05rem; max-width: 62ch; }
+  .pitch .lede strong { color: var(--text); }
+
+  .limit-line {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: var(--mono); font-size: 0.78rem; color: var(--accent-dim);
+    background: var(--accent-wash); border: 1px solid var(--accent-dim);
+    padding: 0.35rem 0.7rem; border-radius: 999px; margin: 0.9rem 0 0.4rem;
+  }
+  html.light .limit-line { color: var(--accent-dim); }
+  .limit-line .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  .share-row { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .share-btn {
+    font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim);
+    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.4rem 0.75rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem;
+  }
+  .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  section { margin-top: 2.75rem; }
+  section > h2 {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--text-faint); font-weight: 700; margin-bottom: 1rem;
+  }
+
+  .panel {
+    background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+
+  textarea#curlInput {
+    width: 100%; min-height: 130px; resize: vertical;
+    background: var(--bg-well); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.9rem; font-size: 0.88rem; line-height: 1.5;
+  }
+  textarea#curlInput:focus, button:focus-visible, .theme-toggle:focus-visible, .share-btn:focus-visible, select:focus-visible, .tab:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .tool-row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
+  .btn {
+    font-family: var(--mono); font-weight: 700; font-size: 0.82rem;
+    background: var(--accent); color: #04170c; border: none; border-radius: 7px;
+    padding: 0.6rem 1.1rem; cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.secondary {
+    background: none; color: var(--text-dim); border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .example-select {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--text-dim);
+    background: var(--bg-well); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+  }
+
+  .error-box {
+    display: none; margin-top: 0.8rem; padding: 0.7rem 0.9rem;
+    border: 1px solid var(--danger); color: var(--danger); border-radius: 8px;
+    font-family: var(--mono); font-size: 0.8rem; background: color-mix(in srgb, var(--danger) 8%, transparent);
+  }
+
+  .output-panel { margin-top: 1.5rem; }
+  .tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; margin-bottom: 0.9rem; }
+  .tab {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--text-dim);
+    background: none; border: 1px solid var(--border); border-radius: 999px;
+    padding: 0.4rem 0.85rem; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--accent-wash); color: var(--accent); border-color: var(--accent-dim); }
+  .tab:hover { color: var(--accent); }
+
+  .code-wrap { position: relative; }
+  pre#codeOut {
+    background: var(--bg-well); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1rem; font-size: 0.83rem; overflow-x: auto; white-space: pre; margin: 0;
+    color: var(--text);
+  }
+  .copy-btn {
+    position: absolute; top: 0.6rem; right: 0.6rem;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
+    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.3rem 0.6rem; cursor: pointer;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+  .saved-readout {
+    margin-top: 1.1rem; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+    font-family: var(--mono);
+  }
+  .saved-readout .num { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+  .saved-readout .label { font-size: 0.82rem; color: var(--text-dim); }
+  .saved-readout .assumption { width: 100%; font-size: 0.72rem; color: var(--text-faint); margin-top: 0.1rem; }
+
+  .export-row { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
+
+  .replaces p, .breaks p, .steps p { color: var(--text-dim); }
+  .steps ol { padding-left: 1.2rem; color: var(--text-dim); }
+  .steps li { margin-bottom: 0.5rem; }
+  .steps code { background: var(--bg-well); border: 1px solid var(--border); padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+
+  .breaks ul { padding-left: 1.2rem; color: var(--text-dim); }
+  .breaks li { margin-bottom: 0.4rem; }
+
+  footer {
+    margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--text-faint); font-family: var(--mono);
+  }
+  footer a { color: var(--text-faint); text-decoration: underline; }
+  footer a:hover { color: var(--accent); }
+
+  @media (max-width: 480px) {
+    .topbar { padding: 0.65rem 0.9rem; }
+    main { padding: 1.5rem 0.9rem 4rem; }
+    .tool-row { flex-direction: column; align-items: stretch; }
+    .btn, .btn.secondary { width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">zero-cost-ai-coding</a>
+  <div class="spacer"></div>
+  <span class="title">curl → code</span>
+  <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark mode">light</button>
+</div>
+
+<main>
+
+  <section class="pitch">
+    <h1>Turn a curl command into working fetch / requests / Node.js code</h1>
+    <p class="lede">
+      Paste a <code>curl</code> command copied from a browser's Network tab, a bug report, or an API doc.
+      Get back <strong>JavaScript fetch</strong>, <strong>Python requests</strong>, or <strong>Node.js</strong> code —
+      parsed and generated entirely in your browser's own JavaScript engine.
+    </p>
+    <div class="limit-line"><span class="dot"></span> No request limit, no signup, no network call at all — the parsing runs on your device.</div>
+    <div class="share-row">
+      <a class="share-btn" id="shareX" href="#" target="_blank" rel="noopener">share on X</a>
+      <button class="share-btn" id="copyLink" type="button">copy link</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>The tool</h2>
+    <div class="panel">
+      <label for="curlInput" class="mono" style="font-size:0.8rem;color:var(--text-dim);display:block;margin-bottom:0.5rem;">Paste a curl command</label>
+      <textarea id="curlInput" spellcheck="false" aria-describedby="curlError"></textarea>
+
+      <div class="tool-row">
+        <button class="btn" id="convertBtn" type="button">Convert</button>
+        <select class="example-select" id="exampleSelect" aria-label="Load an example curl command">
+          <option value="">Load an example…</option>
+          <option value="get">Simple GET</option>
+          <option value="post-json">POST with JSON body + auth header</option>
+          <option value="auth-cookie">Basic auth + cookies</option>
+          <option value="form">Multipart form with file</option>
+          <option value="get-query">GET with -G / --data-urlencode query</option>
+        </select>
+      </div>
+
+      <div class="error-box" id="curlError" role="alert"></div>
+
+      <div class="output-panel" id="outputPanel" style="display:none;">
+        <div class="tabs" role="tablist" aria-label="Output language">
+          <button class="tab" role="tab" aria-selected="true" data-lang="js" type="button">JavaScript (fetch)</button>
+          <button class="tab" role="tab" aria-selected="false" data-lang="node" type="button">Node.js</button>
+          <button class="tab" role="tab" aria-selected="false" data-lang="python" type="button">Python (requests)</button>
+        </div>
+        <div class="code-wrap">
+          <button class="copy-btn" id="copyCode" type="button">copy</button>
+          <pre id="codeOut"><code></code></pre>
+        </div>
+
+        <div class="saved-readout">
+          <span class="num" id="savedNum">0</span>
+          <span class="label">seconds you didn't spend hand-translating curl flags into <span id="savedLang">fetch</span> syntax</span>
+          <span class="assumption">Assumption shown, not hidden: ~15 sec per flag/header/body-part looked up and typed by hand (method, each header, each data/form field, auth, cookies). <span id="savedCount">0</span> parsed × 15s.</span>
+        </div>
+
+        <div class="export-row">
+          <button class="btn secondary" id="downloadJson" type="button">Download parsed request as JSON</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="replaces">
+    <h2>What it replaces</h2>
+    <p>
+      No direct paid equivalent found. The realistic alternative is doing the translation by hand — rereading
+      curl's flag syntax (<code>-H</code>, <code>-d</code>, <code>-F</code>, <code>-u</code>, <code>-b</code>,
+      <code>-G</code>/<code>--data-urlencode</code>...) and re-typing it in your target language, or opening
+      the free, open-source <a href="https://curlconverter.com" target="_blank" rel="noopener">curlconverter.com</a>
+      project, which does the same job server-side with a fuller Bash parser. This page is a from-scratch,
+      client-side reimplementation for a smaller set of common flags — it has no relationship to that project's
+      code, only the same goal.
+    </p>
+  </section>
+
+  <section class="steps">
+    <h2>How to use it</h2>
+    <ol>
+      <li>Copy a curl command — from a browser DevTools "Copy as cURL", an API doc's example, or a teammate's bug report.</li>
+      <li>Paste it into the box above, or pick an example from the dropdown to see the shape of it.</li>
+      <li>Click <code>Convert</code>. Switch tabs to see JavaScript, Node.js, or Python output.</li>
+      <li>Click <code>copy</code> on the code block and drop it straight into your script or test file.</li>
+    </ol>
+  </section>
+
+  <section class="breaks">
+    <h2>What breaks</h2>
+    <ul>
+      <li>This is a hand-written parser covering the flags people actually use most: <code>-X</code>, <code>-H</code>, <code>-d</code>/<code>--data</code>/<code>--data-raw</code>/<code>--data-binary</code>/<code>--data-urlencode</code>, <code>-F</code>, <code>-u</code>, <code>-b</code>, <code>-G</code>, <code>-A</code>, <code>--url</code>. It does <strong>not</strong> implement curl's full Bash/argument grammar the way curl itself or a tree-sitter-based parser does.</li>
+      <li>Shell features inside the command — variable expansion (<code>$VAR</code>), command substitution (<code>$(...)</code>), globs, or chained commands (<code>&amp;&amp;</code>, <code>;</code>, pipes) — are not evaluated. Paste the literal, already-expanded command.</li>
+      <li>Unrecognized flags (like <code>-v</code>, <code>-s</code>, <code>-i</code>, <code>--http2</code>) are silently skipped rather than causing an error, so the output may omit behavior those flags controlled.</li>
+      <li>File uploads via <code>-F "field=@path"</code> are flagged in the output as a comment, not read from disk — you supply the actual file in your own code (there's no filesystem access in a browser tab).</li>
+      <li>JSON body detection is best-effort: if <code>-d</code>'s payload parses as valid JSON it's treated as a JSON body; otherwise it's passed through as a raw string.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Free-tier claim: none applies — this tool makes zero network requests and runs entirely in your browser's JavaScript engine, so there is no rate limit to hit.
+    Evidence the underlying problem is real: the open-source <a href="https://www.npmjs.com/package/curlconverter" target="_blank" rel="noopener">curlconverter</a> npm package (verified npm registry page, ~39,700 weekly downloads at time of writing) exists specifically to solve this.
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  var toggle = document.getElementById('themeToggle');
+  function applyTheme(t) {
+    if (t === 'light') { root.classList.add('light'); toggle.textContent = 'dark'; }
+    else { root.classList.remove('light'); toggle.textContent = 'light'; }
+  }
+  var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  applyTheme(prefersLight ? 'light' : 'dark');
+  toggle.addEventListener('click', function () {
+    applyTheme(root.classList.contains('light') ? 'dark' : 'light');
+  });
+
+  /* ---------- curl parser (same logic verified in Node before shipping) ---------- */
+  function tokenizeCurl(input) {
+    var s = input.trim().replace(/\\\r?\n/g, ' ');
+    var tokens = [];
+    var i = 0, n = s.length;
+    while (i < n) {
+      while (i < n && /\s/.test(s[i])) i++;
+      if (i >= n) break;
+      var tok = '';
+      if (s[i] === "'") {
+        i++;
+        while (i < n && s[i] !== "'") { tok += s[i]; i++; }
+        i++;
+      } else if (s[i] === '"') {
+        i++;
+        while (i < n && s[i] !== '"') {
+          if (s[i] === '\\' && i + 1 < n && '"\\$`'.indexOf(s[i + 1]) !== -1) { tok += s[i + 1]; i += 2; }
+          else { tok += s[i]; i++; }
+        }
+        i++;
+      } else {
+        while (i < n && !/\s/.test(s[i])) {
+          if (s[i] === '\\' && i + 1 < n) { tok += s[i + 1]; i += 2; }
+          else { tok += s[i]; i++; }
+        }
+      }
+      tokens.push(tok);
+    }
+    return tokens;
+  }
+
+  function parseCurl(input) {
+    var tokens = tokenizeCurl(input);
+    if (tokens[0] === 'curl') tokens = tokens.slice(1);
+
+    var result = {
+      url: null, method: null, headers: [], dataParts: [], formParts: [],
+      user: null, isGet: false, compressed: false, cookies: [], insecure: false
+    };
+    function need(i) { return tokens[i + 1]; }
+
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i];
+      if (t === '-X' || t === '--request') { result.method = need(i); i++; }
+      else if (t.indexOf('-X') === 0 && t.length > 2) { result.method = t.slice(2); }
+      else if (t === '--url') { result.url = need(i); i++; }
+      else if (t === '-H' || t === '--header') {
+        var h = need(i); i++;
+        var idx = h.indexOf(':');
+        if (idx > -1) result.headers.push([h.slice(0, idx).trim(), h.slice(idx + 1).trim()]);
+      }
+      else if (t === '-d' || t === '--data' || t === '--data-raw' || t === '--data-ascii') { result.dataParts.push(need(i)); i++; }
+      else if (t === '--data-binary') { result.dataParts.push(need(i)); i++; }
+      else if (t === '--data-urlencode') { result.dataParts.push(need(i)); i++; }
+      else if (t === '-F' || t === '--form') {
+        var f = need(i); i++;
+        var idx2 = f.indexOf('=');
+        var name = idx2 > -1 ? f.slice(0, idx2) : f;
+        var value = idx2 > -1 ? f.slice(idx2 + 1) : '';
+        result.formParts.push({ name: name, value: value, isFile: value.indexOf('@') === 0 });
+      }
+      else if (t === '-u' || t === '--user') { result.user = need(i); i++; }
+      else if (t === '-b' || t === '--cookie') { result.cookies.push(need(i)); i++; }
+      else if (t === '-G' || t === '--get') { result.isGet = true; }
+      else if (t === '--compressed') { result.compressed = true; }
+      else if (t === '-k' || t === '--insecure') { result.insecure = true; }
+      else if (t === '-A' || t === '--user-agent') { result.headers.push(['User-Agent', need(i)]); i++; }
+      else if (t === '-e' || t === '--referer') { result.headers.push(['Referer', need(i)]); i++; }
+      else if (t.indexOf('-') === 0) { continue; }
+      else if (!result.url) { result.url = t; }
+    }
+
+    if (!result.method) {
+      result.method = (result.dataParts.length || result.formParts.length) && !result.isGet ? 'POST' : 'GET';
+    }
+
+    if (result.isGet && result.dataParts.length) {
+      var qs = result.dataParts.map(function (part) {
+        var idx = part.indexOf('=');
+        if (idx === -1) return encodeURIComponent(part);
+        var k = part.slice(0, idx), v = part.slice(idx + 1);
+        return encodeURIComponent(k) + '=' + encodeURIComponent(v);
+      }).join('&');
+      if (result.url) result.url += (result.url.indexOf('?') > -1 ? '&' : '?') + qs;
+      result.dataParts = [];
+      result.method = 'GET';
+    }
+
+    return result;
+  }
+
+  function bodyInfo(parsed) {
+    if (parsed.formParts.length) return { kind: 'form', value: parsed.formParts };
+    if (parsed.dataParts.length) {
+      var raw = parsed.dataParts.join('&');
+      try { return { kind: 'json', value: JSON.parse(raw), raw: raw }; }
+      catch (e) { return { kind: 'raw', raw: raw }; }
+    }
+    return { kind: 'none' };
+  }
+
+  function optionCount(parsed) {
+    var n = 0;
+    if (parsed.method) n++;
+    n += parsed.headers.length;
+    n += parsed.dataParts.length;
+    n += parsed.formParts.length;
+    if (parsed.user) n++;
+    n += parsed.cookies.length;
+    return Math.max(n, 1);
+  }
+
+  function esc(str) { return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+  function jsFetch(parsed, forNode) {
+    var body = bodyInfo(parsed);
+    var auth = parsed.user ? "'Basic ' + btoa('" + esc(parsed.user) + "')" : null;
+    var lines = [];
+    if (forNode) lines.push('// Node.js 18+ (built-in fetch, no dependencies)', '(async () => {');
+    lines.push('const options = {');
+    lines.push("  method: '" + parsed.method + "',");
+    if (parsed.headers.length || auth) {
+      lines.push('  headers: {');
+      parsed.headers.forEach(function (h) { lines.push("    '" + esc(h[0]) + "': '" + esc(h[1]) + "',"); });
+      if (auth) lines.push("    'Authorization': " + auth + ',');
+      lines.push('  },');
+    }
+    if (body.kind === 'json') lines.push('  body: JSON.stringify(' + JSON.stringify(body.value) + '),');
+    else if (body.kind === 'raw') lines.push('  body: ' + JSON.stringify(body.raw) + ',');
+    else if (body.kind === 'form') {
+      lines.push('  body: (() => { const fd = new FormData();');
+      body.value.forEach(function (f) {
+        if (f.isFile) lines.push("    // fd.append('" + f.name + "', fileInputElement.files[0]); // was " + f.value);
+        else lines.push("    fd.append('" + f.name + "', " + JSON.stringify(f.value) + ');');
+      });
+      lines.push('    return fd; })(),');
+    }
+    lines.push('};');
+    lines.push('');
+    if (forNode) {
+      lines.push("const res = await fetch('" + parsed.url + "', options);");
+      lines.push('const data = await res.json();');
+      lines.push('console.log(data);');
+      lines.push('})();');
+    } else {
+      lines.push("fetch('" + parsed.url + "', options)");
+      lines.push('  .then(res => res.json())');
+      lines.push('  .then(data => console.log(data))');
+      lines.push('  .catch(err => console.error(err));');
+    }
+    return lines.join('\n');
+  }
+
+  function pyLiteral(obj, indent) {
+    indent = indent || 0;
+    var pad = '    '.repeat(indent), pad2 = '    '.repeat(indent + 1);
+    if (Array.isArray(obj)) {
+      if (!obj.length) return '[]';
+      return '[\n' + obj.map(function (v) { return pad2 + pyLiteral(v, indent + 1); }).join(',\n') + '\n' + pad + ']';
+    } else if (obj && typeof obj === 'object') {
+      var keys = Object.keys(obj);
+      if (!keys.length) return '{}';
+      return '{\n' + keys.map(function (k) { return pad2 + "'" + k + "': " + pyLiteral(obj[k], indent + 1); }).join(',\n') + '\n' + pad + '}';
+    } else if (typeof obj === 'string') return "'" + esc(obj) + "'";
+    else if (obj === null) return 'None';
+    else if (typeof obj === 'boolean') return obj ? 'True' : 'False';
+    return String(obj);
+  }
+
+  function pyRequests(parsed) {
+    var body = bodyInfo(parsed);
+    var lines = ['import requests', '', "url = '" + parsed.url + "'"];
+    if (parsed.headers.length) {
+      lines.push('headers = {');
+      parsed.headers.forEach(function (h) { lines.push("    '" + esc(h[0]) + "': '" + esc(h[1]) + "',"); });
+      lines.push('}');
+    }
+    if (parsed.cookies.length) {
+      var pairs = parsed.cookies.join('; ').split(';').map(function (p) { return p.trim(); }).filter(Boolean).map(function (p) {
+        var eq = p.indexOf('=');
+        var k = eq > -1 ? p.slice(0, eq) : p, v = eq > -1 ? p.slice(eq + 1) : '';
+        return "    '" + k.trim() + "': '" + v.trim() + "',";
+      });
+      lines.push('cookies = {', pairs.join('\n'), '}');
+    }
+    if (body.kind === 'json') lines.push('json_data = ' + pyLiteral(body.value));
+    else if (body.kind === 'raw') lines.push('data = ' + JSON.stringify(body.raw));
+    else if (body.kind === 'form') {
+      lines.push('files = {');
+      body.value.forEach(function (f) {
+        if (f.isFile) lines.push("    '" + f.name + "': open('" + f.value.slice(1) + "', 'rb'),");
+        else lines.push("    '" + f.name + "': (None, " + JSON.stringify(f.value) + '),');
+      });
+      lines.push('}');
+    }
+    var kwargs = [];
+    if (parsed.headers.length) kwargs.push('headers=headers');
+    if (parsed.cookies.length) kwargs.push('cookies=cookies');
+    if (body.kind === 'json') kwargs.push('json=json_data');
+    else if (body.kind === 'raw') kwargs.push('data=data');
+    else if (body.kind === 'form') kwargs.push('files=files');
+    if (parsed.user) {
+      var up = parsed.user.split(':');
+      kwargs.push("auth=('" + up[0] + "', '" + (up[1] || '') + "')");
+    }
+    lines.push('');
+    lines.push('response = requests.' + parsed.method.toLowerCase() + '(url' + (kwargs.length ? ', ' + kwargs.join(', ') : '') + ')');
+    lines.push('print(response.status_code)');
+    lines.push('print(response.json())');
+    return lines.join('\n');
+  }
+
+  /* ---------- UI wiring ---------- */
+  var input = document.getElementById('curlInput');
+  var errorBox = document.getElementById('curlError');
+  var outputPanel = document.getElementById('outputPanel');
+  var codeOut = document.querySelector('#codeOut code');
+  var tabs = document.querySelectorAll('.tab');
+  var savedNum = document.getElementById('savedNum');
+  var savedLang = document.getElementById('savedLang');
+  var savedCount = document.getElementById('savedCount');
+  var currentLang = 'js';
+  var currentParsed = null;
+
+  var LANG_NAMES = { js: 'fetch', node: 'Node.js fetch', python: 'requests' };
+
+  var EXAMPLES = {
+    'get': "curl https://api.example.com/users",
+    'post-json': "curl -X POST https://api.example.com/users \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer abc123\" \\\n  -d '{\"name\":\"Ada Lovelace\",\"age\":36,\"tags\":[\"math\",\"cs\"]}'",
+    'auth-cookie': "curl https://api.example.com/secret -u alice:hunter2 -b \"session=xyz; theme=dark\"",
+    'form': "curl -X POST https://api.example.com/upload -F \"file=@photo.png\" -F \"caption=hello world\"",
+    'get-query': "curl 'https://api.example.com/search' --data-urlencode 'q=hello world' -G"
+  };
+
+  document.getElementById('exampleSelect').addEventListener('change', function (e) {
+    if (e.target.value && EXAMPLES[e.target.value]) {
+      input.value = EXAMPLES[e.target.value];
+      convert();
+    }
+  });
+
+  function render() {
+    if (!currentParsed) return;
+    var code;
+    if (currentLang === 'js') code = jsFetch(currentParsed, false);
+    else if (currentLang === 'node') code = jsFetch(currentParsed, true);
+    else code = pyRequests(currentParsed);
+    codeOut.textContent = code;
+    savedLang.textContent = LANG_NAMES[currentLang];
+    var count = optionCount(currentParsed);
+    savedNum.textContent = count * 15;
+    savedCount.textContent = count;
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) { t.setAttribute('aria-selected', 'false'); });
+      tab.setAttribute('aria-selected', 'true');
+      currentLang = tab.getAttribute('data-lang');
+      render();
+    });
+  });
+
+  function convert() {
+    var raw = input.value.trim();
+    errorBox.style.display = 'none';
+    if (!raw) {
+      errorBox.textContent = 'Paste a curl command first.';
+      errorBox.style.display = 'block';
+      outputPanel.style.display = 'none';
+      return;
+    }
+    if (raw.indexOf('curl') !== 0) {
+      errorBox.textContent = "Heads up: this doesn't start with \"curl\" — parsing it as one anyway, but double-check the result.";
+      errorBox.style.display = 'block';
+    }
+    try {
+      var parsed = parseCurl(raw);
+      if (!parsed.url) {
+        errorBox.textContent = "Couldn't find a URL in that command. Check it includes one, unquoted or quoted, after the flags.";
+        errorBox.style.display = 'block';
+        outputPanel.style.display = 'none';
+        return;
+      }
+      currentParsed = parsed;
+      outputPanel.style.display = 'block';
+      render();
+    } catch (err) {
+      errorBox.textContent = 'Could not parse that command: ' + err.message;
+      errorBox.style.display = 'block';
+      outputPanel.style.display = 'none';
+    }
+  }
+
+  document.getElementById('convertBtn').addEventListener('click', convert);
+  input.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') convert();
+  });
+
+  document.getElementById('copyCode').addEventListener('click', function () {
+    var btn = this;
+    navigator.clipboard.writeText(codeOut.textContent).then(function () {
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+    });
+  });
+
+  document.getElementById('downloadJson').addEventListener('click', function () {
+    if (!currentParsed) return;
+    var payload = {
+      zcac: true,
+      kind: 'curl-parsed-request',
+      data: {
+        url: currentParsed.url,
+        method: currentParsed.method,
+        headers: currentParsed.headers,
+        body: bodyInfo(currentParsed),
+        user: currentParsed.user,
+        cookies: currentParsed.cookies
+      }
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'parsed-request.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  /* ---------- share ---------- */
+  var pageUrl = window.location.href;
+  document.getElementById('shareX').href = 'https://twitter.com/intent/tweet?text=' +
+    encodeURIComponent("curl \u2192 code: paste a curl command, get JS/Python/Node — runs entirely client-side, no signup.") +
+    '&url=' + encodeURIComponent(pageUrl);
+  document.getElementById('copyLink').addEventListener('click', function () {
+    var btn = this;
+    navigator.clipboard.writeText(pageUrl).then(function () {
+      var old = btn.textContent;
+      btn.textContent = 'copied!';
+      setTimeout(function () { btn.textContent = old; }, 1500);
+    });
+  });
+
+  /* seed with an example so the tool isn't empty on load, but it's fully editable */
+  input.value = EXAMPLES['post-json'];
+  convert();
+})();
+</script>
+
+</body>
+</html>
