@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commit Forge — Free AI Commit Messages from Git Diffs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: #2a2a2a;
+      --text: #e0e0e0;
+      --text-dim: #888;
+      --accent: #00e676;
+      --accent-dim: #00e67633;
+      --danger: #ff5252;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-body: 'Inter', system-ui, sans-serif;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --surface2: #eeeeee;
+      --border: #d0d0d0;
+      --text: #1a1a1a;
+      --text-dim: #666;
+      --accent: #00c853;
+      --accent-dim: #00c85322;
+      --danger: #d32f2f;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* Top bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(8px);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 1rem; }
+    .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .home-link {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 0.25rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .home-link:hover { color: var(--accent); border-color: var(--accent); }
+    .tool-title {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Main layout */
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+
+    /* Pitch */
+    .pitch h1 {
+      font-family: var(--font-mono);
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .pitch h1 span { color: var(--accent); }
+    .pitch p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 0.35rem; }
+    .pitch .replaces { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+    .pitch .replaces strong { color: var(--text); }
+    .pitch .limit-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      margin-top: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .share-row { display: flex; gap: 0.5rem; margin-bottom: 1.75rem; }
+    .share-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .share-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Sections */
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    /* API Key */
+    .key-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .key-row input {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.65rem;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .key-row input:focus { border-color: var(--accent); }
+    .key-hint {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+    .key-hint a { color: var(--accent); text-decoration: none; }
+    .key-hint a:hover { text-decoration: underline; }
+
+    /* Diff input */
+    .diff-area {
+      width: 100%;
+      min-height: 180px;
+      max-height: 400px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.65rem;
+      border-radius: 4px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .diff-area:focus { border-color: var(--accent); }
+    .diff-area::placeholder { color: var(--text-dim); }
+
+    /* Generate button */
+    .gen-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: #0a0a0a;
+      border: none;
+      padding: 0.55rem 1.2rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 0.75rem;
+      transition: opacity 0.15s;
+    }
+    .gen-btn:hover { opacity: 0.88; }
+    .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Output */
+    .output-box {
+      margin-top: 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.75rem 0.85rem;
+      position: relative;
+      display: none;
+    }
+    .output-box.visible { display: block; }
+    .output-subject {
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+      word-break: break-word;
+    }
+    .output-body {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+    /* Error */
+    .error-box {
+      margin-top: 1rem;
+      background: #ff52521a;
+      border: 1px solid var(--danger);
+      border-radius: 4px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.8rem;
+      color: var(--danger);
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    /* How to use / what breaks */
+    .info-section {
+      margin-top: 2.5rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1.5rem;
+    }
+    .info-section h2 {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+    }
+    .info-section ol, .info-section ul {
+      padding-left: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .info-section li {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 0.35rem;
+      line-height: 1.55;
+    }
+    .info-section li strong { color: var(--text); }
+    .info-section li code {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: var(--surface2);
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #0a0a0a44;
+      border-top-color: #0a0a0a;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    footer {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 1.25rem 2rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← zero-cost</a>
+    </div>
+    <div class="topbar-right">
+      <span class="tool-title">commit-forge</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">☀</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- Pitch -->
+    <section class="pitch">
+      <h1>Commit <span>Forge</span></h1>
+      <p>Generate conventional commit messages from your git diff using Google Gemini's free API. Paste a diff, get a commit message you can actually use.</p>
+      <p class="replaces">Replaces: GitHub Copilot commit generation (<strong>$10/mo</strong>), aicommits (<strong>requires paid OpenAI key</strong>)</p>
+      <span class="limit-badge">Free: 1,500 requests/day — no card needed</span>
+      <div class="share-row">
+        <button class="share-btn" onclick="shareX()">Share on X</button>
+        <button class="share-btn" onclick="copyLink()">Copy link</button>
+      </div>
+    </section>
+
+    <!-- API Key -->
+    <div class="section-label">Gemini API Key</div>
+    <div class="key-row">
+      <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="key-hint">
+      Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> — no credit card required. Your key is stored in your browser's localStorage only and is never sent anywhere except Google's API.
+    </div>
+
+    <!-- Diff input -->
+    <div class="section-label">Git Diff</div>
+    <textarea class="diff-area" id="diffInput" placeholder="Paste output of git diff --staged here..."></textarea>
+
+    <button class="gen-btn" id="genBtn" onclick="generate()">Generate commit message</button>
+
+    <!-- Error -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Output -->
+    <div class="output-box" id="outputBox">
+      <button class="copy-btn" id="copyBtn" onclick="copyOutput()">Copy</button>
+      <div class="output-subject" id="outputSubject"></div>
+      <div class="output-body" id="outputBody"></div>
+    </div>
+
+    <!-- How to use -->
+    <section class="info-section">
+      <h2>How to use</h2>
+      <ol>
+        <li><strong>Get a Gemini API key</strong> — go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent)">aistudio.google.com/apikey</a>, sign in with Google, click "Create API key". No card.</li>
+        <li><strong>Paste your key</strong> in the field above. It saves to localStorage — you won't need to re-enter it.</li>
+        <li><strong>Stage your changes</strong> and run <code>git diff --staged</code> (or <code>git diff</code> for unstaged).</li>
+        <li><strong>Paste the diff</strong> into the text area, click <strong>Generate</strong>.</li>
+        <li><strong>Copy the commit message</strong> and run <code>git commit -m "..."</code> or use your editor.</li>
+      </ol>
+
+      <h2>What breaks</h2>
+      <ul>
+        <li><strong>Rate limit:</strong> 15 requests/minute, 1,500/day on Gemini free tier. If you hit it, wait a minute or a day.</li>
+        <li><strong>Huge diffs:</strong> Gemini 2.0 Flash has a 1M token context — extremely large diffs may fail or get truncated.</li>
+        <li><strong>API changes:</strong> If Google changes the free tier or model name, this tool breaks until updated.</li>
+        <li><strong>Network:</strong> This calls Google's API directly from your browser. If you're behind a restrictive proxy, it may fail.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Free-tier verified against <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" rel="noopener">ai.google.dev/gemini-api/docs/api-key</a> and <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank" rel="noopener">rate limits docs</a>.
+  </footer>
+
+  <script>
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+
+    function setTheme(t) {
+      html.setAttribute('data-theme', t);
+      themeToggle.textContent = t === 'dark' ? '☀' : '☾';
+      localStorage.setItem('cf-theme', t);
+    }
+
+    const savedTheme = localStorage.getItem('cf-theme');
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setTheme('light');
+    }
+
+    themeToggle.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    // API key persistence
+    const apiKeyInput = document.getElementById('apiKey');
+    const savedKey = localStorage.getItem('cf-gemini-key');
+    if (savedKey) {
+      apiKeyInput.value = savedKey;
+    }
+    apiKeyInput.addEventListener('input', () => {
+      localStorage.setItem('cf-gemini-key', apiKeyInput.value.trim());
+    });
+
+    // Share
+    function shareX() {
+      const url = window.location.href;
+      const text = 'Commit Forge — free AI commit messages from git diffs, no card needed';
+      window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+    }
+
+    function copyLink() {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        // Brief feedback — no alert
+      });
+    }
+
+    // Generate
+    const genBtn = document.getElementById('genBtn');
+    const diffInput = document.getElementById('diffInput');
+    const outputBox = document.getElementById('outputBox');
+    const outputSubject = document.getElementById('outputSubject');
+    const outputBody = document.getElementById('outputBody');
+    const errorBox = document.getElementById('errorBox');
+    const copyBtn = document.getElementById('copyBtn');
+
+    let lastFullOutput = '';
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.add('visible');
+    }
+
+    function hideError() {
+      errorBox.classList.remove('visible');
+    }
+
+    async function generate() {
+      hideError();
+      outputBox.classList.remove('visible');
+
+      const key = apiKeyInput.value.trim();
+      if (!key) {
+        showError('Paste your Gemini API key first. Get one free at aistudio.google.com/apikey');
+        return;
+      }
+
+      const diff = diffInput.value.trim();
+      if (!diff) {
+        showError('Paste a git diff first. Run `git diff --staged` and copy the output.');
+        return;
+      }
+
+      genBtn.disabled = true;
+      genBtn.innerHTML = '<span class="spinner"></span> Generating...';
+
+      const prompt = `You generate git commit messages. Given the diff below, output a commit message in Conventional Commits format.
+
+Rules:
+- Format: type(scope): subject
+- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+- Subject: imperative mood, lowercase, under 72 chars, no period at end
+- Scope: infer from file paths (e.g., "auth", "api", "ui"). Omit if unclear.
+- If the change needs explanation, add a blank line then a body (72-char wrapped) explaining WHY, not what.
+- If there are multiple unrelated changes, list them as bullet points in the body.
+- Output ONLY the commit message text, nothing else — no markdown, no backticks, no explanation.
+
+Diff:
+ ${diff}`;
+
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 512,
+              }
+            })
+          }
+        );
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || resp.statusText;
+          if (resp.status === 429) {
+            showError('Rate limited — Gemini free tier allows 15 req/min. Wait a minute and try again.');
+          } else if (resp.status === 400 && errMsg.includes('API_KEY')) {
+            showError('Invalid API key. Check it at aistudio.google.com/apikey');
+          } else {
+            showError(`API error (${resp.status}): ${errMsg}`);
+          }
+          genBtn.disabled = false;
+          genBtn.innerHTML = 'Generate commit message';
+          return;
+        }
+
+        const data = await resp.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (!text) {
+          const blockReason = data?.candidates?.[0]?.finishReason;
+          if (blockReason === 'SAFETY') {
+            showError('Gemini blocked the response (safety filter). Try a different diff.');
+          } else {
+            showError('No commit message generated. The diff may be too large or empty.');
+          }
+          genBtn.disabled = false;
+          genBtn.innerHTML = 'Generate commit message';
+          return;
+        }
+
+        lastFullOutput = text;
+
+        // Split subject and body
+        const lines = text.split('\n');
+        const subject = lines[0];
+        const body = lines.slice(1).join('\n').trim();
+
+        outputSubject.textContent = subject;
+        outputBody.textContent = body;
+        outputBody.style.display = body ? 'block' : 'none';
+        outputBox.classList.add('visible');
+        copyBtn.textContent = 'Copy';
+        copyBtn.classList.remove('copied');
+
+      } catch (err) {
+        showError(`Network error: ${err.message}. Check your internet connection.`);
+      }
+
+      genBtn.disabled = false;
+      genBtn.innerHTML = 'Generate commit message';
+    }
+
+    // Copy output
+    function copyOutput() {
+      if (!lastFullOutput) return;
+      navigator.clipboard.writeText(lastFullOutput).then(() => {
+        copyBtn.textContent = 'Copied';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 1500);
+      });
+    }
+  </script>
+</body>
+</html>
