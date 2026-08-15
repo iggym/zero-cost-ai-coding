@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Curl-to-Code Converter — zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14181c;
+    --panel-2: #1b2026;
+    --border: #262c33;
+    --text: #e6e8eb;
+    --muted: #8a929c;
+    --accent: #22c55e;
+    --accent-dim: #166534;
+    --err: #ef4444;
+    --warn: #eab308;
+  }
+  html[data-theme="light"] {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --panel-2: #f1f3f6;
+    --border: #d9dee4;
+    --text: #11151a;
+    --muted: #5b6572;
+    --accent: #16a34a;
+    --accent-dim: #166534;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  h1, h2, h3, code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .topbar a.home { color: var(--muted); }
+  .topbar .title { color: var(--text); font-weight: 500; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .pitch { margin-bottom: 28px; }
+  .pitch h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .pitch p { color: var(--muted); margin: 0 0 12px; }
+  .pitch .limit {
+    display: inline-block;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .share-row { display: flex; gap: 8px; margin-top: 12px; }
+  .share-row button {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .share-row button:hover { border-color: var(--accent); }
+
+  .section { margin-bottom: 24px; }
+  .section h2 { font-size: 14px; margin: 0 0 8px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .section p { margin: 0 0 8px; }
+
+  .input-area {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 20px;
+  }
+  .input-area label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 10px;
+    border-radius: 4px;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .input-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .sample-links { display: flex; gap: 12px; flex-wrap: wrap; }
+  .sample-links a {
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .sample-links a:hover { color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    color: #0b0d10;
+    border: none;
+    padding: 9px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button.primary:hover { filter: brightness(1.1); }
+
+  .parsed-summary {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: none;
+  }
+  .parsed-summary.visible { display: block; }
+  .parsed-summary .label { color: var(--accent); margin-right: 6px; }
+
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+    overflow-x: auto;
+  }
+  .tab {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .output-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    padding: 14px;
+  }
+  .code-block {
+    display: none;
+    position: relative;
+  }
+  .code-block.active { display: block; }
+  .code-block pre {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+  .error-box {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--err);
+    color: var(--err);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+  .error-box.visible { display: block; }
+
+  .note {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 14px;
+  }
+  .note code { color: var(--accent); }
+
+  .theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a>
+    <div>
+      <span class="title">curl-to-code</span>
+      <button class="theme-toggle" id="themeToggle">light</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="pitch">
+      <h1>Curl-to-Code Converter</h1>
+      <p>Paste a curl command and get idiomatic code in Python requests, JavaScript fetch, Node.js, Go, PHP, Rust, and more. Handles common flags (-X, -H, -d, -u, -b, -F, -L). Runs entirely in your browser — your curl command never leaves your machine.</p>
+      <span class="limit">limit: ∞ — pure client-side parsing, no network calls</span>
+      <div class="share-row">
+        <button onclick="copyLink()">copy link</button>
+        <button onclick="shareX()">post on 𝕏</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>What it replaces</h2>
+      <p>Asking "how do I convert this curl to python" on Stack Overflow, or manually translating <code>-H</code>, <code>-d</code>, and <code>-u</code> flags every time you find an API example in docs.</p>
+    </div>
+
+    <div class="section">
+      <h2>How to use</h2>
+      <p>Paste any curl command (the <code>curl</code> word itself is optional). Click Convert. Switch languages with the tabs. Copy the result into your code.</p>
+    </div>
+
+    <div class="input-area">
+      <label>cURL command</label>
+      <textarea id="curlInput" placeholder="curl -X POST https://api.example.com/users \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer sk_test_123' \
+  -d '{&quot;name&quot;:&quot;Ada&quot;,&quot;email&quot;:&quot;ada@example.com&quot;}'"></textarea>
+      <div class="input-footer">
+        <div class="sample-links">
+          <span style="color:var(--muted); font-size:12px;">Try:</span>
+          <a onclick="loadSample('get')">simple GET</a>
+          <a onclick="loadSample('postJson')">POST JSON</a>
+          <a onclick="loadSample('auth')">basic auth</a>
+          <a onclick="loadSample('form')">form data</a>
+          <a onclick="loadSample('headers')">custom headers</a>
+        </div>
+        <button class="primary" onclick="convert()">Convert</button>
+      </div>
+    </div>
+
+    <div class="parsed-summary" id="parsedSummary"></div>
+    <div class="error-box" id="errorBox"></div>
+
+    <div id="outputSection" class="hidden">
+      <div class="tabs" id="tabs"></div>
+      <div class="output-panel" id="outputPanel"></div>
+    </div>
+
+    <div class="section" style="margin-top: 36px;">
+      <h2>What breaks</h2>
+      <p>This handles the most common curl flags: <code>-X</code>, <code>-H</code>/<code>--header</code>, <code>-d</code>/<code>--data</code>/<code>--data-raw</code>, <code>-u</code>/<code>--user</code> (basic auth), <code>-b</code>/<code>--cookie</code>, <code>-F</code>/<code>--form</code>, <code>-L</code>/<code>--location</code>, <code>-k</code>/<code>--insecure</code>, <code>-e</code>/<code>--referer</code>, <code>-A</code>/<code>--user-agent</code>. It does <strong>not</strong> handle: shell variable expansion (<code>$VAR</code>), backtick substitution, complex shell pipes, <code>--compressed</code>, OAuth token flows, or advanced curl features like <code>--write-out</code>. For complex cases, use curlconverter.com.</p>
+    </div>
+
+    <footer>
+      verified free of API/key/limit: this tool runs 100% client-side with no external calls. evidence of the problem: <a href="https://stackoverflow.com/questions/20461194/conversion-of-curl-to-python-requests" target="_blank">stackoverflow.com/questions/20461194</a>, <a href="https://curlconverter.com/" target="_blank">curlconverter.com</a>.
+    </footer>
+  </div>
+
+<script>
+  // Theme toggle
+  const themeToggle = document.getElementById('themeToggle');
+  const applyTheme = (t) => {
+    document.documentElement.setAttribute('data-theme', t);
+    themeToggle.textContent = t === 'light' ? 'dark' : 'light';
+  };
+  const saved = localStorage.getItem('zca-theme') || 'dark';
+  applyTheme(saved);
+  themeToggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    localStorage.setItem('zca-theme', next);
+  });
+
+  // Tokenizer: splits curl command into array of args, respecting quotes
+  function tokenize(cmd) {
+    cmd = cmd.trim();
+    if (cmd.startsWith('curl ')) cmd = cmd.slice(5);
+    else if (cmd === 'curl') return [];
+
+    const args = [];
+    let current = '';
+    let inSingle = false;
+    let inDouble = false;
+    let escaped = false;
+
+    for (let i = 0; i < cmd.length; i++) {
+      const c = cmd[i];
+      if (escaped) { current += c; escaped = false; continue; }
+      if (c === '\\') { escaped = true; current += c; continue; }
+      if (c === "'" && !inDouble) { inSingle = !inSingle; continue; }
+      if (c === '"' && !inSingle) { inDouble = !inDouble; continue; }
+      if (c === ' ' && !inSingle && !inDouble) {
+        if (current) { args.push(current); current = ''; }
+        continue;
+      }
+      current += c;
+    }
+    if (current) args.push(current);
+    return args;
+  }
+
+  // Parse args into structured object
+  function parseCurl(args) {
+    const result = {
+      method: 'GET',
+      url: '',
+      headers: [],
+      body: null,
+      bodyRaw: null,
+      user: null,
+      cookies: [],
+      formFields: [],
+      followRedirects: false,
+      insecure: false,
+      referer: null,
+      userAgent: null,
+      warnings: []
+    };
+
+    let i = 0;
+    let methodExplicit = false;
+
+    while (i < args.length) {
+      const arg = args[i];
+
+      // Method
+      if (arg === '-X' || arg === '--request') {
+        result.method = (args[++i] || 'GET').toUpperCase();
+        methodExplicit = true;
+      }
+      // Headers
+      else if (arg === '-H' || arg === '--header') {
+        const h = args[++i] || '';
+        const colon = h.indexOf(':');
+        if (colon > 0) {
+          result.headers.push({
+            key: h.slice(0, colon).trim(),
+            value: h.slice(colon + 1).trim()
+          });
+        }
+      }
+      // Data (all variants)
+      else if (arg === '-d' || arg === '--data' || arg === '--data-raw' || arg === '--data-binary' || arg === '--data-urlencode') {
+        result.body = args[++i] || '';
+        result.bodyRaw = result.body;
+        if (!methodExplicit) result.method = 'POST';
+      }
+      // Basic auth
+      else if (arg === '-u' || arg === '--user') {
+        result.user = args[++i] || '';
+      }
+      // Cookies
+      else if (arg === '-b' || arg === '--cookie') {
+        result.cookies.push(args[++i] || '');
+      }
+      // Form fields
+      else if (arg === '-F' || arg === '--form') {
+        const f = args[++i] || '';
+        const eq = f.indexOf('=');
+        if (eq > 0) {
+          result.formFields.push({
+            name: f.slice(0, eq),
+            value: f.slice(eq + 1)
+          });
+        }
+        if (!methodExplicit) result.method = 'POST';
+      }
+      // Follow redirects
+      else if (arg === '-L' || arg === '--location') {
+        result.followRedirects = true;
+      }
+      // Insecure
+      else if (arg === '-k' || arg === '--insecure') {
+        result.insecure = true;
+      }
+      // Referer
+      else if (arg === '-e' || arg === '--referer') {
+        result.referer = args[++i] || '';
+      }
+      // User agent
+      else if (arg === '-A' || arg === '--user-agent') {
+        result.userAgent = args[++i] || '';
+      }
+      // URL (anything that doesn't start with -)
+      else if (!arg.startsWith('-') && !result.url) {
+        result.url = arg;
+      }
+      // Unknown flag
+      else if (arg.startsWith('-')) {
+        result.warnings.push(`Unsupported flag: ${arg}`);
+        // Skip next arg if it looks like a value (doesn't start with -)
+        if (args[i + 1] && !args[i + 1].startsWith('-')) i++;
+      }
+
+      i++;
+    }
+
+    // If form fields exist, override body
+    if (result.formFields.length > 0 && result.body) {
+      result.warnings.push('Form fields (-F) override -d body');
+    }
+
+    if (!result.url) {
+      throw new Error('No URL found in curl command');
+    }
+
+    return result;
+  }
+
+  // Helpers
+  const esc = (s, q = "'") => {
+    if (q === '"') return s.replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    return s.replace(/'/g, "\\'");
+  };
+  const escPy = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+
+  // Converters
+  const converters = {
+    python: {
+      name: 'Python (requests)',
+      icon: '🐍',
+      convert: (p) => {
+        let code = 'import requests\n\n';
+        const hasHeaders = p.headers.length > 0 || p.user || p.cookies.length > 0 || p.userAgent || p.referer;
+        const hasBody = p.body !== null || p.formFields.length > 0;
+
+        if (p.user) {
+          const [u, pw] = p.user.split(':');
+          code += `auth = ('${esc(u)}', '${esc(pw || '')}')\n`;
+        }
+        if (hasHeaders || p.user) {
+          code += 'headers = {\n';
+          p.headers.forEach(h => {
+            code += `    '${esc(h.key)}': '${esc(h.value)}',\n`;
+          });
+          if (p.userAgent) code += `    'User-Agent': '${esc(p.userAgent)}',\n`;
+          if (p.referer) code += `    'Referer': '${esc(p.referer)}',\n`;
+          code += '}\n';
+        }
+        if (p.body !== null) {
+          // Try to detect JSON
+          try {
+            JSON.parse(p.body);
+            code += `payload = ${p.body}\n`;
+          } catch {
+            code += `payload = '${escPy(p.body)}'\n`;
+          }
+        }
+        if (p.formFields.length > 0) {
+          code += 'payload = {\n';
+          p.formFields.forEach(f => {
+            code += `    '${esc(f.name)}': '${esc(f.value)}',\n`;
+          });
+          code += '}\n';
+        }
+
+        code += `\nresponse = requests.${p.method.toLowerCase()}(\n`;
+        code += `    '${esc(p.url)}',\n`;
+        if (hasHeaders || p.user) code += `    headers=headers,\n`;
+        if (hasBody && p.body !== null) code += `    json=payload if isinstance(payload, (dict, list)) else None,\n`;
+        if (hasBody && p.body !== null) code += `    data=payload if isinstance(payload, str) else None,\n`;
+        if (p.formFields.length > 0) code += `    data=payload,\n`;
+        if (p.user) code += `    auth=auth,\n`;
+        if (p.cookies.length > 0) code += `    cookies={'${p.cookies[0].split('=')[0]}': '${p.cookies[0].split('=')[1]}'},\n`;
+        if (!p.followRedirects) code += `    allow_redirects=False,\n`;
+        if (p.insecure) code += `    verify=False,\n`;
+        code = code.replace(/,\n$/, '\n');
+        code += ')\n\n';
+        code += 'print(response.status_code)\n';
+        code += 'print(response.text)\n';
+        if (p.insecure) code += '\n# Warning: verify=False disables SSL verification\n';
+        return code;
+      }
+    },
+    js: {
+      name: 'JavaScript (fetch)',
+      icon: '🟨',
+      convert: (p) => {
+        let code = 'const response = await fetch(\n';
+        code += `  '${esc(p.url, '"')}',\n`;
+        code += '  {\n';
+        code += `    method: '${p.method}',\n`;
+
+        const hasHeaders = p.headers.length > 0 || p.userAgent || p.referer || p.cookies.length > 0;
+        if (hasHeaders) {
+          code += '    headers: {\n';
+          p.headers.forEach(h => {
+            code += `      '${esc(h.key)}': '${esc(h.value)}',\n`;
+          });
+          if (p.userAgent) code += `      'User-Agent': '${esc(p.userAgent)}',\n`;
+          if (p.referer) code += `      'Referer': '${esc(p.referer)}',\n`;
+          if (p.cookies.length > 0) code += `      'Cookie': '${esc(p.cookies.join('; '))}',\n`;
+          code += '    },\n';
+        }
+
+        if (p.body !== null) {
+          try {
+            JSON.parse(p.body);
+            code += `    body: JSON.stringify(${p.body}),\n`;
+          } catch {
+            code += `    body: '${esc(p.body)}',\n`;
+          }
+        }
+        if (p.formFields.length > 0) {
+          code += '    body: new URLSearchParams({\n';
+          p.formFields.forEach(f => {
+            code += `      '${esc(f.name)}': '${esc(f.value)}',\n`;
+          });
+          code += '    }),\n';
+        }
+        if (p.user) {
+          const [u, pw] = p.user.split(':');
+          const b64 = btoa(`${u}:${pw || ''}`);
+          if (!hasHeaders) code += '    headers: {\n';
+          code += `      'Authorization': 'Basic ${b64}',\n`;
+          if (!hasHeaders) code += '    },\n';
+        }
+        if (!p.followRedirects) code += `    redirect: 'manual',\n`;
+        code += '  }\n';
+        code += ');\n\n';
+        code += 'const data = await response.json();\n';
+        code += 'console.log(data);\n';
+        if (p.insecure) code += '\n// Note: fetch() in browsers cannot disable SSL verification\n';
+        return code;
+      }
+    },
+    node: {
+      name: 'Node.js (fetch)',
+      icon: '⬢',
+      convert: (p) => {
+        let code = "// Node 18+ (built-in fetch)\n";
+        code += 'const response = await fetch(\n';
+        code += `  '${esc(p.url, '"')}',\n`;
+        code += '  {\n';
+        code += `    method: '${p.method}',\n`;
+
+        const hasHeaders = p.headers.length > 0 || p.userAgent || p.referer || p.cookies.length > 0;
+        if (hasHeaders) {
+          code += '    headers: {\n';
+          p.headers.forEach(h => {
+            code += `      '${esc(h.key)}': '${esc(h.value)}',\n`;
+          });
+          if (p.userAgent) code += `      'User-Agent': '${esc(p.userAgent)}',\n`;
+          if (p.referer) code += `      'Referer': '${esc(p.referer)}',\n`;
+          if (p.cookies.length > 0) code += `      'Cookie': '${esc(p.cookies.join('; '))}',\n`;
+          code += '    },\n';
+        }
+
+        if (p.body !== null) {
+          try {
+            JSON.parse(p.body);
+            code += `    body: JSON.stringify(${p.body}),\n`;
+          } catch {
+            code += `    body: '${esc(p.body)}',\n`;
+          }
+        }
+        if (p.formFields.length > 0) {
+          code += '    body: new URLSearchParams({\n';
+          p.formFields.forEach(f => {
+            code += `      '${esc(f.name)}': '${esc(f.value)}',\n`;
+          });
+          code += '    }),\n';
+        }
+        if (p.user) {
+          const [u, pw] = p.user.split(':');
+          const b64 = btoa(`${u}:${pw || ''}`);
+          code += `    headers: {\n`;
+          code += `      'Authorization': 'Basic ${b64}',\n`;
+          code += '    },\n';
+        }
+        if (!p.followRedirects) code += `    redirect: 'manual',\n`;
+        if (p.insecure) {
+          code = "// Node (undici with dispatcher to disable SSL)\n" + code;
+          code += "    dispatcher: new Agent({ connect: { rejectUnauthorized: false } }),\n";
+        }
+        code += '  }\n';
+        code += ');\n\n';
+        code += 'const data = await response.json();\n';
+        code += 'console.log(data);\n';
+        return code;
+      }
+    },
+    go: {
+      name: 'Go',
+      icon: '🔷',
+      convert: (p) => {
+        let code = 'package main\n\n';
+        code += 'import (\n';
+        code += '    "fmt"\n';
+        code += '    "io"\n';
+        code += '    "net/http"\n';
+        if (p.body !== null) code += '    "strings"\n';
+        if (p.formFields.length > 0) code += '    "net/url"\n';
+        code += ')\n\n';
+        code += 'func main() {\n';
+
+        if (p.body !== null) {
+          code += `    body := strings.NewReader(\`${p.body.replace(/`/g, "'")}\`)\n`;
+          code += `    req, _ := http.NewRequest("${p.method}", "${esc(p.url, '"')}", body)\n`;
+        } else if (p.formFields.length > 0) {
+          code += '    form := url.Values{}\n';
+          p.formFields.forEach(f => {
+            code += `    form.Add("${esc(f.name, '"')}", "${esc(f.value, '"')}")\n`;
+          });
+          code += `    req, _ := http.NewRequest("${p.method}", "${esc(p.url, '"')}", strings.NewReader(form.Encode()))\n`;
+          code += '    req.Header.Add("Content-Type", "application/x-www-form-urlencoded")\n';
+        } else {
+          code += `    req, _ := http.NewRequest("${p.method}", "${esc(p.url, '"')}", nil)\n`;
+        }
+
+        p.headers.forEach(h => {
+          code += `    req.Header.Add("${esc(h.key, '"')}", "${esc(h.value, '"')}")\n`;
+        });
+        if (p.userAgent) code += `    req.Header.Add("User-Agent", "${esc(p.userAgent, '"')}")\n`;
+        if (p.referer) code += `    req.Header.Add("Referer", "${esc(p.referer, '"')}")\n`;
+        if (p.cookies.length > 0) {
+          p.cookies.forEach(c => {
+            const [name, val] = c.split('=');
+            code += `    req.AddCookie(&http.Cookie{Name: "${esc(name || '', '"')}", Value: "${esc(val || '', '"')}"})\n`;
+          });
+        }
+        if (p.user) {
+          const [u, pw] = p.user.split(':');
+          code += `    req.SetBasicAuth("${esc(u, '"')}", "${esc(pw || '', '"')}")\n`;
+        }
+
+        code += '\n';
+        code += '    client := &http.Client{}\n';
+        if (!p.followRedirects) {
+          code += '    client.CheckRedirect = func(req *http.Request, via []*http.Request) error {\n';
+          code += '        return http.ErrUseLastResponse\n';
+          code += '    }\n';
+        }
+        code += '    resp, err := client.Do(req)\n';
+        code += '    if err != nil { panic(err) }\n';
+        code += '    defer resp.Body.Close()\n\n';
+        code += '    bodyBytes, _ := io.ReadAll(resp.Body)\n';
+        code += '    fmt.Println(resp.StatusCode)\n';
+        code += '    fmt.Println(string(bodyBytes))\n';
+        code += '}\n';
+        return code;
+      }
+    },
+    php: {
+      name: 'PHP (cURL)',
+      icon: '🐘',
+      convert: (p) => {
+        let code = '<?php\n\n';
+        code += '$ch = curl_init();\n\n';
+        code += `curl_setopt($ch, CURLOPT_URL, '${esc(p.url)}');\n`;
+        code += 'curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n';
+        code += `curl_setopt($ch, CURLOPT_CUSTOMREQUEST, '${p.method}');\n`;
+
+        if (p.followRedirects) code += 'curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);\n';
+        if (p.insecure) code += "curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);\n";
+
+        if (p.body !== null) {
+          code += `curl_setopt($ch, CURLOPT_POSTFIELDS, '${esc(p.body)}');\n`;
+        }
+        if (p.formFields.length > 0) {
+          code += 'curl_setopt($ch, CURLOPT_POSTFIELDS, [\n';
+          p.formFields.forEach(f => {
+            code += `    '${esc(f.name)}' => '${esc(f.value)}',\n`;
+          });
+          code += ']);\n';
+        }
+
+        if (p.headers.length > 0 || p.userAgent || p.referer) {
+          code += 'curl_setopt($ch, CURLOPT_HTTPHEADER, [\n';
+          p.headers.forEach(h => {
+            code += `    '${esc(h.key)}: ${esc(h.value)}',\n`;
+          });
+          if (p.userAgent) code += `    'User-Agent: ${esc(p.userAgent)}',\n`;
+          code += ']);\n';
+        }
+        if (p.referer) code += `curl_setopt($ch, CURLOPT_REFERER, '${esc(p.referer)}');\n`;
+        if (p.cookies.length > 0) code += `curl_setopt($ch, CURLOPT_COOKIE, '${esc(p.cookies.join('; '))}');\n`;
+        if (p.user) code += `curl_setopt($ch, CURLOPT_USERPWD, '${esc(p.user)}');\n`;
+
+        code += '\n$response = curl_exec($ch);\n';
+        code += '$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);\n';
+        code += 'curl_close($ch);\n\n';
+        code += 'echo $httpCode . "\\n";\n';
+        code += 'echo $response;\n';
+        return code;
+      }
+    },
+    rust: {
+      name: 'Rust (reqwest)',
+      icon: '🦀',
+      convert: (p) => {
+        let code = 'use reqwest;\nuse std::collections::HashMap;\n\n';
+        code += '#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n';
+        code += '    let client = reqwest::Client::new();\n\n';
+        code += `    let response = client.${p.method.toLowerCase()}("${esc(p.url, '"')}"\n`;
+
+        p.headers.forEach(h => {
+          code += `        .header("${esc(h.key, '"')}", "${esc(h.value, '"')}")\n`;
+        });
+        if (p.userAgent) code += `        .header("User-Agent", "${esc(p.userAgent, '"')}")\n`;
+        if (p.referer) code += `        .header("Referer", "${esc(p.referer, '"')}")\n`;
+        if (p.user) {
+          const [u, pw] = p.user.split(':');
+          code += `        .basic_auth("${esc(u, '"')}", Some("${esc(pw || '', '"')}"))\n`;
+        }
+        if (p.cookies.length > 0) {
+          code += `        .header("Cookie", "${esc(p.cookies.join('; '), '"')}")\n`;
+        }
+        if (!p.followRedirects) code += '        .redirect(reqwest::redirect::Policy::none())\n';
+        if (p.insecure) code += '        .danger_accept_invalid_certs(true)\n';
+
+        if (p.body !== null) {
+          try {
+            JSON.parse(p.body);
+            code += `        .body(r#"${p.body}"#)\n`;
+          } catch {
+            code += `        .body("${esc(p.body, '"')}")\n`;
+          }
+        }
+        if (p.formFields.length > 0) {
+          code += '        .form(&[\n';
+          p.formFields.forEach(f => {
+            code += `            ("${esc(f.name, '"')}", "${esc(f.value, '"')}"),\n`;
+          });
+          code += '        ])\n';
+        }
+
+        code += '        .send()\n';
+        code += '        .await?;\n\n';
+        code += '    println!("{}", response.status());\n';
+        code += '    println!("{}", response.text().await?);\n\n';
+        code += '    Ok(())\n';
+        code += '}\n';
+        return code;
+      }
+    },
+    shell: {
+      name: 'Shell (cleaned)',
+      icon: '$',
+      convert: (p) => {
+        let cmd = 'curl';
+        if (p.method !== 'GET' || p.body !== null || p.formFields.length > 0) {
+          cmd += ` -X ${p.method}`;
+        }
+        p.headers.forEach(h => {
+          cmd += ` \\\n  -H '${esc(h.key)}: ${esc(h.value)}'`;
+        });
+        if (p.userAgent) cmd += ` \\\n  -A '${esc(p.userAgent)}'`;
+        if (p.referer) cmd += ` \\\n  -e '${esc(p.referer)}'`;
+        if (p.user) cmd += ` \\\n  -u '${esc(p.user)}'`;
+        p.cookies.forEach(c => {
+          cmd += ` \\\n  -b '${esc(c)}'`;
+        });
+        if (p.body !== null) cmd += ` \\\n  -d '${esc(p.body)}'`;
+        p.formFields.forEach(f => {
+          cmd += ` \\\n  -F '${esc(f.name)}=${esc(f.value)}'`;
+        });
+        if (p.followRedirects) cmd += ` \\\n  -L`;
+        if (p.insecure) cmd += ` \\\n  -k`;
+        cmd += ` \\\n  '${esc(p.url)}'`;
+        return cmd;
+      }
+    }
+  };
+
+  let currentParsed = null;
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.classList.add('visible');
+    document.getElementById('outputSection').classList.add('hidden');
+    document.getElementById('parsedSummary').classList.remove('visible');
+  }
+
+  function hideError() {
+    document.getElementById('errorBox').classList.remove('visible');
+  }
+
+  function convert() {
+    hideError();
+    const input = document.getElementById('curlInput').value.trim();
+    if (!input) { showError('Paste a curl command first.'); return; }
+
+    let args;
+    try {
+      args = tokenize(input);
+    } catch (e) {
+      showError('Failed to parse command: ' + e.message);
+      return;
+    }
+
+    try {
+      currentParsed = parseCurl(args);
+    } catch (e) {
+      showError(e.message);
+      return;
+    }
+
+    // Show summary
+    const summary = document.getElementById('parsedSummary');
+    summary.innerHTML = `
+      <span class="label">method:</span> ${currentParsed.method}
+      &nbsp;·&nbsp;
+      <span class="label">url:</span> ${esc(currentParsed.url)}
+      ${currentParsed.headers.length ? `&nbsp;·&nbsp;<span class="label">headers:</span> ${currentParsed.headers.length}` : ''}
+      ${currentParsed.body !== null ? `&nbsp;·&nbsp;<span class="label">body:</span> ${currentParsed.body.length} chars` : ''}
+      ${currentParsed.user ? `&nbsp;·&nbsp;<span class="label">auth:</span> basic` : ''}
+    `;
+    summary.classList.add('visible');
+
+    if (currentParsed.warnings.length > 0) {
+      const warnDiv = document.createElement('div');
+      warnDiv.style.color = 'var(--warn)';
+      warnDiv.style.marginTop = '8px';
+      warnDiv.innerHTML = '<strong>Warnings:</strong> ' + currentParsed.warnings.join('; ');
+      summary.appendChild(warnDiv);
+    }
+
+    // Build tabs
+    const tabs = document.getElementById('tabs');
+    const panel = document.getElementById('outputPanel');
+    tabs.innerHTML = '';
+    panel.innerHTML = '';
+
+    Object.keys(converters).forEach((key, idx) => {
+      const c = converters[key];
+      const tab = document.createElement('button');
+      tab.className = 'tab' + (idx === 0 ? ' active' : '');
+      tab.textContent = c.name;
+      tab.onclick = () => switchTab(key);
+      tab.dataset.lang = key;
+      tabs.appendChild(tab);
+
+      const block = document.createElement('div');
+      block.className = 'code-block' + (idx === 0 ? ' active' : '');
+      block.dataset.lang = key;
+
+      const pre = document.createElement('pre');
+      pre.textContent = c.convert(currentParsed);
+      pre.id = 'code-' + key;
+      block.appendChild(pre);
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = 'copy';
+      copyBtn.onclick = () => copyCode('code-' + key, copyBtn);
+      block.appendChild(copyBtn);
+
+      panel.appendChild(block);
+    });
+
+    document.getElementById('outputSection').classList.remove('hidden');
+  }
+
+  function switchTab(lang) {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.lang === lang);
+    });
+    document.querySelectorAll('.code-block').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+  }
+
+  function copyCode(id, btn) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const old = btn.textContent;
+      btn.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1200);
+    });
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied.'));
+  }
+
+  function shareX() {
+    const text = encodeURIComponent('Curl-to-Code Converter — paste a curl command, get Python/JS/Go/PHP/Rust code. 100% client-side, no API:');
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+  }
+
+  const samples = {
+    get: 'curl https://api.github.com/users/octocat',
+    postJson: `curl -X POST https://api.example.com/users \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: Bearer sk_test_abc123' \\
+  -d '{"name":"Ada","email":"ada@example.com"}'`,
+    auth: `curl -u alice:supersecret \\
+  https://api.example.com/protected`,
+    form: `curl -X POST https://example.com/login \\
+  -F 'username=alice' \\
+  -F 'password=hunter2'`,
+    headers: `curl https://api.example.com/data \\
+  -H 'Accept: application/json' \\
+  -H 'X-API-Key: abc123' \\
+  -H 'User-Agent: my-app/1.0' \\
+  -L`
+  };
+
+  function loadSample(key) {
+    document.getElementById('curlInput').value = samples[key];
+    convert();
+  }
+</script>
+</body>
+</html>
