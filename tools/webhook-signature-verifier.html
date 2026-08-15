@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Signature Verifier — Zero Cost AI Coding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #1a1a1a;
+            --bg-secondary: #252525;
+            --text: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --border: #3a3a3a;
+            --accent: #4ade80;
+            --accent-dim: #22c55e;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        [data-theme="light"] {
+            --bg: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text: #1a1a1a;
+            --text-muted: #666666;
+            --border: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding-top: 60px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .top-bar a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .top-bar a:hover {
+            color: var(--accent);
+        }
+
+        .theme-toggle {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .theme-toggle:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+
+        .pitch {
+            font-size: 16px;
+            margin-bottom: 24px;
+            color: var(--text-muted);
+        }
+
+        .replaces {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .replaces strong {
+            color: var(--accent);
+        }
+
+        .how-to {
+            margin-bottom: 32px;
+        }
+
+        .how-to h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .how-to ol {
+            padding-left: 24px;
+        }
+
+        .how-to li {
+            margin-bottom: 8px;
+        }
+
+        .limit-box {
+            background: var(--bg-secondary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+            border-left: 3px solid var(--accent);
+            font-size: 14px;
+        }
+
+        .limit-box strong {
+            color: var(--accent);
+        }
+
+        .tool-section {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .provider-group {
+            display: none;
+        }
+
+        .provider-group.active {
+            display: block;
+        }
+
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: var(--accent-dim);
+        }
+
+        button:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.match {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--success);
+        }
+
+        .result.mismatch {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--danger);
+        }
+
+        .result h3 {
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .result.match h3 {
+            color: var(--success);
+        }
+
+        .result.mismatch h3 {
+            color: var(--danger);
+        }
+
+        .code-block {
+            background: var(--bg);
+            padding: 12px;
+            padding-right: 70px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            word-break: break-all;
+            margin: 8px 0;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg);
+        }
+
+        .time-saved {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .time-saved-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 32px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .time-saved-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .share-buttons button {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .share-buttons button:hover {
+            background: var(--bg);
+        }
+
+        .export-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .export-row button {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px;
+            font-size: 13px;
+        }
+
+        .export-row button:hover {
+            background: var(--bg-secondary);
+        }
+
+        footer {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .top-bar {
+                padding: 0 16px;
+            }
+
+            .tool-section {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="top-bar">
+        <a href="https://iggym.github.io/zero-cost-ai-coding/">← Home</a>
+        <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 15px;">Webhook Signature Verifier</span>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle light mode">Light Mode</button>
+    </nav>
+
+    <div class="container">
+        <h1>Webhook Signature Verifier</h1>
+        <p class="pitch">Verify webhook signatures from GitHub (X-Hub-Signature-256), Stripe (Stripe-Signature), or any HMAC-SHA256 provider. Runs 100% in your browser using Web Crypto API — no API calls, no server, no limit.</p>
+
+        <div class="replaces">
+            <strong>What it replaces:</strong> Writing ad-hoc Node.js scripts with the <code>crypto</code> module, or paid webhook testing services. Hookdeck's webhook testing starts at $29/mo for 100k events; Svix charges from $49/mo for hosted signature verification. This does the same math in the browser tab you already have open.
+        </div>
+
+        <div class="how-to">
+            <h2>How to use it</h2>
+            <ol>
+                <li>Pick the webhook provider from the dropdown.</li>
+                <li>Paste the raw request body exactly as your server received it (whitespace changes break signatures — don't reformat).</li>
+                <li>Paste your webhook secret from the provider's dashboard (GitHub repo settings, Stripe endpoint "Reveal secret", etc.). The secret stays in memory and clears when you close this tab.</li>
+                <li>Paste the signature value from the incoming HTTP header.</li>
+                <li>Click Verify. The tool computes what the signature should be and compares it to what you received.</li>
+            </ol>
+        </div>
+
+        <div class="limit-box">
+            <strong>Free-tier limit:</strong> Unlimited. Web Crypto API is built into every modern browser (Chrome, Firefox, Safari, Edge). No provider account, no key, no quota.
+        </div>
+
+        <div class="tool-section">
+            <label for="provider">Webhook Provider</label>
+            <select id="provider">
+                <option value="github">GitHub (X-Hub-Signature-256)</option>
+                <option value="stripe">Stripe (Stripe-Signature header)</option>
+                <option value="generic">Generic HMAC-SHA256</option>
+            </select>
+
+            <div class="provider-group active" id="github-group">
+                <label for="githubBody">Request Body (raw JSON, unmodified)</label>
+                <textarea id="githubBody" placeholder='{"action":"opened","issue":{"id":123,"title":"Bug"}}'></textarea>
+
+                <label for="githubSecret">Webhook Secret</label>
+                <input type="password" id="githubSecret" placeholder="Secret from GitHub webhook settings" autocomplete="off">
+
+                <label for="githubSignature">X-Hub-Signature-256 Header Value</label>
+                <input type="text" id="githubSignature" placeholder="sha256=abc123def456..." autocomplete="off">
+            </div>
+
+            <div class="provider-group" id="stripe-group">
+                <label for="stripeBody">Request Body (raw JSON, unmodified)</label>
+                <textarea id="stripeBody" placeholder='{"id":"evt_xxx","object":"event","type":"payment_intent.succeeded"}'></textarea>
+
+                <label for="stripeSecret">Webhook Secret (whsec_...)</label>
+                <input type="password" id="stripeSecret" placeholder="whsec_..." autocomplete="off">
+
+                <label for="stripeSignature">Full Stripe-Signature Header Value</label>
+                <input type="text" id="stripeSignature" placeholder="t=1234567890,v1=abc123...,v0=..." autocomplete="off">
+                <small style="color: var(--text-muted); display: block; margin-top: -10px; margin-bottom: 10px;">Paste the whole header value; the tool extracts <code>t=</code> and <code>v1=</code>.</small>
+            </div>
+
+            <div class="provider-group" id="generic-group">
+                <label for="genericBody">Message to sign</label>
+                <textarea id="genericBody" placeholder="Any string you want to HMAC-SHA256"></textarea>
+
+                <label for="genericSecret">Secret Key</label>
+                <input type="password" id="genericSecret" placeholder="Your secret key" autocomplete="off">
+
+                <label for="genericSignature">Expected Signature (hex, with or without prefix)</label>
+                <input type="text" id="genericSignature" placeholder="abc123def456..." autocomplete="off">
+            </div>
+
+            <button id="verifyBtn">Verify Signature</button>
+
+            <div class="result" id="result" role="alert" aria-live="polite"></div>
+
+            <div class="export-row" id="exportRow" style="display: none;">
+                <button id="copyJson">Copy as JSON</button>
+                <button id="downloadJson">Download JSON</button>
+            </div>
+        </div>
+
+        <div class="time-saved">
+            <div class="time-saved-value" id="timeSaved">0 sec</div>
+            <div class="time-saved-label">Time saved (~30 sec per verification vs. spinning up Node.js/Python with crypto imports, key env vars, and hex conversion)</div>
+        </div>
+
+        <div class="share-buttons">
+            <button id="copyLink">Copy Link</button>
+            <button id="shareX">Share on X</button>
+        </div>
+
+        <footer>
+            Free-tier verified: Web Crypto API built into modern browsers, no account or key required. Source: <a href="https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto" target="_blank" rel="noopener">MDN SubtleCrypto</a>
+        </footer>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            let verificationCount = 0;
+            let lastResult = null;
+
+            // Theme toggle
+            const themeToggle = document.getElementById('themeToggle');
+            const savedTheme = sessionStorage.getItem('zcac-theme');
+            if (savedTheme === 'light') {
+                document.body.setAttribute('data-theme', 'light');
+                themeToggle.textContent = 'Dark Mode';
+            }
+            themeToggle.addEventListener('click', function() {
+                const isLight = document.body.getAttribute('data-theme') === 'light';
+                const newTheme = isLight ? '' : 'light';
+                document.body.setAttribute('data-theme', newTheme);
+                themeToggle.textContent = isLight ? 'Light Mode' : 'Dark Mode';
+                if (newTheme) sessionStorage.setItem('zcac-theme', newTheme);
+                else sessionStorage.removeItem('zcac-theme');
+            });
+
+            // Provider switch
+            const providerSelect = document.getElementById('provider');
+            providerSelect.addEventListener('change', function() {
+                document.querySelectorAll('.provider-group').forEach(function(g) {
+                    g.classList.remove('active');
+                });
+                document.getElementById(providerSelect.value + '-group').classList.add('active');
+            });
+
+            // HMAC-SHA256 via Web Crypto API
+            async function hmacSha256(secret, message) {
+                var encoder = new TextEncoder();
+                var keyData = encoder.encode(secret);
+                var msgData = encoder.encode(message);
+
+                var key = await crypto.subtle.importKey(
+                    'raw',
+                    keyData,
+                    { name: 'HMAC', hash: 'SHA-256' },
+                    false,
+                    ['sign']
+                );
+
+                var signature = await crypto.subtle.sign('HMAC', key, msgData);
+                var hashArray = Array.from(new Uint8Array(signature));
+                return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+            }
+
+            function parseStripeSignature(header) {
+                var parts = header.split(',');
+                var t = null;
+                var v1 = null;
+                for (var i = 0; i < parts.length; i++) {
+                    var p = parts[i].trim();
+                    if (p.indexOf('t=') === 0) t = p.substring(2);
+                    else if (p.indexOf('v1=') === 0) v1 = p.substring(3);
+                }
+                return { t: t, v1: v1 };
+            }
+
+            async function verifySignature() {
+                var provider = providerSelect.value;
+                var resultDiv = document.getElementById('result');
+                var exportRow = document.getElementById('exportRow');
+                exportRow.style.display = 'none';
+
+                var verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'Computing...';
+
+                try {
+                    var expected = '';
+                    var received = '';
+                    var details = {};
+
+                    if (provider === 'github') {
+                        var body = document.getElementById('githubBody').value;
+                        var secret = document.getElementById('githubSecret').value;
+                        var receivedSig = document.getElementById('githubSignature').value.trim();
+
+                        if (!body || !secret || !receivedSig) {
+                            throw new Error('Fill in all three fields: body, secret, and header value.');
+                        }
+
+                        var hash = await hmacSha256(secret, body);
+                        expected = 'sha256=' + hash;
+                        received = receivedSig.toLowerCase().indexOf('sha256=') === 0
+                            ? receivedSig
+                            : 'sha256=' + receivedSig;
+                        details = { provider: 'github', bodyLength: body.length };
+
+                    } else if (provider === 'stripe') {
+                        var body = document.getElementById('stripeBody').value;
+                        var secret = document.getElementById('stripeSecret').value;
+                        var sigHeader = document.getElementById('stripeSignature').value.trim();
+
+                        if (!body || !secret || !sigHeader) {
+                            throw new Error('Fill in all three fields: body, secret, and Stripe-Signature header.');
+                        }
+
+                        var parsed = parseStripeSignature(sigHeader);
+                        if (!parsed.t || !parsed.v1) {
+                            throw new Error('Could not parse t= and v1= from Stripe-Signature header. Check the full value is pasted.');
+                        }
+
+                        var signedPayload = parsed.t + '.' + body;
+                        var hash = await hmacSha256(secret, signedPayload);
+                        expected = 'v1=' + hash;
+                        received = 'v1=' + parsed.v1;
+
+                        var ageSec = Math.floor(Date.now() / 1000) - parseInt(parsed.t, 10);
+                        details = {
+                            provider: 'stripe',
+                            timestamp: parsed.t,
+                            ageSeconds: ageSec,
+                            bodyLength: body.length
+                        };
+
+                    } else if (provider === 'generic') {
+                        var body = document.getElementById('genericBody').value;
+                        var secret = document.getElementById('genericSecret').value;
+                        var receivedSig = document.getElementById('genericSignature').value.trim();
+
+                        if (!body || !secret || !receivedSig) {
+                            throw new Error('Fill in all three fields: message, secret, and expected signature.');
+                        }
+
+                        var hash = await hmacSha256(secret, body);
+                        expected = hash;
+                        received = receivedSig.toLowerCase();
+                        if (received.indexOf('sha256=') === 0) received = received.substring(7);
+                        details = { provider: 'generic', bodyLength: body.length };
+                    }
+
+                    var match = expected.toLowerCase() === received.toLowerCase();
+
+                    var ageWarning = '';
+                    if (details.provider === 'stripe' && details.ageSeconds > 300) {
+                        ageWarning = '<p style="margin-top: 10px; color: var(--danger);">⚠ Timestamp is ' + details.ageSeconds + 's old (Stripe recommends rejecting events older than 5 minutes to prevent replay attacks).</p>';
+                    }
+
+                    resultDiv.className = 'result show ' + (match ? 'match' : 'mismatch');
+                    resultDiv.innerHTML =
+                        '<h3>' + (match ? '✓ Signature Valid' : '✗ Signature Mismatch') + '</h3>' +
+                        '<p style="margin-bottom: 4px;"><strong>Expected (computed):</strong></p>' +
+                        '<div class="code-block">' +
+                            '<code>' + escapeHtml(expected) + '</code>' +
+                            '<button class="copy-btn" data-copy="' + escapeHtml(expected) + '">Copy</button>' +
+                        '</div>' +
+                        '<p style="margin-bottom: 4px; margin-top: 12px;"><strong>Received (from header):</strong></p>' +
+                        '<div class="code-block">' +
+                            '<code>' + escapeHtml(received) + '</code>' +
+                            '<button class="copy-btn" data-copy="' + escapeHtml(received) + '">Copy</button>' +
+                        '</div>' +
+                        (!match ? '<p style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">Common causes: (1) wrong secret — double-check which secret you\'re using (Stripe CLI <code>stripe listen</code> prints a different <code>whsec_</code> than the Dashboard endpoint). (2) body mutated by framework — <code>express.json()</code> before the webhook route, Next.js body parsing, or any middleware that trims/reformats JSON will break the signature. (3) you pasted the formatted JSON, not the raw body bytes.</p>' : '') +
+                        ageWarning;
+
+                    verificationCount++;
+                    document.getElementById('timeSaved').textContent = (verificationCount * 30) + ' sec';
+
+                    lastResult = {
+                        zcac: true,
+                        kind: 'webhook-sig-verify',
+                        data: {
+                            provider: details.provider,
+                            match: match,
+                            expected: expected,
+                            received: received,
+                            bodyLength: details.bodyLength,
+                            timestamp: details.timestamp || null,
+                            verifiedAt: new Date().toISOString()
+                        }
+                    };
+                    exportRow.style.display = 'flex';
+
+                } catch (error) {
+                    resultDiv.className = 'result show mismatch';
+                    resultDiv.innerHTML = '<h3>Error</h3><p>' + escapeHtml(error.message) + '</p>';
+                    lastResult = null;
+                } finally {
+                    verifyBtn.disabled = false;
+                    verifyBtn.textContent = 'Verify Signature';
+                }
+            }
+
+            function escapeHtml(str) {
+                var div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            document.getElementById('verifyBtn').addEventListener('click', verifySignature);
+
+            // Delegated copy buttons inside result
+            document.getElementById('result').addEventListener('click', function(e) {
+                if (e.target.classList.contains('copy-btn')) {
+                    var text = e.target.getAttribute('data-copy');
+                    navigator.clipboard.writeText(text).then(function() {
+                        var original = e.target.textContent;
+                        e.target.textContent = 'Copied!';
+                        setTimeout(function() { e.target.textContent = original; }, 1500);
+                    });
+                }
+            });
+
+            // JSON export
+            document.getElementById('copyJson').addEventListener('click', function() {
+                if (!lastResult) return;
+                navigator.clipboard.writeText(JSON.stringify(lastResult, null, 2)).then(function() {
+                    var btn = document.getElementById('copyJson');
+                    var original = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = original; }, 1500);
+                });
+            });
+
+            document.getElementById('downloadJson').addEventListener('click', function() {
+                if (!lastResult) return;
+                var blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'webhook-sig-' + lastResult.data.provider + '-' + Date.now() + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+
+            // Share
+            document.getElementById('copyLink').addEventListener('click', function() {
+                var btn = document.getElementById('copyLink');
+                navigator.clipboard.writeText(window.location.href).then(function() {
+                    var original = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = original; }, 1500);
+                });
+            });
+
+            document.getElementById('shareX').addEventListener('click', function() {
+                var text = 'Webhook Signature Verifier — verify GitHub, Stripe, and generic HMAC-SHA256 signatures in-browser. No API keys, no server, no limit.';
+                window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank');
+            });
+
+            // Import: accept zcac JSON from any tool that shares our kind
+            // (This tool doesn't have a natural structured input from other tools on the site,
+            //  but we accept our own exported format so a paste round-trip works.)
+            window.addEventListener('paste', function(e) {
+                if (!e.clipboardData) return;
+                var active = document.activeElement;
+                if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) return;
+
+                var text = e.clipboardData.getData('text');
+                try {
+                    var obj = JSON.parse(text);
+                    if (obj && obj.zcac === true && obj.kind === 'webhook-sig-verify') {
+                        // Restore last result for inspection
+                        lastResult = obj;
+                        var resultDiv = document.getElementById('result');
+                        var match = obj.data.match;
+                        resultDiv.className = 'result show ' + (match ? 'match' : 'mismatch');
+                        resultDiv.innerHTML =
+                            '<h3>' + (match ? '✓ Signature Valid (imported)' : '✗ Signature Mismatch (imported)') + '</h3>' +
+                            '<p>Imported from a previous verification (' + escapeHtml(obj.data.provider) + ' at ' + escapeHtml(obj.data.verifiedAt) + ').</p>' +
+                            '<div class="code-block"><code>' + escapeHtml(obj.data.expected) + '</code></div>';
+                        document.getElementById('exportRow').style.display = 'flex';
+                        e.preventDefault();
+                    }
+                } catch (err) {
+                    // not JSON or not our format — ignore silently
+                }
+            });
+
+        })();
+    </script>
+</body>
+</html>
