@@ -56,6 +56,22 @@
   "reading_time_minutes": 2,
   "pinned": false,
   "verified": "2025-07-09"
+},{
+  "id": "0417",
+  "slug": "browser-alt-text-generator",
+  "title": "Alt Text Generator",
+  "hook": "Generate image alt text with an AI model that runs entirely in your browser — no API key, no server, no limit.",
+  "path": "tools/browser-alt-text-generator.html",
+  "date": "2026-08-15",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "No tier to exceed — Xenova/vit-gpt2-image-captioning runs client-side via Transformers.js/ONNX Runtime Web; only cost is a one-time ~240MB model download cached by the browser.",
+  "source_url": "https://huggingface.co/docs/transformers.js/installation",
+  "tags": ["accessibility", "computer-vision", "client-side-ai"],
+  "reading_time_minutes": 3,
+  "pinned": false,
+  "verified": "2026-08-15"
 }
   ]
 }
