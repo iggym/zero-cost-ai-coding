@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Data Forge — Generate Realistic Test Data from Sample JSON</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-light: #ffffff;
+            --text-dark: #e5e5e5;
+            --text-light: #1a1a1a;
+            --accent: #00ff88;
+            --border-dark: #2a2a2a;
+            --border-light: #e0e0e0;
+            --code-bg-dark: #1a1a1a;
+            --code-bg-light: #f5f5f5;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-dark);
+            line-height: 1.6;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        body.light-mode {
+            background: var(--bg-light);
+            color: var(--text-light);
+        }
+        
+        h1, h2, h3, code, pre, .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        
+        .sticky-top {
+            position: sticky;
+            top: 0;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border-dark);
+            padding: 1rem;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        body.light-mode .sticky-top {
+            background: var(--bg-light);
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .home-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .home-link:hover, .home-link:focus {
+            text-decoration: underline;
+        }
+        
+        .tool-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .pitch { margin: 2rem 0; }
+        
+        .pitch h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .pitch p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .free-limit {
+            display: inline-block;
+            background: var(--accent);
+            color: #000;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        
+        .section { margin: 2rem 0; }
+        
+        .section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        
+        textarea, input[type="number"], select {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--code-bg-dark);
+            color: var(--text-dark);
+            border: 1px solid var(--border-dark);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        
+        body.light-mode textarea,
+        body.light-mode input[type="number"],
+        body.light-mode select {
+            background: var(--code-bg-light);
+            color: var(--text-light);
+            border: 1px solid var(--border-light);
+        }
+        
+        textarea:focus, input:focus, select:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+        
+        button:hover, button:focus { opacity: 0.9; }
+        
+        button:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent);
+            border: 2px solid var(--accent);
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .control-group label {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .schema-preview {
+            background: var(--code-bg-dark);
+            border: 1px solid var(--border-dark);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        body.light-mode .schema-preview {
+            background: var(--code-bg-light);
+            border: 1px solid var(--border-light);
+        }
+        
+        .schema-field {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-dark);
+            align-items: center;
+        }
+        
+        body.light-mode .schema-field {
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .schema-field:last-child { border-bottom: none; }
+        
+        .field-name { font-weight: 600; }
+        .field-type { opacity: 0.7; font-size: 0.85rem; }
+        
+        .output-area {
+            background: var(--code-bg-dark);
+            border: 1px solid var(--border-dark);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+        
+        body.light-mode .output-area {
+            background: var(--code-bg-light);
+            border: 1px solid var(--border-light);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+        
+        .share-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+        
+        .share-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .stats {
+            background: var(--code-bg-dark);
+            border: 2px solid var(--accent);
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+        }
+        
+        body.light-mode .stats {
+            background: var(--code-bg-light);
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--accent);
+            display: block;
+        }
+        
+        .stats-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        footer {
+            margin-top: 4rem;
+            padding: 2rem 0;
+            border-top: 1px solid var(--border-dark);
+            text-align: center;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+        
+        body.light-mode footer {
+            border-top: 1px solid var(--border-light);
+        }
+        
+        footer a {
+            color: var(--accent);
+        }
+        
+        .error {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+        
+        ol, ul {
+            padding-left: 2rem;
+            margin: 1rem 0;
+        }
+        
+        li { margin: 0.5rem 0; }
+        
+        @media (max-width: 768px) {
+            .schema-field {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            
+            .sticky-top {
+                flex-direction: column;
+            }
+            
+            .pitch h1 { font-size: 1.5rem; }
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sticky-top">
+        <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link" aria-label="Back to Zero-Cost AI Coding home">← Zero-Cost AI Coding</a>
+        <div class="tool-title">Mock Data Forge</div>
+        <button id="themeToggle" class="btn-secondary" aria-label="Toggle light/dark mode">☀️</button>
+    </div>
+    
+    <div class="container">
+        <div class="pitch">
+            <h1>Mock Data Forge</h1>
+            <p>Paste a sample JSON object, get unlimited realistic test data in JSON, CSV, SQL, or TypeScript — runs entirely in your browser, no API limits, no cost.</p>
+            <div class="free-limit">∞ runs — 100% client-side, no API calls</div>
+            
+            <div class="share-buttons">
+                <button class="share-btn btn-secondary" onclick="shareTwitter()" aria-label="Share on X (Twitter)">Share on X</button>
+                <button class="share-btn btn-secondary" onclick="copyLink()" aria-label="Copy page link">Copy Link</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>What it replaces</h2>
+            <p>Mockaroo paid plans: $60/year (100k rows) to $500/year (10M rows). Free tier limited to 1,000 rows per file.</p>
+        </div>
+        
+        <div class="section">
+            <h2>How to use it</h2>
+            <ol>
+                <li>Paste a sample JSON object (an API response shape, database record, etc.)</li>
+                <li>Click "Analyze Schema" to see detected field types and faker methods</li>
+                <li>Adjust faker methods per field if needed (optional)</li>
+                <li>Set number of rows (up to 10,000) and output format</li>
+                <li>Click "Generate" to create realistic test data</li>
+                <li>Copy to clipboard or download as a file</li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <h2>1. Paste Sample JSON</h2>
+            <textarea id="sampleJson" rows="10" aria-label="Paste your sample JSON object here" placeholder='{"id": "550e8400-e29b-41d4-a716-446655440000", "email": "user@example.com", "name": "John Doe"}'></textarea>
+            <div class="button-group">
+                <button id="analyzeBtn">Analyze Schema</button>
+                <button id="loadExampleBtn" class="btn-secondary">Load Example</button>
+            </div>
+            <div id="analyzeError"></div>
+        </div>
+        
+        <div class="section" id="schemaSection" style="display: none;">
+            <h2>2. Detected Schema</h2>
+            <p>Adjust faker methods below if the auto-detection isn't right for your use case.</p>
+            <div class="schema-preview" id="schemaPreview" role="region" aria-label="Schema fields with faker methods"></div>
+        </div>
+        
+        <div class="section" id="generateSection" style="display: none;">
+            <h2>3. Generate Data</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="rowCount">Number of rows</label>
+                    <input type="number" id="rowCount" value="10" min="1" max="10000" aria-describedby="rowCountHelp">
+                    <small id="rowCountHelp" style="opacity: 0.7;">Max 10,000 for browser performance</small>
+                </div>
+                <div class="control-group">
+                    <label for="outputFormat">Output format</label>
+                    <select id="outputFormat" aria-label="Select output format">
+                        <option value="json">JSON Array</option>
+                        <option value="csv">CSV</option>
+                        <option value="sql">SQL INSERT statements</option>
+                        <option value="typescript">TypeScript factory function</option>
+                    </select>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="generateBtn">Generate</button>
+            </div>
+        </div>
+        
+        <div class="section" id="outputSection" style="display: none;">
+            <h2>4. Generated Data</h2>
+            <div class="stats" aria-live="polite">
+                <span class="stats-number" id="timeSaved">0</span>
+                <span class="stats-label">minutes saved (assumption: ~15 sec per field when manually creating test data)</span>
+            </div>
+            <div class="output-area" id="outputArea" role="region" aria-label="Generated output" tabindex="0"></div>
+            <div class="button-group">
+                <button id="copyBtn" class="btn-secondary">Copy to Clipboard</button>
+                <button id="downloadBtn" class="btn-secondary">Download File</button>
+                <button id="copyJsonBtn" class="btn-secondary">Copy as JSON</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>What breaks</h2>
+            <p>Browser memory limits if you generate 10,000+ rows with deeply nested objects. For very large datasets, generate in batches or reduce nesting depth.</p>
+        </div>
+        
+        <footer>
+            <p>Free-tier verified: @faker-js/faker is open source and runs 100% client-side via esm.sh CDN. No API calls, no limits. Source: <a href="https://fakerjs.dev/guide/usage">fakerjs.dev/guide/usage</a></p>
+        </footer>
+    </div>
+    
+    <script type="module">
+        import { faker } from 'https://esm.sh/@faker-js/faker@9.9.0';
+        
+        let schema = null;
+        let generatedData = null;
+        
+        // Theme toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+        
+        const savedTheme = sessionStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            body.classList.add('light-mode');
+            themeToggle.textContent = '🌙';
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('light-mode');
+            if (body.classList.contains('light-mode')) {
+                themeToggle.textContent = '🌙';
+                sessionStorage.setItem('theme', 'light');
+            } else {
+                themeToggle.textContent = '☀️';
+                sessionStorage.setItem('theme', 'dark');
+            }
+        });
+        
+        // Load example
+        document.getElementById('loadExampleBtn').addEventListener('click', () => {
+            const example = {
+                id: "550e8400-e29b-41d4-a716-446655440000",
+                email: "john.doe@example.com",
+                name: "John Doe",
+                age: 30,
+                score: 95.5,
+                active: true,
+                website: "https://example.com",
+                created_at: "2024-01-15T10:30:00Z",
+                address: {
+                    street: "123 Main St",
+                    city: "Springfield",
+                    zip: "12345"
+                },
+                tags: ["tag1", "tag2"]
+            };
+            document.getElementById('sampleJson').value = JSON.stringify(example, null, 2);
+        });
+        
+        // Detect faker method from sample value
+        function detectMethod(value, key = "") {
+            if (value === null) return "null";
+            if (typeof value === "boolean") return "datatype.boolean";
+            if (typeof value === "number") {
+                if (Number.isInteger(value)) return "number.int({min: 0, max: 1000})";
+                return "number.float({min: 0, max: 100, precision: 0.01})";
+            }
+            if (typeof value === "string") {
+                if (/^[\w\.]+@[\w\.]+\.\w+$/.test(value)) return "internet.email";
+                if (/^https?:\/\//.test(value)) return "internet.url";
+                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return "string.uuid";
+                if (/^\d{4}-\d{2}-\d{2}/.test(value)) return "date.recent";
+                if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value)) return "internet.ip";
+                if (/^\+?[\d\s\-\(\)]+$/.test(value) && value.length >= 7) return "phone.number";
+                if (/^#[0-9a-f]{6}$/i.test(value)) return "internet.color";
+                if (value.includes(' ') && value.split(' ').length <= 3) return "person.fullName";
+                return "lorem.word";
+            }
+            return "unknown";
+        }
+        
+        // Analyze schema recursively
+        function analyzeSchema(obj, path = "") {
+            const result = {};
+            for (const [key, value] of Object.entries(obj)) {
+                const fullPath = path ? `${path}.${key}` : key;
+                if (value === null) {
+                    result[key] = { method: "null", type: "null" };
+                } else if (typeof value === "object" && !Array.isArray(value)) {
+                    result[key] = { method: "object", type: "object", children: analyzeSchema(value, fullPath) };
+                } else if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        const firstItem = value[0];
+                        const itemSchema = typeof firstItem === "object" && firstItem !== null
+                            ? { method: "object", type: "object", children: analyzeSchema(firstItem, fullPath) }
+                            : { method: detectMethod(firstItem, key), type: typeof firstItem };
+                        result[key] = { method: "array", type: "array", item: itemSchema };
+                    } else {
+                        result[key] = { method: "array", type: "array", item: { method: "lorem.word", type: "string" } };
+                    }
+                } else {
+                    result[key] = { method: detectMethod(value, key), type: typeof value };
+                }
+            }
+            return result;
+        }
+        
+        // Render schema with editable methods
+        function renderSchema(schemaObj, container, path = "", depth = 0) {
+            for (const [key, value] of Object.entries(schemaObj)) {
+                const fullPath = path ? `${path}.${key}` : key;
+                const field = document.createElement('div');
+                field.className = 'schema-field';
+                field.style.paddingLeft = `${depth * 20}px`;
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.innerHTML = `<span class="field-name">${key}</span> <span class="field-type">(${value.type})</span>`;
+                field.appendChild(nameDiv);
+                
+                if (value.type === "object" && value.children) {
+                    field.style.gridTemplateColumns = '1fr';
+                    const childContainer = document.createElement('div');
+                    childContainer.style.marginTop = '0.5rem';
+                    renderSchema(value.children, childContainer, fullPath, depth + 1);
+                    field.appendChild(childContainer);
+                } else if (value.type === "array" && value.item) {
+                    const methodSelect = createMethodSelect(value.item.method, (newMethod) => {
+                        value.item.method = newMethod;
+                    });
+                    field.appendChild(methodSelect);
+                    
+                    if (value.item.type === "object" && value.item.children) {
+                        const childContainer = document.createElement('div');
+                        childContainer.style.marginTop = '0.5rem';
+                        renderSchema(value.item.children, childContainer, fullPath, depth + 1);
+                        field.appendChild(childContainer);
+                    }
+                } else {
+                    const methodSelect = createMethodSelect(value.method, (newMethod) => {
+                        schemaObj[key].method = newMethod;
+                    });
+                    field.appendChild(methodSelect);
+                }
+                
+                container.appendChild(field);
+            }
+        }
+        
+        function createMethodSelect(currentMethod, onChange) {
+            const select = document.createElement('select');
+            select.setAttribute('aria-label', 'Faker method for field');
+            const methods = [
+                'lorem.word',
+                'lorem.sentence',
+                'number.int({min: 0, max: 1000})',
+                'number.int({min: 1, max: 100})',
+                'number.float({min: 0, max: 100, precision: 0.01})',
+                'internet.email',
+                'internet.url',
+                'internet.userName',
+                'internet.ip',
+                'internet.color',
+                'string.uuid',
+                'string.alphanumeric(10)',
+                'date.recent',
+                'date.past',
+                'date.future',
+                'person.fullName',
+                'person.firstName',
+                'person.lastName',
+                'person.jobTitle',
+                'phone.number',
+                'datatype.boolean',
+                'null'
+            ];
+            
+            methods.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                if (m === currentMethod) opt.selected = true;
+                select.appendChild(opt);
+            });
+            
+            select.addEventListener('change', (e) => onChange(e.target.value));
+            return select;
+        }
+        
+        // Generate value from faker method string
+        function generateValue(method) {
+            if (method === "null") return null;
+            
+            const hasParams = method.includes('(');
+            let baseMethod, paramObj;
+            
+            if (hasParams) {
+                const match = method.match(/^([^\(]+)\((.*)\)$/);
+                if (!match) return null;
+                baseMethod = match[1];
+                const paramStr = match[2];
+                try {
+                    paramObj = new Function(`return {${paramStr}}`)();
+                } catch (e) {
+                    paramObj = {};
+                }
+            } else {
+                baseMethod = method;
+                paramObj = null;
+            }
+            
+            const parts = baseMethod.split('.');
+            let current = faker;
+            for (const part of parts) {
+                if (current && current[part]) {
+                    current = current[part];
+                } else {
+                    return null;
+                }
+            }
+            
+            try {
+                return paramObj ? current(paramObj) : current();
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        // Generate data from schema
+        function generateFromSchema(schemaObj) {
+            const result = {};
+            for (const [key, value] of Object.entries(schemaObj)) {
+                if (value.type === "object" && value.children) {
+                    result[key] = generateFromSchema(value.children);
+                } else if (value.type === "array") {
+                    const arr = [];
+                    const count = Math.floor(Math.random() * 3) + 1;
+                    for (let i = 0; i < count; i++) {
+                        if (value.item.type === "object" && value.item.children) {
+                            arr.push(generateFromSchema(value.item.children));
+                        } else {
+                            arr.push(generateValue(value.item.method));
+                        }
+                    }
+                    result[key] = arr;
+                } else {
+                    result[key] = generateValue(value.method);
+                }
+            }
+            return result;
+        }
+        
+        // Count total fields for time-saved calculation
+        function countFields(schemaObj) {
+            let count = 0;
+            for (const value of Object.values(schemaObj)) {
+                if (value.type === "object" && value.children) {
+                    count += countFields(value.children);
+                } else if (value.type === "array" && value.item.type === "object" && value.item.children) {
+                    count += countFields(value.item.children);
+                } else if (value.type !== "array") {
+                    count++;
+                }
+            }
+            return count;
+        }
+        
+        // Analyze button handler
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            const errorDiv = document.getElementById('analyzeError');
+            errorDiv.innerHTML = '';
+            
+            try {
+                const input = document.getElementById('sampleJson').value.trim();
+                if (!input) {
+                    errorDiv.innerHTML = '<div class="error">Please paste a sample JSON object</div>';
+                    return;
+                }
+                
+                const parsed = JSON.parse(input);
+                if (typeof parsed !== "object" || Array.isArray(parsed)) {
+                    errorDiv.innerHTML = '<div class="error">Please provide a JSON object (not an array)</div>';
+                    return;
+                }
+                
+                schema = analyzeSchema(parsed);
+                
+                const schemaPreview = document.getElementById('schemaPreview');
+                schemaPreview.innerHTML = '';
+                renderSchema(schema, schemaPreview);
+                
+                document.getElementById('schemaSection').style.display = 'block';
+                document.getElementById('generateSection').style.display = 'block';
+            } catch (e) {
+                errorDiv.innerHTML = `<div class="error">Invalid JSON: ${e.message}</div>`;
+            }
+        });
+        
+        // Generate button handler
+        document.getElementById('generateBtn').addEventListener('click', () => {
+            const rowCount = parseInt(document.getElementById('rowCount').value);
+            const format = document.getElementById('outputFormat').value;
+            
+            if (isNaN(rowCount) || rowCount < 1 || rowCount > 10000) {
+                alert('Row count must be between 1 and 10,000');
+                return;
+            }
+            
+            const data = [];
+            for (let i = 0; i < rowCount; i++) {
+                data.push(generateFromSchema(schema));
+            }
+            generatedData = data;
+            
+            let output = '';
+            if (format === 'json') {
+                output = JSON.stringify(data, null, 2);
+            } else if (format === 'csv') {
+                if (data.length > 0) {
+                    const flatData = data.map(row => flattenObject(row));
+                    const headers = Object.keys(flatData[0]);
+                    const rows = flatData.map(row => 
+                        headers.map(h => {
+                            const val = row[h];
+                            if (val === null || val === undefined) return '';
+                            return `"${String(val).replace(/"/g, '""')}"`;
+                        }).join(',')
+                    );
+                    output = [headers.join(','), ...rows].join('\n');
+                }
+            } else if (format === 'sql') {
+                if (data.length > 0) {
+                    const table = 'mock_data';
+                    const headers = Object.keys(data[0]);
+                    const rows = data.map(row => {
+                        const values = headers.map(h => {
+                            const v = row[h];
+                            if (v === null || v === undefined) return 'NULL';
+                            if (typeof v === 'number') return v;
+                            if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+                            return `'${String(v).replace(/'/g, "''")}'`;
+                        });
+                        return `INSERT INTO ${table} (${headers.join(', ')}) VALUES (${values.join(', ')});`;
+                    });
+                    output = rows.join('\n');
+                }
+            } else if (format === 'typescript') {
+                output = `// Generated mock data factory
+function generateMockData(count: number): any[] {
+  const data: any[] = [];
+  for (let i = 0; i < count; i++) {
+    data.push(${JSON.stringify(data[0] || {}, null, 4).split('\n').join('\n    ')});
+  }
+  return data;
+}
+
+// Usage:
+// const mockData = generateMockData(50);
+// console.log(mockData);`;
+            }
+            
+            document.getElementById('outputArea').textContent = output;
+            document.getElementById('outputSection').style.display = 'block';
+            
+            // Calculate time saved
+            const fieldCount = countFields(schema);
+            const secondsSaved = rowCount * fieldCount * 15;
+            const minutesSaved = Math.round(secondsSaved / 60);
+            document.getElementById('timeSaved').textContent = minutesSaved;
+        });
+        
+        // Flatten nested objects for CSV
+        function flattenObject(obj, prefix = '') {
+            const result = {};
+            for (const [key, value] of Object.entries(obj)) {
+                const newKey = prefix ? `${prefix}.${key}` : key;
+                if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+                    Object.assign(result, flattenObject(value, newKey));
+                } else if (Array.isArray(value)) {
+                    result[newKey] = JSON.stringify(value);
+                } else {
+                    result[newKey] = value;
+                }
+            }
+            return result;
+        }
+        
+        // Copy button
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const output = document.getElementById('outputArea').textContent;
+            navigator.clipboard.writeText(output).then(() => {
+                alert('Copied to clipboard!');
+            });
+        });
+        
+        // Copy as JSON button
+        document.getElementById('copyJsonBtn').addEventListener('click', () => {
+            if (!generatedData) return;
+            const jsonOutput = JSON.stringify({
+                zcac: true,
+                kind: "mock-data",
+                data: generatedData
+            }, null, 2);
+            navigator.clipboard.writeText(jsonOutput).then(() => {
+                alert('Copied as JSON!');
+            });
+        });
+        
+        // Download button
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const format = document.getElementById('outputFormat').value;
+            const output = document.getElementById('outputArea').textContent;
+            const ext = { json: 'json', csv: 'csv', sql: 'sql', typescript: 'ts' }[format];
+            const blob = new Blob([output], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mock-data.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        // Share functions
+        window.shareTwitter = () => {
+            const text = 'Mock Data Forge - Generate unlimited realistic test data from sample JSON, 100% free in your browser';
+            const url = window.location.href;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+        };
+        
+        window.copyLink = () => {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                alert('Link copied!');
+            });
+        };
+    </script>
+</body>
+</html>
