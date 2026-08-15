@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Schema to TypeScript & Migration Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #2ea44f;
+      --accent-hover: #3fb950;
+      --code-bg: #010409;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --panel: #f6f8fa;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --accent: #1a7f37;
+      --accent-hover: #2da44e;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      line-height: 1.5;
+      padding: 2rem 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    h1, h2, h3 { font-family: var(--font-mono); }
+    h1 { font-size: 1.5rem; color: var(--text); }
+
+    .nav-links { display: flex; gap: 1rem; align-items: center; }
+    .btn-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .pitch-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+
+    .pitch-box p { margin-bottom: 0.5rem; }
+    .limit-badge {
+      display: inline-block;
+      background: rgba(46, 164, 79, 0.15);
+      color: var(--accent);
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .editor-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      height: 320px;
+      background: var(--code-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: 1px solid var(--accent);
+      border-color: var(--accent);
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--text-muted);
+    }
+
+    .output-box {
+      position: relative;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 2rem;
+      right: 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="/" style="color: inherit; text-decoration: none;">zero-cost-ai-coding</a> / sql-to-types</h1>
+    <div class="nav-links">
+      <button class="btn-toggle" id="themeToggle">Light Mode</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="pitch-box">
+      <h2>SQL Schema to TypeScript &amp; Migration Generator</h2>
+      <p>Instantly parse PostgreSQL `CREATE TABLE` definitions into clean TypeScript interface definitions and idempotent SQL rollbacks directly in your browser.</p>
+      <p><strong>Replaces:</strong> Paid schema converters, proprietary ORM CLI generation steps, and online converters that leak database structures.</p>
+      <div class="limit-badge">Limit: Unlimited (100% Client-Side Execution)</div>
+      <div class="actions" style="margin-top: 1rem;">
+        <button class="btn btn-secondary" onclick="shareX()">Share on X</button>
+        <button class="btn btn-secondary" onclick="copyPageLink()">Copy Link</button>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div class="editor-container">
+        <label for="sqlInput">Input PostgreSQL DDL Schema:</label>
+        <textarea id="sqlInput" placeholder="CREATE TABLE users (&#10;  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),&#10;  email VARCHAR(255) NOT NULL UNIQUE,&#10;  age INT,&#10;  is_active BOOLEAN DEFAULT true,&#10;  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()&#10;);"></textarea>
+        <div class="actions">
+          <button class="btn" onclick="processSchema()">Generate Code</button>
+          <button class="btn btn-secondary" onclick="loadSample()">Load Sample</button>
+        </div>
+      </div>
+
+      <div class="editor-container output-box">
+        <label for="tsOutput">Generated TypeScript Interfaces:</label>
+        <button class="copy-btn" onclick="copyToClipboard('tsOutput')">Copy TS</button>
+        <textarea id="tsOutput" readonly placeholder="// TypeScript interfaces will appear here..."></textarea>
+      </div>
+    </div>
+
+    <div class="editor-container output-box" style="margin-bottom: 2rem;">
+      <label for="migrationOutput">Generated Idempotent Migration Rollback SQL:</label>
+      <button class="copy-btn" onclick="copyToClipboard('migrationOutput')">Copy SQL</button>
+      <textarea id="migrationOutput" readonly style="height: 160px;" placeholder="-- Rollback/Migration statements will appear here..."></textarea>
+    </div>
+
+    <section class="pitch-box">
+      <h3>What Breaks / Honest Limits</h3>
+      <p>This parser handles standard PostgreSQL DDL syntax including standard data types (`UUID`, `VARCHAR`, `INT`, `BOOLEAN`, `TIMESTAMP`, `JSONB`), `NOT NULL` constraints, and primary keys. Complex custom domain types, procedural triggers, or non-standard extension types default to `unknown` in TypeScript output.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Verified Free Tier: 100% Browser-Native Client Engine (No Server, No Key Required)</span>
+    <span>Source: <a href="https://developer.mozilla.org/en-US/docs/Web/API" target="_blank" rel="noopener">MDN Web Docs Standard APIs</a></span>
+  </footer>
+
+  <script>
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    themeToggle.addEventListener('click', () => {
+      const isLight = document.body.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        document.body.removeAttribute('data-theme');
+        themeToggle.textContent = 'Light Mode';
+      } else {
+        document.body.setAttribute('data-theme', 'light');
+        themeToggle.textContent = 'Dark Mode';
+      }
+    });
+
+    function loadSample() {
+      document.getElementById('sqlInput').value = `CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email VARCHAR(255) NOT NULL UNIQUE,
+  age INT,
+  metadata JSONB,
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE posts (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  published_at TIMESTAMP
+);`;
+      processSchema();
+    }
+
+    function mapSqlTypeToTs(typeStr) {
+      const type = typeStr.toUpperCase();
+      if (type.includes('INT') || type.includes('SERIAL') || type.includes('DECIMAL') || type.includes('FLOAT') || type.includes('NUMERIC')) {
+        return 'number';
+      }
+      if (type.includes('BOOL')) {
+        return 'boolean';
+      }
+      if (type.includes('JSON')) {
+        return 'Record<string, any>';
+      }
+      if (type.includes('TIME') || type.includes('DATE')) {
+        return 'Date | string';
+      }
+      if (type.includes('CHAR') || type.includes('TEXT') || type.includes('UUID')) {
+        return 'string';
+      }
+      return 'unknown';
+    }
+
+    function processSchema() {
+      const input = document.getElementById('sqlInput').value;
+      if (!input.trim()) return;
+
+      const tableRegex = /CREATE\ TABLE\ (?:IF\ NOT\ EXISTS\ )?([^\s\(]+)\s*\(([\s\S]*?)\);/gi;
+      let tsResult = '';
+      let migrationResult = '';
+      let match;
+
+      while ((match = tableRegex.exec(input)) !== null) {
+        const tableName = match[1].replace(/["`]/g, '');
+        const body = match[2];
+
+        const interfaceName = tableName.charAt(0).toUpperCase() + tableName.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+        
+        tsResult += `export interface ${interfaceName} {\n`;
+        migrationResult += `-- Rollback for ${tableName}\nDROP TABLE IF EXISTS ${tableName} CASCADE;\n\n`;
+
+        const lines = body.split(',\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        lines.forEach(line => {
+          if (line.toUpperCase().startsWith('PRIMARY KEY') || line.toUpperCase().startsWith('CONSTRAINT') || line.toUpperCase().startsWith('FOREIGN KEY')) {
+            return;
+          }
+
+          const parts = line.split(/\s+/);
+          if (parts.length < 2) return;
+
+          const colName = parts[0].replace(/["`]/g, '');
+          const colType = parts[1];
+          const isOptional = !line.toUpperCase().includes('NOT NULL');
+          
+          const tsType = mapSqlTypeToTs(colType);
+          tsResult += `  ${colName}${isOptional ? '?' : ''}: ${tsType};\n`;
+        });
+
+        tsResult += `}\n\n`;
+      }
+
+      document.getElementById('tsOutput').value = tsResult.trim() || '// No valid CREATE TABLE statements detected.';
+      document.getElementById('migrationOutput').value = migrationResult.trim() || '-- No valid CREATE TABLE statements detected.';
+    }
+
+    function copyToClipboard(elementId) {
+      const textarea = document.getElementById(elementId);
+      textarea.select();
+      navigator.clipboard.writeText(textarea.value);
+    }
+
+    function shareX() {
+      const text = encodeURIComponent("Check out this zero-cost browser-native SQL to TypeScript & Migration Generator tool!");
+      window.open(`https://x.com/intent/post?text=${text}`, '_blank');
+    }
+
+    function copyPageLink() {
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    }
+  </script>
+</body>
+</html>
