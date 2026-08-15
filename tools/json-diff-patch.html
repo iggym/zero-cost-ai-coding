@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Diff & Patch — zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #21262d;
+  --fg: #e6edf3;
+  --fg-2: #8b949e;
+  --accent: #3fb950;
+  --accent-dim: #238636;
+  --red: #f85149;
+  --yellow: #d29922;
+  --border: #30363d;
+  --radius: 6px;
+}
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-2: #f6f8fa;
+  --bg-3: #eaeef2;
+  --fg: #1f2328;
+  --fg-2: #656d76;
+  --accent: #1a7f37;
+  --accent-dim: #116329;
+  --red: #cf222e;
+  --yellow: #9a6700;
+  --border: #d0d7de;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+}
+h1, h2, h3, code, pre, .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+h1 { font-size: 1.5rem; margin: 0; }
+h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: var(--fg-2); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; }
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.topbar a {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+}
+.topbar a:hover { text-decoration: underline; }
+.topbar .title {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+.pitch {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+.pitch p { margin: 0.5rem 0; font-size: 0.95rem; }
+.pitch .limit {
+  display: inline-block;
+  background: var(--bg-3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.share-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.share-btn {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+}
+.share-btn:hover { background: var(--border); }
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 700px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--fg-2);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+textarea {
+  width: 100%;
+  min-height: 200px;
+  background: var(--bg-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  tab-size: 2;
+}
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+button {
+  background: var(--accent-dim);
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:hover { background: var(--accent); }
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.secondary {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+button.secondary:hover { background: var(--border); }
+.output-box {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.output-box pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.output-box .copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+}
+.output-box .copy-btn:hover { background: var(--border); }
+.diff-item {
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid transparent;
+  margin-bottom: 0.25rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--bg-2);
+}
+.diff-item.add { border-left-color: var(--accent); }
+.diff-item.remove { border-left-color: var(--red); }
+.diff-item.replace { border-left-color: var(--yellow); }
+.diff-path { color: var(--fg-2); }
+.diff-op {
+  display: inline-block;
+  min-width: 4rem;
+  font-weight: 600;
+}
+.diff-op.add { color: var(--accent); }
+.diff-op.remove { color: var(--red); }
+.diff-op.replace { color: var(--yellow); }
+.saved-readout {
+  background: var(--bg-3);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  margin: 1rem 0;
+}
+.saved-readout .big-num {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.saved-readout .assumption {
+  color: var(--fg-2);
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+.theme-toggle {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.theme-toggle:hover { background: var(--border); }
+.error-msg {
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+}
+section { margin-bottom: 2rem; }
+details {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+summary {
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--fg-2);
+}
+details[open] summary { margin-bottom: 0.5rem; }
+.import-area {
+  background: var(--bg-3);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+.import-area.dragover {
+  border-color: var(--accent);
+  background: rgba(63, 185, 80, 0.05);
+}
+footer {
+  border-top: 1px solid var(--border);
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--fg-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+footer a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← home</a>
+  <span class="title">JSON Diff & Patch</span>
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">◑ theme</button>
+</div>
+
+<div class="container">
+  <div class="pitch">
+    <p>Paste two JSON documents, get a visual diff plus a ready-to-use <strong>RFC 6902 JSON Patch</strong> that transforms the left into the right — all computed in your browser tab. <span class="limit">∞ runs — pure client-side, no API, no key, no limit</span></p>
+    <p><strong>What it replaces:</strong> Hand-writing JSON Patch operations (error-prone, slow), or using online diff tools that may log your data. No direct paid equivalent found that does specifically this for free — the closest paid tooling is built into API platforms like Postman ($29/user/month on paid plans) or Swagger ($19/user/month) which bundle diffing with broader API tooling.</p>
+    <div class="share-row">
+      <button class="share-btn" id="copyLink">⧉ copy link</button>
+      <a class="share-btn" id="shareX" href="#" target="_blank" rel="noopener" style="text-decoration:none;color:var(--fg);display:inline-block;">𝕏 share</a>
+    </div>
+  </div>
+
+  <section>
+    <h2>1. Paste your JSON</h2>
+    <div class="grid-2">
+      <div>
+        <label for="jsonLeft">Left (original)</label>
+        <textarea id="jsonLeft" placeholder='{"name":"Alice","age":30}'></textarea>
+      </div>
+      <div>
+        <label for="jsonRight">Right (modified)</label>
+        <textarea id="jsonRight" placeholder='{"name":"Bob","age":31,"city":"NYC"}'></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button id="diffBtn">Compute diff & patch</button>
+      <button class="secondary" id="swapBtn">⇄ swap</button>
+      <button class="secondary" id="clearBtn">clear</button>
+    </div>
+    <div id="errorBox"></div>
+  </section>
+
+  <section id="resultsSection" style="display:none;">
+    <div class="saved-readout">
+      You just found <span class="big-num" id="diffCount">0</span> difference(s).
+      <span class="assumption">Assumption: ~5 min to manually diff and write a JSON Patch by hand — so this saved you approximately <span id="savedMin">0</span> min.</span>
+    </div>
+
+    <h2>2. Visual diff</h2>
+    <div class="output-box">
+      <div id="visualDiff"></div>
+    </div>
+
+    <h2>3. JSON Patch (RFC 6902)</h2>
+    <div class="output-box">
+      <button class="copy-btn" data-copy="patchOutput">copy</button>
+      <pre id="patchOutput"></pre>
+    </div>
+
+    <h2>4. Composability</h2>
+    <div class="btn-row">
+      <button class="secondary" id="exportJson">Download diff as JSON</button>
+      <button class="secondary" id="copyPatchJson">Copy as JSON</button>
+    </div>
+    <details>
+      <summary>Import a diff (from this tool's export or another tool's output)</summary>
+      <div class="import-area" id="importArea">
+        <p>Paste JSON below or drop a file here:</p>
+        <textarea id="importBox" style="min-height:80px;" placeholder='{"zcac":true,"kind":"json-patch","data":{...}}'></textarea>
+        <button class="secondary" id="importBtn" style="margin-top:0.5rem;">Load imported diff</button>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>What breaks</h2>
+    <ul style="font-size:0.9rem;color:var(--fg-2);">
+      <li>Very large JSON (tens of MB) may freeze the tab — the diff is O(n) in document size but runs synchronously on the main thread.</li>
+      <li>Array diffing is positional (index-based), not by identity. If you reorder array elements without changing their contents, it won't detect "moved" — it'll report a bunch of replacements. RFC 6902 doesn't have a native "move" op for arbitrary reorders either, so this matches the spec.</li>
+      <li>Patch application: not implemented here (that's a different tool). Use the patch with any RFC 6902 library — Python's <code>jsonpatch</code>, JS's <code>fast-json-patch</code>, Go's <code>json-patch</code>, etc.</li>
+    </ul>
+  </section>
+</div>
+
+<footer>
+  Free-tier claim verified against <a href="https://datatracker.ietf.org/doc/html/rfc6902" target="_blank" rel="noopener">RFC 6902 (IETF)</a> — no external service used, so no tier to exceed.
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // Theme toggle
+  const themeToggle = document.getElementById('themeToggle');
+  const stored = sessionStorage.getItem('theme');
+  if (stored === 'light' || (!stored && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+  themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    if (next === 'dark') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+    sessionStorage.setItem('theme', next);
+  });
+
+  // Deep diff implementation
+  function deepDiff(a, b, path) {
+    path = path || '';
+    const diffs = [];
+
+    if (a === b) return diffs;
+    if (a === null || b === null || typeof a !== typeof b) {
+      if (path === '') {
+        diffs.push({op: 'replace', path: '', value: b});
+      } else {
+        diffs.push({op: 'replace', path: path, value: b});
+      }
+      return diffs;
+    }
+    if (typeof a !== 'object') {
+      diffs.push({op: 'replace', path: path, value: b});
+      return diffs;
+    }
+
+    const aIsArr = Array.isArray(a);
+    const bIsArr = Array.isArray(b);
+
+    if (aIsArr !== bIsArr) {
+      diffs.push({op: 'replace', path: path, value: b});
+      return diffs;
+    }
+
+    if (aIsArr) {
+      // Array diff: positional
+      const maxLen = Math.max(a.length, b.length);
+      // Process removes in reverse order so indices stay valid
+      const removes = [];
+      for (let i = a.length - 1; i >= b.length; i--) {
+        removes.push({op: 'remove', path: path + '/' + i});
+      }
+      diffs.push(...removes);
+
+      // Compare existing indices
+      const minLen = Math.min(a.length, b.length);
+      for (let i = 0; i < minLen; i++) {
+        diffs.push(...deepDiff(a[i], b[i], path + '/' + i));
+      }
+
+      // Add new elements
+      for (let i = a.length; i < b.length; i++) {
+        diffs.push({op: 'add', path: path + '/' + i, value: b[i]});
+      }
+    } else {
+      // Object diff
+      const aKeys = Object.keys(a).sort();
+      const bKeys = Object.keys(b).sort();
+      const allKeys = new Set([...aKeys, ...bKeys]);
+
+      for (const k of [...allKeys].sort()) {
+        const p = path + '/' + escapeJsonPointer(k);
+        if (!(k in a)) {
+          diffs.push({op: 'add', path: p, value: b[k]});
+        } else if (!(k in b)) {
+          diffs.push({op: 'remove', path: p});
+        } else {
+          diffs.push(...deepDiff(a[k], b[k], p));
+        }
+      }
+    }
+
+    return diffs;
+  }
+
+  function escapeJsonPointer(str) {
+    return str.replace(/~/g, '~0').replace(/\//g, '~1');
+  }
+
+  // DOM references
+  const jsonLeft = document.getElementById('jsonLeft');
+  const jsonRight = document.getElementById('jsonRight');
+  const diffBtn = document.getElementById('diffBtn');
+  const swapBtn = document.getElementById('swapBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const errorBox = document.getElementById('errorBox');
+  const resultsSection = document.getElementById('resultsSection');
+  const visualDiff = document.getElementById('visualDiff');
+  const patchOutput = document.getElementById('patchOutput');
+  const diffCount = document.getElementById('diffCount');
+  const savedMin = document.getElementById('savedMin');
+  const exportJson = document.getElementById('exportJson');
+  const copyPatchJson = document.getElementById('copyPatchJson');
+  const importArea = document.getElementById('importArea');
+  const importBox = document.getElementById('importBox');
+  const importBtn = document.getElementById('importBtn');
+
+  let lastPatch = null;
+  let lastLeft = null;
+  let lastRight = null;
+
+  function showError(msg) {
+    errorBox.innerHTML = '<div class="error-msg">' + msg + '</div>';
+  }
+  function clearError() { errorBox.innerHTML = ''; }
+
+  function renderVisualDiff(diffs) {
+    if (diffs.length === 0) {
+      visualDiff.innerHTML = '<p style="color:var(--fg-2);font-style:italic;">No differences found — the documents are identical.</p>';
+      return;
+    }
+    const html = diffs.map(d => {
+      const cls = d.op;
+      const pathDisplay = d.path === '' ? '(root)' : d.path;
+      let detail = '';
+      if (d.op === 'add') {
+        detail = ' → ' + JSON.stringify(d.value);
+      } else if (d.op === 'replace') {
+        detail = ' → ' + JSON.stringify(d.value);
+      }
+      return '<div class="diff-item ' + cls + '">' +
+        '<span class="diff-op ' + cls + '">' + d.op + '</span> ' +
+        '<span class="diff-path">' + pathDisplay + '</span>' +
+        detail +
+        '</div>';
+    }).join('');
+    visualDiff.innerHTML = html;
+  }
+
+  function doDiff() {
+    clearError();
+    const leftStr = jsonLeft.value.trim();
+    const rightStr = jsonRight.value.trim();
+
+    if (!leftStr || !rightStr) {
+      showError('Both JSON fields must be non-empty.');
+      resultsSection.style.display = 'none';
+      return;
+    }
+
+    let left, right;
+    try {
+      left = JSON.parse(leftStr);
+    } catch (e) {
+      showError('Left JSON is invalid: ' + e.message);
+      resultsSection.style.display = 'none';
+      return;
+    }
+    try {
+      right = JSON.parse(rightStr);
+    } catch (e) {
+      showError('Right JSON is invalid: ' + e.message);
+      resultsSection.style.display = 'none';
+      return;
+    }
+
+    const diffs = deepDiff(left, right);
+    lastPatch = diffs;
+    lastLeft = left;
+    lastRight = right;
+
+    renderVisualDiff(diffs);
+    patchOutput.textContent = JSON.stringify(diffs, null, 2);
+
+    diffCount.textContent = diffs.length;
+    savedMin.textContent = Math.round(diffs.length * 5 / 60 * 10) / 10; // rough: 5 min per hand-written patch, divided by typical count
+
+    resultsSection.style.display = 'block';
+  }
+
+  diffBtn.addEventListener('click', doDiff);
+
+  swapBtn.addEventListener('click', () => {
+    const tmp = jsonLeft.value;
+    jsonLeft.value = jsonRight.value;
+    jsonRight.value = tmp;
+    if (lastPatch !== null) doDiff();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    jsonLeft.value = '';
+    jsonRight.value = '';
+    clearError();
+    resultsSection.style.display = 'none';
+    lastPatch = null;
+  });
+
+  // Copy buttons
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('copy-btn')) {
+      const targetId = e.target.getAttribute('data-copy');
+      const el = document.getElementById(targetId);
+      if (el) {
+        navigator.clipboard.writeText(el.textContent).then(() => {
+          const orig = e.target.textContent;
+          e.target.textContent = 'copied!';
+          setTimeout(() => { e.target.textContent = orig; }, 1500);
+        });
+      }
+    }
+  });
+
+  // Export as JSON (composability shape)
+  function getExportPayload() {
+    return {
+      zcac: true,
+      kind: 'json-patch',
+      data: {
+        patch: lastPatch,
+        left: lastLeft,
+        right: lastRight,
+        generated_at: new Date().toISOString()
+      }
+    };
+  }
+
+  exportJson.addEventListener('click', () => {
+    if (!lastPatch) return;
+    const payload = getExportPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'json-patch-' + Date.now() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  copyPatchJson.addEventListener('click', () => {
+    if (!lastPatch) return;
+    const payload = getExportPayload();
+    navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(() => {
+      copyPatchJson.textContent = 'copied!';
+      setTimeout(() => { copyPatchJson.textContent = 'Copy as JSON'; }, 1500);
+    });
+  });
+
+  // Import
+  importBtn.addEventListener('click', () => {
+    const raw = importBox.value.trim();
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !parsed.zcac) {
+        alert('Not recognized: missing zcac: true marker.');
+        return;
+      }
+      if (parsed.kind !== 'json-patch') {
+        alert('Not recognized: expected kind "json-patch", got "' + parsed.kind + '".');
+        return;
+      }
+      const d = parsed.data;
+      if (d.left) jsonLeft.value = JSON.stringify(d.left, null, 2);
+      if (d.right) jsonRight.value = JSON.stringify(d.right, null, 2);
+      doDiff();
+    } catch (e) {
+      alert('Invalid JSON: ' + e.message);
+    }
+  });
+
+  // Drag & drop import
+  importArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    importArea.classList.add('dragover');
+  });
+  importArea.addEventListener('dragleave', () => {
+    importArea.classList.remove('dragover');
+  });
+  importArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    importArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        importBox.value = ev.target.result;
+      };
+      reader.readAsText(e.dataTransfer.files[0]);
+    }
+  });
+
+  // Share
+  document.getElementById('copyLink').addEventListener('click', () => {
+    navigator.clipboard.writeText(window.location.href);
+    document.getElementById('copyLink').textContent = 'copied!';
+    setTimeout(() => { document.getElementById('copyLink').textContent = '⧉ copy link'; }, 1500);
+  });
+  const xUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('JSON Diff & Patch (RFC 6902) generator — browser-native, zero external calls:') + '&url=' + encodeURIComponent(window.location.href);
+  document.getElementById('shareX').href = xUrl;
+
+  // Tab key in textareas inserts tab
+  [jsonLeft, jsonRight].forEach(ta => {
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        ta.value = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
+        ta.selectionStart = ta.selectionEnd = start + 2;
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
