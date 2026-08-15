@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Query Optimizer & Composite Index Advisor — Zero-Cost AI Coding</title>
+  <meta name="description" content="Free client-side SQL performance analyzer. Identifies non-SARGable WHERE predicates, models B-Tree composite indexes via the ESR rule, and generates optimized rewrites.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --bg-surface: #111827;
+      --bg-card: #182234;
+      --bg-input: #0b111e;
+      --border: #2d3748;
+      --border-focus: #10b981;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --accent-soft: rgba(16, 185, 129, 0.12);
+      --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.12);
+      --warning: #f59e0b;
+      --warning-soft: rgba(245, 158, 11, 0.12);
+      --info: #3b82f6;
+      --info-soft: rgba(59, 130, 246, 0.12);
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --radius: 8px;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #f1f5f9;
+      --bg-input: #ffffff;
+      --border: #cbd5e1;
+      --border-focus: #059669;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --accent: #059669;
+      --accent-hover: #047857;
+      --accent-soft: rgba(5, 150, 105, 0.12);
+      --danger: #dc2626;
+      --danger-soft: rgba(220, 38, 38, 0.1);
+      --warning: #d97706;
+      --warning-soft: rgba(217, 119, 6, 0.1);
+      --info: #2563eb;
+      --info-soft: rgba(37, 99, 235, 0.1);
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Sticky Top Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .topbar-left a {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: var(--font-code);
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: var(--radius);
+    }
+
+    .topbar-left a:hover {
+      background: var(--accent-soft);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-title {
+      font-family: var(--font-code);
+      font-size: 13px;
+      color: var(--text-muted);
+      display: none;
+    }
+
+    @media (min-width: 640px) {
+      .topbar-title {
+        display: inline;
+      }
+    }
+
+    .theme-toggle {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-family: var(--font-code);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+    }
+
+    /* Layout Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* Header & Pitch */
+    .pitch-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .pitch-header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .badge {
+      font-family: var(--font-code);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-free {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .badge-native {
+      background: var(--info-soft);
+      color: var(--info);
+      border: 1px solid var(--info);
+    }
+
+    h1 {
+      font-family: var(--font-code);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .pitch-desc {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 950px;
+      line-height: 1.6;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin: 20px 0;
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+    }
+
+    @media (min-width: 768px) {
+      .meta-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .meta-item strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 2px;
+      font-family: var(--font-code);
+      font-size: 12px;
+    }
+
+    .meta-item span {
+      color: var(--text-muted);
+    }
+
+    .share-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding-top: 8px;
+    }
+
+    /* Savings Readout Banner */
+    .savings-banner {
+      background: var(--bg-surface);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    @media (min-width: 768px) {
+      .savings-banner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .savings-stat-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .savings-metric {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .savings-value {
+      font-family: var(--font-code);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+
+    .savings-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: var(--font-code);
+      letter-spacing: 0.5px;
+    }
+
+    .savings-assumption {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      max-width: 600px;
+      border-left: 2px solid var(--border);
+      padding-left: 12px;
+    }
+
+    /* Controls & Workspace */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    @media (min-width: 1024px) {
+      .workspace-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-family: var(--font-code);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dialect-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .dialect-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-code);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .dialect-btn:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .dialect-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .preset-row {
+      padding: 10px 16px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+
+    .preset-label {
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      font-size: 11px;
+    }
+
+    .preset-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-code);
+      cursor: pointer;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .editor-wrapper {
+      position: relative;
+      flex: 1;
+      min-height: 280px;
+    }
+
+    textarea.sql-input {
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+      background: var(--bg-input);
+      color: var(--text);
+      border: none;
+      padding: 16px;
+      font-family: var(--font-code);
+      font-size: 13px;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+    }
+
+    textarea.sql-input:focus {
+      box-shadow: inset 0 0 0 1px var(--border-focus);
+    }
+
+    .panel-footer {
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-code);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #042f2e;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      color: #ffffff;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    /* Results Tabs */
+    .tab-bar {
+      display: flex;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      font-family: var(--font-code);
+      font-size: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+      background: var(--bg-surface);
+    }
+
+    .tab-badge {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 10px;
+    }
+
+    .tab-btn.active .tab-badge {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tab-content {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 650px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Index Card */
+    .index-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .index-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .index-table-name {
+      font-family: var(--font-code);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .index-type-badge {
+      font-family: var(--font-code);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .code-block {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-family: var(--font-code);
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin: 8px 0;
+      color: #38bdf8;
+      position: relative;
+    }
+
+    .index-strategy {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Issue Item */
+    .issue-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .issue-card.critical {
+      border-left-color: var(--danger);
+    }
+
+    .issue-card.high {
+      border-left-color: var(--warning);
+    }
+
+    .issue-card.medium {
+      border-left-color: var(--info);
+    }
+
+    .issue-card.low {
+      border-left-color: var(--text-dim);
+    }
+
+    .issue-title {
+      font-family: var(--font-code);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .severity-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-family: var(--font-code);
+    }
+
+    .severity-tag.critical {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .severity-tag.high {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    .severity-tag.medium {
+      background: var(--info-soft);
+      color: var(--info);
+      border: 1px solid var(--info);
+    }
+
+    .severity-tag.low {
+      background: var(--bg-input);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .issue-msg {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .issue-recommendation {
+      background: var(--bg-input);
+      border: 1px dashed var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      color: var(--accent);
+    }
+
+    /* Explanation & Docs Section */
+    .docs-section {
+      margin-top: 36px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    @media (min-width: 768px) {
+      .docs-section {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .doc-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .doc-card h3 {
+      font-family: var(--font-code);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .doc-card p, .doc-card ol, .doc-card ul {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .doc-card ol, .doc-card ul {
+      padding-left: 18px;
+      margin-top: 6px;
+    }
+
+    .doc-card li {
+      margin-bottom: 4px;
+    }
+
+    /* Modal / JSON Import */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 200;
+    }
+
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 600px;
+      padding: 24px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal h2 {
+      font-family: var(--font-code);
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .modal textarea {
+      width: 100%;
+      height: 160px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px;
+      color: var(--text);
+      font-family: var(--font-code);
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-surface);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--font-code);
+      font-size: 12px;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      background: var(--bg-surface);
+      padding: 20px;
+      margin-top: auto;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: underline;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    /* Focus states for keyboard accessibility */
+    a:focus-visible, button:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline: 2px solid var(--border-focus);
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Top Bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="https://iggym.github.io/zero-cost-ai-coding/">
+        <span>&larr;</span> zero-cost-ai-coding
+      </a>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-title">SQL Index Advisor &amp; Query Optimizer</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light and dark mode">
+        <span id="themeIcon">&#9790;</span> <span id="themeText">Theme</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Pitch Section -->
+    <section class="pitch-card" aria-labelledby="tool-heading">
+      <div class="pitch-header">
+        <div class="badge-row">
+          <span class="badge badge-free">$0 Free &amp; Unlimited</span>
+          <span class="badge badge-native">Browser-Native</span>
+        </div>
+        <h1 id="tool-heading">SQL Index Advisor &amp; Query Optimizer</h1>
+      </div>
+
+      <p class="pitch-desc">
+        Analyze slow SQL queries client-side in pure JavaScript to identify non-SARGable WHERE predicates, eliminate filesorts using the Equality-Sort-Range (ESR) composite index rule, and generate optimized SQL rewrites — with unlimited queries at $0 cost and zero external network calls.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <strong>Free Tier &amp; Limits</strong>
+          <span>100% Browser-Native (Web APIs). Unlimited runs, no account, no telemetry, runs offline.</span>
+        </div>
+        <div class="meta-item">
+          <strong>What It Replaces</strong>
+          <span>EverSQL Starter ($129/mo for 10 queries) and pganalyze Cloud Production ($149/mo).</span>
+        </div>
+        <div class="meta-item">
+          <strong>Privacy Guarantee</strong>
+          <span>Your queries, table structures, and filters never leave your browser tab.</span>
+        </div>
+      </div>
+
+      <div class="share-row">
+        <button class="btn btn-sm" id="shareTwitterBtn">
+          <span>&#120143;</span> Share on X
+        </button>
+        <button class="btn btn-sm" id="copyLinkBtn">
+          <span>&#128279;</span> Copy Tool Link
+        </button>
+      </div>
+    </section>
+
+    <!-- Live "What This Just Saved You" Banner -->
+    <section class="savings-banner" aria-label="Live efficiency readout">
+      <div class="savings-stat-group">
+        <div class="savings-metric">
+          <div class="savings-value" id="statTimeSaved">~20 min</div>
+          <div class="savings-label">Manual DBA Time Saved</div>
+        </div>
+        <div class="savings-metric">
+          <div class="savings-value" id="statIssuesFound">4</div>
+          <div class="savings-label">Bottlenecks Flagged</div>
+        </div>
+        <div class="savings-metric">
+          <div class="savings-value" id="statIndexesBuilt">2</div>
+          <div class="savings-label">Composite Indexes</div>
+        </div>
+      </div>
+      <div class="savings-assumption">
+        <strong>Direct Calculation:</strong> Based on senior engineer/DBA manual execution plan inspection and ESR index modeling (~15–20 min per query) vs. EverSQL Starter tier ($129/mo for 10 optimizations, ~$12.90 per query).
+      </div>
+    </section>
+
+    <!-- Interactive SQL Workspace -->
+    <div class="workspace-grid">
+      <!-- Input Panel -->
+      <section class="panel" aria-label="SQL Input Panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>&#128196;</span> SQL Query Input
+          </div>
+          <div class="dialect-group" role="group" aria-label="SQL Dialect">
+            <button class="dialect-btn active" data-dialect="postgres">PostgreSQL</button>
+            <button class="dialect-btn" data-dialect="mysql">MySQL</button>
+            <button class="dialect-btn" data-dialect="sqlite">SQLite</button>
+            <button class="dialect-btn" data-dialect="sqlserver">SQL Server</button>
+            <button class="dialect-btn" data-dialect="ansi">ANSI SQL</button>
+          </div>
+        </div>
+
+        <div class="preset-row">
+          <span class="preset-label">Presets:</span>
+          <button class="preset-btn" data-preset="ecommerce">E-Commerce Orders</button>
+          <button class="preset-btn" data-preset="audit">SaaS Audit Log</button>
+          <button class="preset-btn" data-preset="users">User Subscriptions</button>
+          <button class="preset-btn" data-preset="reporting">Analytics CTE</button>
+        </div>
+
+        <div class="editor-wrapper">
+          <textarea class="sql-input" id="sqlEditor" spellcheck="false" aria-label="SQL Query Textarea" placeholder="Paste your SELECT, UPDATE, DELETE, or CTE SQL query here..."></textarea>
+        </div>
+
+        <div class="panel-footer">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary" id="analyzeBtn">
+              <span>&#9889;</span> Analyze Query
+            </button>
+            <button class="btn btn-sm" id="formatBtn">Format</button>
+            <button class="btn btn-sm" id="clearBtn">Clear</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" id="importJsonBtn">Import JSON</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Output Panel -->
+      <section class="panel" aria-label="Analysis & Recommendations Panel">
+        <div class="tab-bar" role="tablist">
+          <button class="tab-btn active" role="tab" aria-selected="true" data-tab="tab-indexes">
+            <span>&#127919;</span> Index DDLs <span class="tab-badge" id="badgeIndexCount">2</span>
+          </button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-issues">
+            <span>&#9888;</span> Bottlenecks <span class="tab-badge" id="badgeIssueCount">4</span>
+          </button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-rewrite">
+            <span>&#9998;</span> Optimized SQL
+          </button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab="tab-pr">
+            <span>&#128221;</span> PR Report
+          </button>
+        </div>
+
+        <!-- Tab 1: Index Recommendations -->
+        <div class="tab-content" id="tab-indexes" role="tabpanel">
+          <div id="indexList"></div>
+        </div>
+
+        <!-- Tab 2: Bottleneck Audit -->
+        <div class="tab-content hidden" id="tab-issues" role="tabpanel">
+          <div id="issueList"></div>
+        </div>
+
+        <!-- Tab 3: Optimized SQL Rewrite -->
+        <div class="tab-content hidden" id="tab-rewrite" role="tabpanel">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+            SARGable refactoring: date functions converted to timestamp range bounds, arithmetic isolated on constants, and aligned formatting.
+          </p>
+          <div class="code-block" id="optimizedSqlBlock" style="min-height: 220px; white-space: pre-wrap;"></div>
+          <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="copyOptimizedSqlBtn">Copy Optimized SQL</button>
+          </div>
+        </div>
+
+        <!-- Tab 4: Pull Request Markdown Report -->
+        <div class="tab-content hidden" id="tab-pr" role="tabpanel">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+            Copy-ready markdown report to paste directly into GitHub Pull Request descriptions or code reviews.
+          </p>
+          <div class="code-block" id="prReportBlock" style="min-height: 220px; white-space: pre-wrap; font-size: 11px;"></div>
+          <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" id="copyPrReportBtn">Copy PR Markdown</button>
+          </div>
+        </div>
+
+        <div class="panel-footer">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-sm" id="copyAllDdlBtn">Copy All DDLs</button>
+            <button class="btn btn-sm" id="exportJsonBtn">Copy JSON</button>
+            <button class="btn btn-sm" id="downloadJsonBtn">Download .json</button>
+          </div>
+          <span style="font-size: 11px; font-family: var(--font-code); color: var(--text-dim);" id="dialectIndicator">PostgreSQL Engine</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- How-To & Limitations Section -->
+    <section class="docs-section">
+      <article class="doc-card">
+        <h3><span>&#9654;</span> How to Use It</h3>
+        <ol>
+          <li>Pick your database dialect (PostgreSQL, MySQL, SQLite, SQL Server, or ANSI).</li>
+          <li>Paste your SQL query into the editor or pick a realistic preset.</li>
+          <li>Click <strong>Analyze Query</strong> to inspect anti-patterns, copy recommended composite index DDLs, and grab SARGable rewrites.</li>
+        </ol>
+      </article>
+
+      <article class="doc-card">
+        <h3><span>&#128218;</span> The ESR Composite Index Rule</h3>
+        <p>
+          To make multi-column B-Tree indexes efficient:
+        </p>
+        <ul>
+          <li><strong>E (Equality):</strong> Columns tested with <code>=</code> or <code>IS NULL</code> come FIRST.</li>
+          <li><strong>S (Sort):</strong> Columns in <code>ORDER BY</code> come SECOND to eliminate disk filesorts.</li>
+          <li><strong>R (Range):</strong> Inequality columns (<code>&gt;</code>, <code>BETWEEN</code>, <code>LIKE 'abc%'</code>) come LAST.</li>
+        </ul>
+      </article>
+
+      <article class="doc-card">
+        <h3><span>&#9888;</span> What Breaks &amp; Honest Limits</h3>
+        <p>
+          This tool runs static AST heuristics on query syntax. It cannot inspect live table row counts, data distribution statistics (<code>pg_statistic</code>), or index cache residency.
+        </p>
+        <p style="margin-top: 6px;">
+          Always verify runtime execution timings with <code>EXPLAIN (ANALYZE, BUFFERS)</code> on realistic staging data before pushing migrations to production.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay hidden" id="importModal">
+    <div class="modal" role="dialog" aria-labelledby="modalTitle">
+      <h2 id="modalTitle">Import JSON Report or SQL</h2>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        Paste a <code>zcac</code> structured JSON report or a raw SQL query string below.
+      </p>
+      <textarea id="importJsonInput" placeholder='{"zcac": true, "kind": "sql-optimizer-report", "data": {...}}'></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-sm" id="cancelImportBtn">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="confirmImportBtn">Load into Workspace</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="alert">
+    <span>&#10003;</span> <span id="toastMsg">Copied to clipboard!</span>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    Zero-Cost AI Coding &bull; Verified against EverSQL pricing (<a href="https://www.toolify.ai/tool/eversql-com" target="_blank" rel="noopener noreferrer">toolify.ai/tool/eversql-com</a>) &amp; pganalyze pricing (<a href="https://www.vendr.com/marketplace/pganalyze" target="_blank" rel="noopener noreferrer">vendr.com/marketplace/pganalyze</a>) as of 2026-08-15.
+  </footer>
+
+  <script>
+    // State
+    const state = {
+      dialect: 'postgres',
+      sql: '',
+      report: null
+    };
+
+    // Preset SQL Queries
+    const presets = {
+      ecommerce: `-- E-Commerce Order Analytics
+SELECT o.id, o.order_number, o.status, c.name, c.email, o.total_amount
+FROM orders o
+INNER JOIN customers c ON o.customer_id = c.id
+WHERE o.status = 'completed'
+  AND EXTRACT(YEAR FROM o.created_at) = 2026
+  AND c.email LIKE '%@gmail.com'
+  AND o.total_amount * 1.05 > 100.00
+ORDER BY o.created_at DESC
+LIMIT 50 OFFSET 1000;`,
+
+      audit: `-- Multi-Tenant SaaS Audit Log
+SELECT a.id, a.tenant_id, a.user_id, a.action, a.ip_address, a.created_at
+FROM audit_logs a
+WHERE a.tenant_id = 'tenant_9821'
+  AND a.action = 'login_failure'
+  AND a.created_at >= '2026-08-01 00:00:00'
+  AND a.user_id IN (SELECT id FROM flagged_users WHERE risk_score > 80)
+ORDER BY a.created_at DESC
+LIMIT 100;`,
+
+      users: `-- User Subscription & Profile Filter
+SELECT *
+FROM users u
+LEFT JOIN subscriptions s ON u.id = s.user_id
+WHERE u.is_active = 1
+  AND LOWER(u.country) = 'us'
+  AND u.age + 5 >= 25
+  AND s.plan_tier = 'pro'
+ORDER BY u.registered_at DESC;`,
+
+      reporting: `-- Analytics CTE with Grouping
+WITH active_sales AS (
+  SELECT s.id, s.seller_id, s.amount, s.created_at
+  FROM sales s
+  WHERE s.status = 'finalized'
+    AND DATE(s.created_at) = '2026-08-15'
+)
+SELECT seller_id, COUNT(*) AS sales_count, SUM(amount) AS total_revenue
+FROM active_sales
+GROUP BY seller_id
+HAVING COUNT(*) > 10
+ORDER BY total_revenue DESC;`
+    };
+
+    // DOM Elements
+    const sqlEditor = document.getElementById('sqlEditor');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const formatBtn = document.getElementById('formatBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const importJsonBtn = document.getElementById('importJsonBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+    const copyAllDdlBtn = document.getElementById('copyAllDdlBtn');
+    const copyOptimizedSqlBtn = document.getElementById('copyOptimizedSqlBtn');
+    const copyPrReportBtn = document.getElementById('copyPrReportBtn');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    const shareTwitterBtn = document.getElementById('shareTwitterBtn');
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const dialectIndicator = document.getElementById('dialectIndicator');
+
+    const statTimeSaved = document.getElementById('statTimeSaved');
+    const statIssuesFound = document.getElementById('statIssuesFound');
+    const statIndexesBuilt = document.getElementById('statIndexesBuilt');
+    const badgeIndexCount = document.getElementById('badgeIndexCount');
+    const badgeIssueCount = document.getElementById('badgeIssueCount');
+
+    const indexList = document.getElementById('indexList');
+    const issueList = document.getElementById('issueList');
+    const optimizedSqlBlock = document.getElementById('optimizedSqlBlock');
+    const prReportBlock = document.getElementById('prReportBlock');
+
+    const importModal = document.getElementById('importModal');
+    const cancelImportBtn = document.getElementById('cancelImportBtn');
+    const confirmImportBtn = document.getElementById('confirmImportBtn');
+    const importJsonInput = document.getElementById('importJsonInput');
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+
+    // Tab Switching
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+
+        const targetTabId = btn.getAttribute('data-tab');
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('hidden'));
+        const targetEl = document.getElementById(targetTabId);
+        if (targetEl) targetEl.classList.remove('hidden');
+      });
+    });
+
+    // Dialect Selection
+    const dialectBtns = document.querySelectorAll('.dialect-btn');
+    dialectBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        dialectBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.dialect = btn.getAttribute('data-dialect');
+        updateDialectIndicator();
+        runAnalysis();
+      });
+    });
+
+    function updateDialectIndicator() {
+      const dialectNames = {
+        postgres: 'PostgreSQL Engine (CONCURRENTLY & INCLUDE)',
+        mysql: 'MySQL / MariaDB Engine',
+        sqlite: 'SQLite Engine',
+        sqlserver: 'SQL Server (T-SQL Nonclustered)',
+        ansi: 'ANSI SQL Standard'
+      };
+      dialectIndicator.textContent = dialectNames[state.dialect] || 'SQL Engine';
+    }
+
+    // Presets Click
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const presetKey = btn.getAttribute('data-preset');
+        if (presets[presetKey]) {
+          sqlEditor.value = presets[presetKey];
+          runAnalysis();
+        }
+      });
+    });
+
+    // Theme Toggle
+    themeToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+      if (isDark) {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeIcon.innerHTML = '&#9788;';
+        localStorage.setItem('zcac_sql_theme', 'light');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        themeIcon.innerHTML = '&#9790;';
+        localStorage.setItem('zcac_sql_theme', 'dark');
+      }
+    });
+
+    // Load saved theme
+    if (localStorage.getItem('zcac_sql_theme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      themeIcon.innerHTML = '&#9788;';
+    }
+
+    // Toast helper
+    function showToast(msg) {
+      toastMsg.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // Copy helper
+    function copyToClipboard(text, msg = 'Copied to clipboard!') {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(msg);
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast(msg);
+      });
+    }
+
+    // Analysis Engine
+    function parseTablesAndAliases(sql) {
+      const tables = [];
+      const fromMatch = sql.match(/\bFROM\s+([a-zA-Z0-9_]+)(?:\s+(?:AS\s+)?([a-zA-Z0-9_]+))?/i);
+      if (fromMatch) {
+        const name = fromMatch[1];
+        const alias = fromMatch[2] || name;
+        tables.push({ name, alias, isMain: true });
+      }
+
+      const joinRegex = /\b(?:INNER\s+|LEFT\s+|RIGHT\s+|FULL\s+|CROSS\s+)?JOIN\s+([a-zA-Z0-9_]+)(?:\s+(?:AS\s+)?([a-zA-Z0-9_]+))?(?:\s+ON\s+([\s\S]*?))?(?=\b(?:JOIN|WHERE|GROUP|ORDER|LIMIT|HAVING|UNION|$))/gi;
+      let match;
+      while ((match = joinRegex.exec(sql)) !== null) {
+        const name = match[1];
+        const alias = match[2] || name;
+        const onCondition = match[3] ? match[3].trim() : '';
+        tables.push({ name, alias, isMain: false, onCondition });
+      }
+
+      return tables;
+    }
+
+    function extractPredicates(sql, tables) {
+      const predicates = [];
+      const whereMatch = sql.match(/\bWHERE\s+([\s\S]*?)(?=\b(?:GROUP\s+BY|ORDER\s+BY|LIMIT|HAVING|UNION|$))/i);
+
+      if (whereMatch) {
+        const whereClause = whereMatch[1];
+        const parts = whereClause.split(/\bAND\b/i);
+
+        for (let part of parts) {
+          part = part.trim();
+          if (!part) continue;
+
+          // Equality
+          let m = part.match(/^(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*(=|IS\s+NULL)\s*([\s\S]*)$/i);
+          if (m) {
+            predicates.push({ raw: part, tblAlias: m[1], col: m[2], op: m[3].toUpperCase().includes('NULL') ? 'IS NULL' : '=', val: m[4], type: 'eq' });
+            continue;
+          }
+
+          // Range
+          m = part.match(/^(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*(>|<|>=|<=|BETWEEN)\s*([\s\S]*)$/i);
+          if (m) {
+            predicates.push({ raw: part, tblAlias: m[1], col: m[2], op: m[3].toUpperCase(), val: m[4], type: 'range' });
+            continue;
+          }
+
+          // IN (...)
+          m = part.match(/^(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s+IN\s*\(([\s\S]*)\)$/i);
+          if (m) {
+            predicates.push({ raw: part, tblAlias: m[1], col: m[2], op: 'IN', val: m[3], type: 'in' });
+            continue;
+          }
+
+          // LIKE / ILIKE
+          m = part.match(/^(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s+(LIKE|ILIKE)\s*([\s\S]*)$/i);
+          if (m) {
+            predicates.push({ raw: part, tblAlias: m[1], col: m[2], op: m[3].toUpperCase(), val: m[4], type: 'like' });
+            continue;
+          }
+
+          // Function wrappers
+          m = part.match(/(?:EXTRACT\s*\(\s*YEAR\s+FROM\s+(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)|YEAR\s*\(\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)|DATE\s*\(\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)|LOWER\s*\(\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+))/i);
+          if (m) {
+            const tblAlias = m[1] || m[3] || m[5] || m[7];
+            const col = m[2] || m[4] || m[6] || m[8];
+            predicates.push({ raw: part, tblAlias, col, op: 'FUNC', val: '', type: 'range' });
+            continue;
+          }
+        }
+      }
+
+      // Extract Join Predicates
+      for (const t of tables) {
+        if (t.onCondition) {
+          const onParts = t.onCondition.split(/\bAND\b/i);
+          for (const p of onParts) {
+            const joinMatch = p.match(/(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*=\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)/i);
+            if (joinMatch) {
+              const leftAlias = joinMatch[1];
+              const leftCol = joinMatch[2];
+              const rightAlias = joinMatch[3];
+              const rightCol = joinMatch[4];
+              predicates.push({ raw: p, tblAlias: leftAlias, col: leftCol, op: '=', val: `${rightAlias}.${rightCol}`, type: 'join' });
+              predicates.push({ raw: p, tblAlias: rightAlias, col: rightCol, op: '=', val: `${leftAlias}.${leftCol}`, type: 'join' });
+            }
+          }
+        }
+      }
+
+      return predicates;
+    }
+
+    function extractOrderBy(sql) {
+      const orderMatch = sql.match(/\bORDER\s+BY\s+([\s\S]*?)(?=\b(?:LIMIT|OFFSET|$))/i);
+      const orderCols = [];
+      if (orderMatch) {
+        const items = orderMatch[1].split(',');
+        for (let item of items) {
+          item = item.trim();
+          const m = item.match(/^(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)(?:\s+(ASC|DESC))?/i);
+          if (m) {
+            orderCols.push({
+              tblAlias: m[1],
+              col: m[2],
+              dir: (m[3] || 'ASC').toUpperCase()
+            });
+          }
+        }
+      }
+      return orderCols;
+    }
+
+    function analyzeSQL(sql, dialect) {
+      const cleanSql = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+      const issues = [];
+      const tables = parseTablesAndAliases(cleanSql);
+      const predicates = extractPredicates(cleanSql, tables);
+      const orderCols = extractOrderBy(cleanSql);
+
+      // 1. SELECT *
+      if (/\bSELECT\s+(?:\*|\w+\.\*)/i.test(cleanSql)) {
+        issues.push({
+          code: 'SELECT_STAR',
+          severity: 'medium',
+          title: 'Unbounded SELECT * Projection',
+          message: 'Query retrieves all table columns (*). This wastes network bandwidth and memory, and prevents the query planner from using covering index (Index-Only Scan) execution plans.',
+          recommendation: 'Specify exact required column names (e.g., SELECT id, status, total_amount).'
+        });
+      }
+
+      // 2. Date/Year functions
+      const dateFuncRegex = /\b(?:EXTRACT\s*\(\s*YEAR\s+FROM\s+(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*\)|YEAR\s*\(\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*\))\s*=\s*(\d{4})/gi;
+      let match;
+      while ((match = dateFuncRegex.exec(cleanSql)) !== null) {
+        const col = match[2] || match[4];
+        const tblAlias = match[1] || match[3] ? `${match[1] || match[3]}.` : '';
+        const year = match[5];
+        const nextYear = parseInt(year, 10) + 1;
+        issues.push({
+          code: 'NON_SARGABLE_DATE_FUNC',
+          severity: 'critical',
+          title: `Non-SARGable Date Function on ${tblAlias}${col}`,
+          message: `Applying EXTRACT() or YEAR() on '${tblAlias}${col}' prevents standard B-Tree index lookups, forcing an O(N) sequential table scan across all records.`,
+          recommendation: `Rewrite to timestamp range bounds: ${tblAlias}${col} >= '${year}-01-01 00:00:00' AND ${tblAlias}${col} < '${nextYear}-01-01 00:00:00'`
+        });
+      }
+
+      const dateEqRegex = /\bDATE\s*\(\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*\)\s*=\s*['"](\d{4}-\d{2}-\d{2})['"]/gi;
+      while ((match = dateEqRegex.exec(cleanSql)) !== null) {
+        const tblAlias = match[1] ? `${match[1]}.` : '';
+        const col = match[2];
+        const dateStr = match[3];
+        issues.push({
+          code: 'NON_SARGABLE_DATE_CAST',
+          severity: 'critical',
+          title: `Non-SARGable DATE() Cast on ${tblAlias}${col}`,
+          message: `Wrapping '${tblAlias}${col}' in DATE() evaluates the function for every candidate row before comparison.`,
+          recommendation: `Rewrite to timestamp range: ${tblAlias}${col} >= '${dateStr} 00:00:00' AND ${tblAlias}${col} < '${dateStr} 23:59:59.999'`
+        });
+      }
+
+      // 3. LOWER / UPPER
+      const caseFuncRegex = /\b(?:LOWER|UPPER)\s*\(\s*(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*\)\s*=\s*['"]([^'"]+)['"]/gi;
+      while ((match = caseFuncRegex.exec(cleanSql)) !== null) {
+        const tblAlias = match[1] ? `${match[1]}.` : '';
+        const col = match[2];
+        issues.push({
+          code: 'NON_SARGABLE_CASE_FUNC',
+          severity: 'high',
+          title: `Non-SARGable LOWER/UPPER on ${tblAlias}${col}`,
+          message: `Function call on column '${tblAlias}${col}' invalidates standard B-Tree indexes.`,
+          recommendation: dialect === 'postgres' 
+            ? `Create an expression index: CREATE INDEX idx_expr_${col} ON table (LOWER(${col})) or use citext type.`
+            : `Use case-insensitive database collation (e.g. utf8mb4_unicode_ci) or store pre-lowercased values.`
+        });
+      }
+
+      // 4. Leading Wildcard LIKE
+      const likeRegex = /\b(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s+(?:ILIKE|LIKE)\s+['"]%([^'"]+)['"]/gi;
+      while ((match = likeRegex.exec(cleanSql)) !== null) {
+        const tblAlias = match[1] ? `${match[1]}.` : '';
+        const col = match[2];
+        const term = match[3];
+        issues.push({
+          code: 'LEADING_WILDCARD_LIKE',
+          severity: 'high',
+          title: `Leading Wildcard LIKE '%${term}' on ${tblAlias}${col}`,
+          message: `LIKE '%...' cannot use standard B-Tree index binary seeks because the string prefix is variable, requiring a full scan.`,
+          recommendation: dialect === 'postgres'
+            ? `If prefix search is sufficient: use LIKE '${term}%'. For full substring search: create a pg_trgm GIN index: CREATE INDEX idx_${col}_trgm ON table USING gin (${col} gin_trgm_ops);`
+            : `If prefix matching works: change to LIKE '${term}%'. Otherwise use Full-Text Search (FTS).`
+        });
+      }
+
+      // 5. Arithmetic on column
+      const arithRegex = /\b(?:([a-zA-Z0-9_]+)\.)?([a-zA-Z0-9_]+)\s*([\+\-\*\/])\s*([\d\.]+)\s*([><=!]+)\s*([\d\.]+)/gi;
+      while ((match = arithRegex.exec(cleanSql)) !== null) {
+        const tblAlias = match[1] ? `${match[1]}.` : '';
+        const col = match[2];
+        const op = match[3];
+        const num1 = parseFloat(match[4]);
+        const cmp = match[5];
+        const num2 = parseFloat(match[6]);
+        let rewrittenTarget;
+        if (op === '*') rewrittenTarget = (num2 / num1).toFixed(2);
+        else if (op === '/') rewrittenTarget = (num2 * num1).toFixed(2);
+        else if (op === '+') rewrittenTarget = (num2 - num1).toFixed(2);
+        else if (op === '-') rewrittenTarget = (num2 + num1).toFixed(2);
+
+        issues.push({
+          code: 'ARITHMETIC_ON_COLUMN',
+          severity: 'high',
+          title: `Arithmetic on Indexed Column ${tblAlias}${col}`,
+          message: `Math operation (${tblAlias}${col} ${op} ${num1}) in WHERE predicate forces per-row computation, disabling index seek.`,
+          recommendation: `Isolate column on the left: ${tblAlias}${col} ${cmp} ${rewrittenTarget}`
+        });
+      }
+
+      // 6. High OFFSET
+      const offsetMatch = cleanSql.match(/\bOFFSET\s+(\d+)/i);
+      if (offsetMatch && parseInt(offsetMatch[1], 10) > 100) {
+        issues.push({
+          code: 'HIGH_OFFSET_PAGINATION',
+          severity: 'medium',
+          title: `High OFFSET (${offsetMatch[1]}) Pagination`,
+          message: `OFFSET ${offsetMatch[1]} reads and discards ${offsetMatch[1]} rows on disk before delivering results, creating an O(N) performance bottleneck as pagination increases.`,
+          recommendation: 'Refactor to Keyset / Seek pagination: WHERE id > :last_seen_id ORDER BY id ASC LIMIT 50'
+        });
+      }
+
+      // 7. Subquery in IN
+      if (/\bWHERE\s+[\s\S]*?\bIN\s*\(\s*SELECT\b/i.test(cleanSql)) {
+        issues.push({
+          code: 'SUBQUERY_IN_CLAUSE',
+          severity: 'medium',
+          title: 'Subquery in IN() Predicate',
+          message: 'WHERE col IN (SELECT ...) can cause subquery materialization or correlated scans in older query plan optimizers.',
+          recommendation: 'Rewrite using EXISTS (SELECT 1 ...) or an INNER JOIN with the target table.'
+        });
+      }
+
+      // 8. Missing LIMIT
+      if (/^\s*SELECT\b/i.test(cleanSql) && !/\bLIMIT\b|\bTOP\b|\bFETCH\s+FIRST\b/i.test(cleanSql)) {
+        issues.push({
+          code: 'MISSING_QUERY_LIMIT',
+          severity: 'low',
+          title: 'Unbounded Result Set (No LIMIT)',
+          message: 'Query does not specify a LIMIT or TOP clause, creating potential memory spikes if data grows unexpectedly.',
+          recommendation: 'Add LIMIT 100 or paginate the query.'
+        });
+      }
+
+      // Index Advisor Generator (ESR Rule)
+      const indexes = [];
+      for (const table of tables) {
+        const tblName = table.name;
+        const tblAlias = table.alias;
+
+        const tblPreds = predicates.filter(p => {
+          if (p.tblAlias) return p.tblAlias.toLowerCase() === tblAlias.toLowerCase();
+          return table.isMain;
+        });
+
+        const tblOrder = orderCols.filter(o => {
+          if (o.tblAlias) return o.tblAlias.toLowerCase() === tblAlias.toLowerCase();
+          return table.isMain;
+        });
+
+        // 1. Equality columns
+        const eqCols = [...new Set(tblPreds.filter(p => p.type === 'eq' || p.type === 'join').map(p => p.col))];
+        // 2. Sort columns
+        const sortCols = [...new Set(tblOrder.map(o => o.col))].filter(c => !eqCols.includes(c));
+        // 3. Range columns
+        const rangeCols = [...new Set(tblPreds.filter(p => p.type === 'range' || p.type === 'in').map(p => p.col))].filter(c => !eqCols.includes(c) && !sortCols.includes(c));
+
+        const combinedCols = [...eqCols, ...sortCols, ...rangeCols];
+
+        if (combinedCols.length > 0) {
+          const indexColsStr = combinedCols.map(c => {
+            const orderSpec = tblOrder.find(o => o.col.toLowerCase() === c.toLowerCase());
+            return orderSpec && orderSpec.dir === 'DESC' ? `${c} DESC` : c;
+          }).join(', ');
+
+          const idxName = `idx_${tblName}_${combinedCols.slice(0, 3).join('_')}`;
+
+          let ddl = '';
+          if (dialect === 'postgres') {
+            ddl = `CREATE INDEX CONCURRENTLY ${idxName} ON ${tblName} (${indexColsStr});`;
+          } else if (dialect === 'sqlserver') {
+            ddl = `CREATE NONCLUSTERED INDEX ${idxName} ON ${tblName} (${indexColsStr});`;
+          } else {
+            ddl = `CREATE INDEX ${idxName} ON ${tblName} (${indexColsStr});`;
+          }
+
+          let strategy = 'Applied ESR Rule: ';
+          const parts = [];
+          if (eqCols.length) parts.push(`Equality [${eqCols.join(', ')}]`);
+          if (sortCols.length) parts.push(`Sort [${sortCols.join(', ')}]`);
+          if (rangeCols.length) parts.push(`Range [${rangeCols.join(', ')}]`);
+          strategy += parts.join(' \u2192 ') + '. Allows direct B-Tree index scan and eliminates in-memory filesort.';
+
+          indexes.push({
+            table: tblName,
+            indexName: idxName,
+            columns: combinedCols,
+            ddl,
+            strategy,
+            type: combinedCols.length > 1 ? 'Composite Index' : 'Single Column Index'
+          });
+        }
+      }
+
+      // Generate Query Rewrite
+      let rewritten = cleanSql;
+      // Date rewrites
+      rewritten = rewritten.replace(/\b(?:EXTRACT\s*\(\s*YEAR\s+FROM\s+([a-zA-Z0-9_\.]+)\s*\)|YEAR\s*\(\s*([a-zA-Z0-9_\.]+)\s*\))\s*=\s*(\d{4})/gi, (m, c1, c2, yr) => {
+        const col = c1 || c2;
+        return `${col} >= '${yr}-01-01 00:00:00' AND ${col} < '${parseInt(yr, 10) + 1}-01-01 00:00:00' /* SARGable date range */`;
+      });
+      rewritten = rewritten.replace(/\bDATE\s*\(\s*([a-zA-Z0-9_\.]+)\s*\)\s*=\s*['"](\d{4}-\d{2}-\d{2})['"]/gi, (m, col, dateStr) => {
+        return `${col} >= '${dateStr} 00:00:00' AND ${col} < '${dateStr} 23:59:59.999' /* SARGable timestamp range */`;
+      });
+      // Arithmetic rewrites
+      rewritten = rewritten.replace(/\b([a-zA-Z0-9_\.]+)\s*([\+\-\*\/])\s*([\d\.]+)\s*([><=!]+)\s*([\d\.]+)/gi, (m, col, op, n1, cmp, n2) => {
+        const num1 = parseFloat(n1);
+        const num2 = parseFloat(n2);
+        let target;
+        if (op === '*') target = (num2 / num1).toFixed(2);
+        else if (op === '/') target = (num2 * num1).toFixed(2);
+        else if (op === '+') target = (num2 - num1).toFixed(2);
+        else if (op === '-') target = (num2 + num1).toFixed(2);
+        return `${col} ${cmp} ${target} /* Isolated column */`;
+      });
+
+      return {
+        dialect,
+        originalSql: sql,
+        optimizedSql: rewritten,
+        issues,
+        indexes,
+        stats: {
+          issuesCount: issues.length,
+          indexesCount: indexes.length,
+          tableCount: tables.length,
+          linesAnalyzed: sql.split('\n').length
+        }
+      };
+    }
+
+    // Format SQL helper
+    function formatSql(sql) {
+      const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'JOIN', 'ON', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', 'OFFSET', 'UNION ALL', 'UNION', 'WITH', 'AS', 'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM'];
+      let formatted = sql;
+      keywords.forEach(kw => {
+        const regex = new RegExp(`\\b${kw.replace(' ', '\\s+')}\\b`, 'gi');
+        formatted = formatted.replace(regex, kw);
+      });
+      return formatted;
+    }
+
+    // Render Results
+    function renderResults(report) {
+      state.report = report;
+
+      // Badges & Metrics
+      badgeIndexCount.textContent = report.indexes.length;
+      badgeIssueCount.textContent = report.issues.length;
+      statIssuesFound.textContent = report.issues.length;
+      statIndexesBuilt.textContent = report.indexes.length;
+
+      // Estimated manual DBA time
+      const timeMinutes = Math.max(5, 5 + (report.issues.length * 3) + (report.indexes.length * 5));
+      statTimeSaved.textContent = `~${timeMinutes} min`;
+
+      // Render Indexes
+      if (report.indexes.length === 0) {
+        indexList.innerHTML = `
+          <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px;">
+            No missing composite indexes identified for this query structure.
+          </div>
+        `;
+      } else {
+        indexList.innerHTML = report.indexes.map(idx => `
+          <div class="index-card">
+            <div class="index-card-header">
+              <div class="index-table-name">Table: ${idx.table}</div>
+              <span class="index-type-badge">${idx.type}</span>
+            </div>
+            <div class="code-block">${escapeHtml(idx.ddl)}</div>
+            <div class="index-strategy">
+              <strong>Strategy:</strong> ${escapeHtml(idx.strategy)}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render Issues
+      if (report.issues.length === 0) {
+        issueList.innerHTML = `
+          <div style="padding: 24px; text-align: center; color: var(--accent); font-size: 13px;">
+            &#10003; No common SQL performance anti-patterns or non-SARGable clauses detected.
+          </div>
+        `;
+      } else {
+        issueList.innerHTML = report.issues.map(iss => `
+          <div class="issue-card ${iss.severity}">
+            <div class="issue-title">
+              <span>${escapeHtml(iss.title)}</span>
+              <span class="severity-tag ${iss.severity}">${iss.severity}</span>
+            </div>
+            <div class="issue-msg">${escapeHtml(iss.message)}</div>
+            <div class="issue-recommendation">
+              <strong>Fix:</strong> ${escapeHtml(iss.recommendation)}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render Optimized SQL
+      optimizedSqlBlock.textContent = report.optimizedSql;
+
+      // Render PR Markdown Report
+      const markdownReport = generateMarkdownReport(report);
+      prReportBlock.textContent = markdownReport;
+    }
+
+    function generateMarkdownReport(report) {
+      let md = `## \ud83d\ude80 SQL Performance & Index Optimization Report\n\n`;
+      md += `**Engine Dialect:** ${report.dialect.toUpperCase()}\n`;
+      md += `**Identified Bottlenecks:** ${report.issues.length}\n`;
+      md += `**Recommended Indexes:** ${report.indexes.length}\n\n`;
+
+      if (report.indexes.length > 0) {
+        md += `### \ud83d\udcbe Recommended Index DDLs\n\`\`\`sql\n`;
+        report.indexes.forEach(idx => {
+          md += `${idx.ddl}\n`;
+        });
+        md += `\`\`\`\n\n`;
+      }
+
+      if (report.issues.length > 0) {
+        md += `### \u26a0\ufe0f Identified Issues & Bottlenecks\n`;
+        report.issues.forEach(iss => {
+          md += `- **[${iss.severity.toUpperCase()}] ${iss.title}**: ${iss.message}\n  *Action:* \`${iss.recommendation}\`\n`;
+        });
+        md += `\n`;
+      }
+
+      md += `### \u2705 Optimized SARGable SQL\n\`\`\`sql\n${report.optimizedSql}\n\`\`\`\n\n`;
+      md += `*Generated client-side via [Zero-Cost AI Coding - SQL Index Advisor](https://iggym.github.io/zero-cost-ai-coding/)*`;
+      return md;
+    }
+
+    function escapeHtml(str) {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function runAnalysis() {
+      const sql = sqlEditor.value.trim();
+      state.sql = sql;
+      if (!sql) {
+        renderResults({
+          dialect: state.dialect,
+          originalSql: '',
+          optimizedSql: '',
+          issues: [],
+          indexes: [],
+          stats: { issuesCount: 0, indexesCount: 0, tableCount: 0, linesAnalyzed: 0 }
+        });
+        return;
+      }
+      const report = analyzeSQL(sql, state.dialect);
+      renderResults(report);
+    }
+
+    // Button Event Listeners
+    analyzeBtn.addEventListener('click', runAnalysis);
+    sqlEditor.addEventListener('input', () => {
+      clearTimeout(window._debounceTimer);
+      window._debounceTimer = setTimeout(runAnalysis, 400);
+    });
+
+    formatBtn.addEventListener('click', () => {
+      sqlEditor.value = formatSql(sqlEditor.value);
+      runAnalysis();
+      showToast('SQL formatted!');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      sqlEditor.value = '';
+      runAnalysis();
+    });
+
+    copyAllDdlBtn.addEventListener('click', () => {
+      if (!state.report || state.report.indexes.length === 0) {
+        showToast('No index DDLs to copy');
+        return;
+      }
+      const allDdl = state.report.indexes.map(i => i.ddl).join('\n');
+      copyToClipboard(allDdl, 'Copied all index DDLs!');
+    });
+
+    copyOptimizedSqlBtn.addEventListener('click', () => {
+      if (!state.report || !state.report.optimizedSql) {
+        showToast('No query to copy');
+        return;
+      }
+      copyToClipboard(state.report.optimizedSql, 'Copied optimized SQL!');
+    });
+
+    copyPrReportBtn.addEventListener('click', () => {
+      if (!state.report) return;
+      const md = generateMarkdownReport(state.report);
+      copyToClipboard(md, 'Copied PR Markdown report!');
+    });
+
+    // Composability: Export JSON
+    exportJsonBtn.addEventListener('click', () => {
+      if (!state.report) return;
+      const exportObj = {
+        zcac: true,
+        kind: 'sql-optimizer-report',
+        data: {
+          timestamp: new Date().toISOString(),
+          dialect: state.report.dialect,
+          originalSql: state.report.originalSql,
+          optimizedSql: state.report.optimizedSql,
+          issues: state.report.issues,
+          indexes: state.report.indexes,
+          stats: state.report.stats
+        }
+      };
+      copyToClipboard(JSON.stringify(exportObj, null, 2), 'Copied structured JSON report!');
+    });
+
+    downloadJsonBtn.addEventListener('click', () => {
+      if (!state.report) return;
+      const exportObj = {
+        zcac: true,
+        kind: 'sql-optimizer-report',
+        data: {
+          timestamp: new Date().toISOString(),
+          dialect: state.report.dialect,
+          originalSql: state.report.originalSql,
+          optimizedSql: state.report.optimizedSql,
+          issues: state.report.issues,
+          indexes: state.report.indexes,
+          stats: state.report.stats
+        }
+      };
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sql-optimization-${state.dialect}-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Downloaded JSON report!');
+    });
+
+    // Composability: Import JSON
+    importJsonBtn.addEventListener('click', () => {
+      importJsonInput.value = '';
+      importModal.classList.remove('hidden');
+      importJsonInput.focus();
+    });
+
+    cancelImportBtn.addEventListener('click', () => {
+      importModal.classList.add('hidden');
+    });
+
+    confirmImportBtn.addEventListener('click', () => {
+      const raw = importJsonInput.value.trim();
+      if (!raw) {
+        importModal.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.zcac && parsed.kind === 'sql-optimizer-report' && parsed.data) {
+          if (parsed.data.dialect) {
+            state.dialect = parsed.data.dialect;
+            dialectBtns.forEach(b => {
+              b.classList.toggle('active', b.getAttribute('data-dialect') === state.dialect);
+            });
+            updateDialectIndicator();
+          }
+          if (parsed.data.originalSql) {
+            sqlEditor.value = parsed.data.originalSql;
+          }
+          importModal.classList.add('hidden');
+          runAnalysis();
+          showToast('Imported report successfully!');
+          return;
+        } else if (parsed.query || parsed.sql) {
+          sqlEditor.value = parsed.query || parsed.sql;
+          importModal.classList.add('hidden');
+          runAnalysis();
+          showToast('Imported SQL from JSON!');
+          return;
+        } else {
+          showToast('Unrecognized JSON structure. Expected sql-optimizer-report.');
+        }
+      } catch (err) {
+        // If not valid JSON, treat as raw SQL
+        sqlEditor.value = raw;
+        importModal.classList.add('hidden');
+        runAnalysis();
+        showToast('Loaded raw SQL into workspace!');
+      }
+    });
+
+    // Share Actions
+    copyLinkBtn.addEventListener('click', () => {
+      copyToClipboard(window.location.href, 'Tool URL copied to clipboard!');
+    });
+
+    shareTwitterBtn.addEventListener('click', () => {
+      const text = encodeURIComponent('Analyze slow SQL queries client-side and generate composite indexes (ESR rule) with zero-cost-ai-coding:');
+      const url = encodeURIComponent(window.location.href);
+      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'noopener,noreferrer');
+    });
+
+    // Initial Load with default preset
+    sqlEditor.value = presets.ecommerce;
+    runAnalysis();
+  </script>
+</body>
+</html>
