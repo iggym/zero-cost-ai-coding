@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edge Mock & CORS Proxy Generator — Zero-Cost AI Coding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #171a21;
+      --surface-border: #262b36;
+      --text: #e6e8ec;
+      --text-muted: #8b949e;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --accent-bg: rgba(16, 185, 129, 0.1);
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface-border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --accent: #059669;
+      --accent-hover: #047857;
+      --accent-bg: rgba(5, 150, 105, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding-top: 60px;
+      min-height: 100vh;
+    }
+
+    /* Top Navigation Bar */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      z-index: 100;
+    }
+
+    .top-bar a.home-link {
+      color: var(--text);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .top-bar a.home-link:hover {
+      color: var(--accent);
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .tool-title {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .theme-toggle {
+      background: transparent;
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+    }
+
+    /* Main Layout */
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .header-section {
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-family: var(--font-mono);
+      font-size: 1.8rem;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+
+    .pitch-text {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      max-width: 800px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .meta-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .meta-card-title {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 0.35rem;
+    }
+
+    .meta-card-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    /* Instructions & Guide */
+    .guide-box {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .guide-title {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      color: var(--accent);
+    }
+
+    .guide-steps {
+      list-style-type: decimal;
+      padding-left: 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    .guide-steps li {
+      margin-bottom: 0.5rem;
+    }
+
+    .guide-steps code {
+      font-family: var(--font-mono);
+      background: var(--bg);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      color: var(--text);
+    }
+
+    /* Interactive Workspace */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    input[type="text"], textarea, select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+      padding: 0.65rem 0.85rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+    }
+
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .checkbox-group input {
+      accent-color: var(--accent);
+    }
+
+    .endpoints-container {
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 1rem;
+      background: var(--surface);
+      margin-bottom: 1.5rem;
+    }
+
+    .endpoint-item {
+      background: var(--bg);
+      border: 1px solid var(--surface-border);
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .endpoint-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .endpoint-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .btn-remove {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: var(--font-mono);
+    }
+
+    .btn-add {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .btn-add:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Output Panel */
+    .output-section {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .output-title {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-action {
+      background: var(--surface-border);
+      color: var(--text);
+      border: none;
+      padding: 0.4rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+    }
+
+    .btn-action:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--surface-border);
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.4;
+      max-height: 450px;
+    }
+
+    .savings-badge {
+      display: inline-block;
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .share-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    footer {
+      margin-top: 4rem;
+      padding: 2rem 0;
+      border-top: 1px solid var(--surface-border);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top-bar">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">
+      &larr; ZERO-COST-AI-CODING
+    </a>
+    <div class="top-bar-right">
+      <span class="tool-title">edge-mock-cors-proxy</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Light Mode</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="header-section">
+      <h1>Edge Mock & CORS Proxy Generator</h1>
+      <p class="pitch-text">
+        Generate and deploy a zero-dependency Cloudflare Worker to handle CORS headers, rewrite upstream API requests, or serve instant JSON mocks globally across 100,000 free daily requests.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-card">
+          <div class="meta-card-title">Free Tier Limit</div>
+          <div class="meta-card-value">100,000 Requests / Day</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-title">Replaces Paid Tool</div>
+          <div class="meta-card-value">Beeceptor ($10/mo) / Postman</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-title">Deployment Target</div>
+          <div class="meta-card-value">Cloudflare Workers Edge</div>
+        </div>
+      </div>
+
+      <div class="share-bar">
+        <button class="btn-action" id="shareBtn">Share Tool</button>
+        <button class="btn-action" id="copyLinkBtn">Copy Direct Link</button>
+      </div>
+    </section>
+
+    <section class="guide-box">
+      <div class="guide-title">Deployment Instructions</div>
+      <ol class="guide-steps">
+        <li>Configure your custom mock responses and target upstream proxy settings below.</li>
+        <li>Copy the generated <code>worker.js</code> artifact from the code panel.</li>
+        <li>Paste into your local Cloudflare Worker project or run <code>npx wrangler deploy worker.js</code> directly in your terminal.</li>
+        <li>Your edge endpoint is live globally at zero cost with no credit card required.</li>
+      </ol>
+    </section>
+
+    <div class="workspace">
+      <section class="config-panel">
+        <div class="form-group">
+          <label for="proxyTarget">Default Upstream Proxy Target (Optional)</label>
+          <input type="text" id="proxyTarget" placeholder="https://api.example.com" value="https://jsonplaceholder.typicode.com">
+        </div>
+
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="enableCors" checked>
+          <label for="enableCors" style="margin-bottom:0">Enable Global CORS Handshake (Access-Control-Allow-Origin: *)</label>
+        </div>
+
+        <h3 style="font-family:var(--font-mono); font-size:1rem; margin:1.5rem 0 0.75rem 0;">Mock JSON Endpoints</h3>
+        <div class="endpoints-container" id="endpointsContainer">
+          <!-- Dynamic endpoints render here -->
+        </div>
+        <button class="btn-add" id="addEndpointBtn">+ Add Custom Route Mock</button>
+
+        <div style="margin-top: 1.5rem;">
+          <label for="importBox">Import / Composability JSON</label>
+          <textarea id="importBox" rows="3" placeholder="Paste ZCAC standard JSON output here..."></textarea>
+          <button class="btn-action" id="importBtn" style="margin-top: 0.5rem;">Import Schema</button>
+        </div>
+      </section>
+
+      <section class="output-section">
+        <div class="output-header">
+          <div class="output-title">Generated worker.js</div>
+          <div class="action-buttons">
+            <button class="btn-action" id="copyJsBtn">Copy JS Code</button>
+            <button class="btn-action" id="exportJsonBtn">Export JSON</button>
+          </div>
+        </div>
+        <pre><code id="codeOutput">// Code will generate here automatically...</code></pre>
+
+        <div class="savings-badge" id="savingsReadout">
+          Estimated savings: 0 minutes saved
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    Verified free tier claim as of August 2026: <a href="https://developers.cloudflare.com/workers/platform/limits/" target="_blank" rel="noopener">Cloudflare Workers Official Pricing & Limits Docs</a>
+  </footer>
+
+  <script>
+    // State management
+    const state = {
+      proxyTarget: 'https://jsonplaceholder.typicode.com',
+      enableCors: true,
+      endpoints: [
+        { path: '/api/v1/user', status: 200, body: '{\n  "id": 101,\n  "name": "Jane Doe",\n  "role": "Admin"\n}' },
+        { path: '/api/v1/status', status: 200, body: '{\n  "status": "operational",\n  "latency_ms": 12\n}' }
+      ]
+    };
+
+    // DOM Elements
+    const themeToggle = document.getElementById('themeToggle');
+    const proxyTargetInput = document.getElementById('proxyTarget');
+    const enableCorsInput = document.getElementById('enableCors');
+    const endpointsContainer = document.getElementById('endpointsContainer');
+    const addEndpointBtn = document.getElementById('addEndpointBtn');
+    const codeOutput = document.getElementById('codeOutput');
+    const savingsReadout = document.getElementById('savingsReadout');
+    const copyJsBtn = document.getElementById('copyJsBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const importBox = document.getElementById('importBox');
+    const importBtn = document.getElementById('importBtn');
+
+    // Theme Toggle
+    themeToggle.addEventListener('click', () => {
+      const isLight = document.body.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        document.body.removeAttribute('data-theme');
+        themeToggle.textContent = 'Light Mode';
+      } else {
+        document.body.setAttribute('data-theme', 'light');
+        themeToggle.textContent = 'Dark Mode';
+      }
+    });
+
+    // Event Listeners for Config Inputs
+    proxyTargetInput.addEventListener('input', (e) => {
+      state.proxyTarget = e.target.value.trim();
+      render();
+    });
+
+    enableCorsInput.addEventListener('change', (e) => {
+      state.enableCors = e.target.checked;
+      render();
+    });
+
+    addEndpointBtn.addEventListener('click', () => {
+      state.endpoints.push({
+        path: `/api/custom-${state.endpoints.length + 1}`,
+        status: 200,
+        body: '{\n  "message": "Hello World"\n}'
+      });
+      render();
+    });
+
+    // Render Function
+    function render() {
+      // Render Endpoint Inputs
+      endpointsContainer.innerHTML = '';
+      state.endpoints.forEach((ep, index) => {
+        const item = document.createElement('div');
+        item.className = 'endpoint-item';
+        item.innerHTML = `
+          <div class="endpoint-header">
+            <strong style="font-family:var(--font-mono); font-size:0.85rem">Route #${index + 1}</strong>
+            <button class="btn-remove" data-index="${index}">Remove</button>
+          </div>
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:0.5rem; margin-bottom:0.5rem;">
+            <input type="text" placeholder="Path (e.g. /api/users)" value="${ep.path}" data-field="path" data-index="${index}">
+            <input type="text" placeholder="Status (200)" value="${ep.status}" data-field="status" data-index="${index}">
+          </div>
+          <textarea rows="3" placeholder="JSON Response Body" data-field="body" data-index="${index}">${ep.body}</textarea>
+        `;
+        endpointsContainer.appendChild(item);
+      });
+
+      // Attach Dynamic Listeners
+      endpointsContainer.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.target.getAttribute('data-index'), 10);
+          state.endpoints.splice(idx, 1);
+          render();
+        });
+      });
+
+      endpointsContainer.querySelectorAll('input, textarea').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.getAttribute('data-index'), 10);
+          const field = e.target.getAttribute('data-field');
+          state.endpoints[idx][field] = e.target.value;
+          generateCode();
+        });
+      });
+
+      generateCode();
+    }
+
+    // Code Generator Engine
+    function generateCode() {
+      const corsHeaders = state.enableCors ? `
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };` : `
+  const corsHeaders = {};`;
+
+      const routesCode = state.endpoints.map(ep => {
+        return `
+    if (url.pathname === '${ep.path}') {
+      return new Response(JSON.stringify(${ep.body || '{}'}), {
+        status: ${parseInt(ep.status, 10) || 200},
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }`;
+      }).join('\n');
+
+      const proxyCode = state.proxyTarget ? `
+    // Fallback: Proxy to upstream target
+    const targetUrl = new URL(url.pathname + url.search, '${state.proxyTarget}');
+    const modifiedRequest = new Request(targetUrl, {
+      method: request.method,
+      headers: request.headers,
+      body: ['GET', 'HEAD'].includes(request.method) ? null : request.body,
+      redirect: 'follow'
+    });
+
+    const response = await fetch(modifiedRequest);
+    const newHeaders = new Headers(response.headers);
+    if (${state.enableCors}) {
+      Object.keys(corsHeaders).forEach(key => newHeaders.set(key, corsHeaders[key]));
+    }
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders
+    });` : `
+    return new Response(JSON.stringify({ error: 'Route not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });`;
+
+      const fullJs = `// Cloudflare Worker Artifact — Edge Mock & CORS Proxy
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  const url = new URL(request.url);${corsHeaders}
+
+  // Handle OPTIONS preflight requests
+  if (request.method === 'OPTIONS' && ${state.enableCors}) {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  // Mock Routes${routesCode}
+${proxyCode}
+}`;
+
+      codeOutput.textContent = fullJs;
+
+      // Update Savings Readout
+      // Assumption: Setting up local express server/mock + CORS configuration takes ~10 minutes per mock route manually.
+      const minutesSaved = Math.max(5, state.endpoints.length * 10);
+      savingsReadout.textContent = `Estimated savings: ~${minutesSaved} minutes saved (based on ~10 min setup per manual edge mock/proxy route)`;
+    }
+
+    // Copy Button Handler
+    copyJsBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(codeOutput.textContent);
+      copyJsBtn.textContent = 'Copied!';
+      setTimeout(() => copyJsBtn.textContent = 'Copy JS Code', 2000);
+    });
+
+    // Export Standard JSON
+    exportJsonBtn.addEventListener('click', () => {
+      const exportData = {
+        zcac: true,
+        kind: "edge-mock-cors-proxy",
+        data: state
+      };
+      navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+      exportJsonBtn.textContent = 'Exported to Clipboard!';
+      setTimeout(() => exportJsonBtn.textContent = 'Export JSON', 2000);
+    });
+
+    // Import Standard JSON
+    importBtn.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(importBox.value.trim());
+        if (parsed.zcac && parsed.kind === "edge-mock-cors-proxy" && parsed.data) {
+          state.proxyTarget = parsed.data.proxyTarget || '';
+          state.enableCors = parsed.data.enableCors !== false;
+          state.endpoints = parsed.data.endpoints || [];
+          proxyTargetInput.value = state.proxyTarget;
+          enableCorsInput.checked = state.enableCors;
+          render();
+          importBox.value = '';
+          alert('Configuration imported successfully!');
+        } else {
+          alert('Pasted JSON format not recognized as a valid edge-mock-cors-proxy artifact.');
+        }
+      } catch (err) {
+        alert('Invalid JSON input.');
+      }
+    });
+
+    // Direct Link / Share
+    document.getElementById('shareBtn').addEventListener('click', () => {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Edge Mock & CORS Proxy Generator',
+          url: window.location.href
+        });
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      }
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href);
+      alert('Direct link copied to clipboard!');
+    });
+
+    // Initial Kickoff
+    render();
+  </script>
+</body>
+</html>
