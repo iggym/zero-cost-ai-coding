@@ -3,557 +3,281 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>zero-cost-ai-coding — real tools, built from waste, running for free</title>
-<meta name="description" content="Verified, working, single-file tools that turn digital waste into real infrastructure using only free AI and free hosting. No API bill, no funding, no trial that quietly converts to paid.">
+<title>Zero-Cost AI Coding</title>
+<meta name="description" content="Real tools. Genuinely free. No card, no trial. Single-file working dev tools built on verified free AI, compute, and hosting.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --paper: #0B0E11;
-    --panel: #12161B;
-    --panel-2: #171C22;
-    --ink: #E8EAED;
-    --ink-dim: #9BA3AC;
-    --ink-faint: #5B6570;
-    --line: #232A32;
-    --green: #39FF88;
-    --green-dim: #1F8850;
-    --amber: #FFB454;
+  :root{
+    --paper:#0B0E11;
+    --paper-raised:#12161B;
+    --ink:#E8EAED;
+    --ink-soft:#9CA3AC;
+    --muted:#5F6670;
+    --line: rgba(232,234,237,0.10);
+    --green:#39FF88;
+    --green-soft: rgba(57,255,136,0.10);
+    --amber:#FFB454;
+    --amber-soft: rgba(255,180,84,0.10);
+    --display:'JetBrains Mono', monospace;
+    --body:'Inter', sans-serif;
     --radius: 10px;
-    --mono: 'JetBrains Mono', ui-monospace, monospace;
-    --sans: 'Inter', system-ui, sans-serif;
   }
-
-  [data-theme="light"] {
-    --paper: #F7F8FA;
-    --panel: #FFFFFF;
-    --panel-2: #EFF1F4;
-    --ink: #14161A;
-    --ink-dim: #565E68;
-    --ink-faint: #8A9099;
-    --line: #DCE0E5;
-    --green: #0E9B57;
-    --green-dim: #0B7A45;
-    --amber: #B5730E;
+  html[data-theme="light"]{
+    --paper:#F7F8FA; --paper-raised:#FFFFFF; --ink:#14161A; --ink-soft:#4A4F58;
+    --muted:#8A8F98; --line: rgba(20,22,26,0.10); --green:#0E9B57;
+    --green-soft: rgba(14,155,87,0.08); --amber:#B5730E; --amber-soft: rgba(181,115,14,0.08);
   }
-
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms !important; transition-duration:.001ms !important;} }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--body); line-height:1.6; font-size:16px;
+    -webkit-font-smoothing:antialiased; transition:background .2s ease, color .2s ease;
   }
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer;}
+  code, .mono{ font-family:var(--display); }
 
-  body {
-    margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: var(--sans);
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
+  /* ===== Topbar ===== */
+  .topbar{
+    position:sticky; top:0; z-index:30;
+    background:color-mix(in srgb, var(--paper) 90%, transparent);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px;
   }
-
-  a { color: var(--green); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
-    outline: 2px solid var(--green);
-    outline-offset: 2px;
-    border-radius: 4px;
+  .topbar .mark{ display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--ink); font-family:var(--display); font-weight:700; font-size:14px; }
+  .topbar .mark .prompt{ color:var(--green); }
+  .theme-toggle{
+    border:1px solid var(--line); background:var(--paper-raised); color:var(--ink-soft);
+    border-radius:20px; padding:6px 13px; font-size:12px; font-family:var(--display); font-weight:600;
+    display:flex; align-items:center; gap:6px; transition:border-color .15s ease;
   }
+  .theme-toggle:hover{ border-color:var(--green); color:var(--ink); }
 
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-
-  code, .mono { font-family: var(--mono); }
-
-  /* ---------- topbar ---------- */
-  header.topbar {
-    position: sticky; top: 0; z-index: 20;
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
-    backdrop-filter: blur(6px);
-    border-bottom: 1px solid var(--line);
+  /* ===== Hero ===== */
+  header.hero{ padding:64px 24px 32px; max-width:720px; margin:0 auto; }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:var(--display); font-size:11.5px; font-weight:600; letter-spacing:0.02em;
+    color:var(--green); background:var(--green-soft); border-radius:6px;
+    padding:5px 10px; margin-bottom:20px;
   }
-  .topbar-inner {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 24px; gap: 16px;
+  .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--green); }
+  h1{ font-family:var(--display); font-weight:700; font-size:clamp(1.9rem,4.5vw,2.7rem); margin:0 0 14px; letter-spacing:-0.01em; line-height:1.15; }
+  h1 .accent{ color:var(--green); }
+  .tagline{ font-size:1.05rem; color:var(--ink-soft); max-width:520px; margin:0 0 6px; }
+  .desc{ font-size:14px; color:var(--muted); max-width:500px; margin:12px 0 0; }
+
+  /* ===== Controls ===== */
+  main{ max-width:1080px; margin:0 auto; padding:8px 24px 100px; }
+  .controls{
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    margin:32px 0 18px; padding-bottom:18px; border-bottom:1px solid var(--line);
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
-  .brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .brand small { color: var(--ink-faint); font-weight: 500; }
-  nav.topnav { display: flex; align-items: center; gap: 20px; font-family: var(--mono); font-size: 13px; }
-  nav.topnav a { color: var(--ink-dim); }
-  nav.topnav a:hover { color: var(--ink); }
-  .theme-toggle {
-    font-family: var(--mono); font-size: 12px; font-weight: 600;
-    background: var(--panel); color: var(--ink-dim); border: 1px solid var(--line);
-    border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  .search-wrap{ position:relative; flex:1; min-width:200px; max-width:320px; }
+  .search-wrap svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:0.4; }
+  #search{
+    width:100%; font-family:var(--body); font-size:13.5px; padding:9px 12px 9px 34px;
+    border:1px solid var(--line); border-radius:8px; background:var(--paper-raised); color:var(--ink);
+    outline:none; transition:border-color .15s ease;
   }
-  .theme-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
-
-  /* ---------- hero ---------- */
-  .hero { padding: 64px 0 40px; }
-  .eyebrow {
-    font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
-    color: var(--green); text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--green-dim); border-radius: 100px; padding: 5px 12px; margin-bottom: 22px;
+  #search:focus{ border-color:var(--green); }
+  .filters{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{
+    font-family:var(--display); font-size:11.5px; font-weight:600; padding:7px 13px;
+    border-radius:6px; border:1px solid var(--line); background:var(--paper-raised); color:var(--ink-soft);
+    transition:all .15s ease; user-select:none; text-transform:uppercase; letter-spacing:0.02em;
   }
-  h1 {
-    font-family: var(--mono); font-weight: 800; letter-spacing: -0.02em;
-    font-size: clamp(28px, 4.4vw, 46px); line-height: 1.1; margin: 0 0 18px;
-    max-width: 15ch;
+  .chip:hover{ border-color:var(--green); color:var(--ink); }
+  .chip.active{ background:var(--green); border-color:var(--green); color:#04140B; }
+
+  .result-count{ font-family:var(--display); font-size:11.5px; color:var(--muted); margin-bottom:18px; }
+
+  /* ===== Card grid ===== */
+  .grid-feed{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px; }
+  .card{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px; transition:border-color .15s ease, transform .15s ease;
   }
-  h1 .accent { color: var(--green); }
-  .hero p.lede { font-size: 17px; color: var(--ink-dim); max-width: 60ch; margin: 0 0 36px; }
-
-  /* signature element: the pillar chain */
-  .pillars {
-    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center;
-    gap: 0; margin: 0 0 12px; max-width: 720px;
+  .card:hover{ border-color:var(--green); transform:translateY(-2px); }
+  .card.hidden{ display:none; }
+  .card.pinned{ grid-column:1/-1; border-color:var(--green); background:var(--green-soft); }
+  .card-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px; }
+  .mode-badge{
+    font-family:var(--display); font-size:10px; font-weight:700; letter-spacing:0.03em;
+    color:var(--green); background:var(--green-soft); padding:3px 8px; border-radius:4px;
+    text-transform:uppercase;
   }
-  .pillar {
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 16px 18px;
+  .reading-time{ font-family:var(--display); font-size:10.5px; color:var(--muted); white-space:nowrap; }
+  .card h2{ font-family:var(--display); font-weight:700; font-size:1.02rem; margin:0 0 9px; line-height:1.35; }
+  .card p.hook{ font-size:13.5px; color:var(--ink-soft); margin:0 0 14px; line-height:1.55; }
+  .how-free{
+    font-family:var(--display); font-size:11px; color:var(--amber); background:var(--amber-soft);
+    padding:6px 10px; border-radius:6px; margin-bottom:12px; display:block;
   }
-  .pillar .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px; }
-  .pillar .v { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--ink); }
-  .pillar.waste .v { color: var(--amber); }
-  .pillar.ai .v { color: var(--green); }
-  .pillar.infra .v { color: var(--ink); }
-  .arrow { color: var(--ink-faint); font-family: var(--mono); font-size: 18px; padding: 0 6px; }
-  .pillars-caption { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); margin: 0 0 40px; }
+  .card-bottom{ display:flex; justify-content:space-between; align-items:center; }
+  .tags{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tag-pill{ font-family:var(--display); font-size:9.5px; color:var(--muted); border:1px solid var(--line); padding:3px 8px; border-radius:4px; }
+  .verified{ font-family:var(--display); font-size:10px; color:var(--green); }
 
-  @media (max-width: 640px) {
-    .pillars { grid-template-columns: 1fr; gap: 8px; }
-    .arrow { transform: rotate(90deg); padding: 2px 0; text-align: center; }
-  }
+  .empty{ text-align:center; padding:80px 20px; color:var(--muted); grid-column:1/-1; }
+  .empty .glyph{ font-family:var(--display); font-weight:700; color:var(--green); margin-bottom:10px; font-size:1.05rem; }
+  .empty p{ max-width:380px; margin:0 auto; font-size:14px; }
 
-  /* ---------- stats strip ---------- */
-  .stats {
-    display: flex; flex-wrap: wrap; gap: 0;
-    border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 56px;
-  }
-  .stat { flex: 1 1 140px; padding: 16px 20px; border-right: 1px solid var(--line); background: var(--panel); }
-  .stat:last-child { border-right: none; }
-  .stat .num { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--green); }
-  .stat .lbl { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
-
-  /* ---------- section headers ---------- */
-  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-  .section-head h2 { font-family: var(--mono); font-size: 15px; font-weight: 700; letter-spacing: 0.02em; margin: 0; text-transform: uppercase; color: var(--ink); }
-  .section-head h2 .n { color: var(--ink-faint); font-weight: 500; }
-
-  /* ---------- filters ---------- */
-  .filters {
-    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px;
-    padding: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-  }
-  .filters input[type="search"], .filters select {
-    font-family: var(--mono); font-size: 13px; background: var(--panel-2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
-  }
-  .filters input[type="search"] { flex: 1 1 200px; min-width: 160px; }
-  .filters select { cursor: pointer; }
-
-  /* ---------- tool grid ---------- */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 64px; }
-
-  .card {
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 20px; display: flex; flex-direction: column; gap: 12px;
-    transition: border-color 0.15s ease, transform 0.15s ease;
-  }
-  .card:hover { border-color: var(--green-dim); transform: translateY(-2px); }
-  @media (prefers-reduced-motion: reduce) { .card:hover { transform: none; } }
-
-  .card-badges { display: flex; flex-wrap: wrap; gap: 6px; }
-  .badge {
-    font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
-    text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--line);
-    color: var(--ink-dim); white-space: nowrap;
-  }
-  .badge.mode { color: var(--green); border-color: var(--green-dim); }
-  .badge.tier { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, var(--line)); }
-  .badge.pinned { color: var(--paper); background: var(--green); border-color: var(--green); }
-
-  .card h3 { font-family: var(--mono); font-size: 16px; font-weight: 700; margin: 0; line-height: 1.3; }
-  .card h3 a { color: var(--ink); }
-  .card h3 a:hover { color: var(--green); text-decoration: none; }
-  .card p.hook { color: var(--ink-dim); font-size: 13.5px; margin: 0; flex-grow: 1; }
-
-  .card-pillars { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); display: flex; flex-direction: column; gap: 3px; border-top: 1px dashed var(--line); padding-top: 10px; }
-  .card-pillars span.tag { color: var(--ink-dim); }
-
-  .card-foot { display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
-
-  /* ---------- empty state ---------- */
-  .empty {
-    border: 1px dashed var(--line); border-radius: var(--radius); padding: 48px 32px;
-    text-align: left; background: var(--panel); margin-bottom: 64px;
-  }
-  .empty .prompt-icon { font-family: var(--mono); color: var(--green); font-size: 12px; margin-bottom: 12px; }
-  .empty h3 { font-family: var(--mono); font-size: 18px; margin: 0 0 10px; }
-  .empty p { color: var(--ink-dim); max-width: 60ch; margin: 0 0 16px; font-size: 14.5px; }
-  .empty ol { color: var(--ink-dim); font-size: 14.5px; max-width: 60ch; padding-left: 20px; margin: 0; }
-  .empty ol li { margin-bottom: 6px; }
-  .empty code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--green); font-size: 13px; }
-
-  /* ---------- how it works ---------- */
-  .how { margin-bottom: 64px; }
-  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  @media (max-width: 720px) { .how-grid { grid-template-columns: 1fr; } }
-  .how-step { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
-  .how-step .idx { font-family: var(--mono); font-size: 11px; color: var(--green); margin-bottom: 8px; }
-  .how-step h4 { font-family: var(--mono); font-size: 14px; margin: 0 0 8px; }
-  .how-step p { color: var(--ink-dim); font-size: 13.5px; margin: 0; }
-
-  /* ---------- footer ---------- */
-  footer {
-    border-top: 1px solid var(--line); padding: 32px 0 48px;
-    font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
-  }
-  footer .foot-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; }
-  footer a { color: var(--ink-dim); }
-  footer a:hover { color: var(--green); }
+  footer{ border-top:1px solid var(--line); padding:36px 24px; text-align:center; }
+  footer p{ font-size:13px; color:var(--muted); max-width:460px; margin:0 auto 12px; }
+  footer a.home{ font-family:var(--display); font-size:11.5px; color:var(--green); text-decoration:none; border-bottom:1px solid var(--green); padding-bottom:2px; }
 </style>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="topbar-inner">
-    <div class="brand"><span class="brand-dot"></span>zero-cost-ai-coding <small>/ tools that run for $0</small></div>
-    <nav class="topnav">
-      <a href="#tools">Tools</a>
-      <a href="prompts/zero-cost-ai-coding-maestro.md">Prompt</a>
-      <a href="docs/dual-value-plan.md">How it's vetted</a>
-      <a href="https://github.com/" id="repoLink">Repo</a>
-    </nav>
-    <button class="theme-toggle" id="themeToggle" type="button">theme: auto</button>
-  </div>
+<div class="topbar">
+  <a class="mark" href="https://iggym.github.io/zero-cost-ai-coding/"><span class="prompt">$</span> zero-cost-ai-coding</a>
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark/light mode">
+    <span id="themeIcon">◐</span><span id="themeLabel">auto</span>
+  </button>
+</div>
+
+<header class="hero">
+  <div class="eyebrow"><span class="dot"></span>verified $0 · no card · no trial</div>
+  <h1>Real tools.<br><span class="accent">Genuinely free.</span></h1>
+  <p class="tagline">Single-file, working dev tools built on free AI, compute, and hosting — every free-tier claim checked against the provider's own current docs.</p>
+  <p class="desc" id="site-desc">No card required. No trial that quietly converts. If a limit isn't published, we say so instead of guessing.</p>
 </header>
 
-<main class="wrap">
-
-  <section class="hero">
-    <div class="eyebrow"><span class="brand-dot"></span> verified · working · zero cost</div>
-    <h1>Real tools built from <span class="accent">digital waste</span>, running on free infrastructure.</h1>
-    <p class="lede">
-      Every tool here does real work the moment the page loads — no card on file, no trial
-      that quietly converts to paid, no mockup pretending to be a product. Each one is
-      verified against the provider's own current pricing page and scored against a
-      published research log before it ships.
-    </p>
-
-    <div class="pillars">
-      <div class="pillar waste"><div class="k">01 · Waste</div><div class="v">logs, dead code, drafts, exhaust</div></div>
-      <div class="arrow">&rarr;</div>
-      <div class="pillar ai"><div class="k">02 · Free AI</div><div class="v">free inference, embeddings, compute</div></div>
-      <div class="arrow">&rarr;</div>
-      <div class="pillar infra"><div class="k">03 · Free Infra</div><div class="v">free hosting, storage, edge functions</div></div>
+<main>
+  <div class="controls">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="search tools, tags…">
     </div>
-    <p class="pillars-caption">// the chain every tool on this site has to name, explicitly, before it's built</p>
+    <div class="filters" id="filters"></div>
+  </div>
 
-    <div class="stats" id="statsStrip">
-      <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">tools live</div></div>
-      <div class="stat"><div class="num" id="statT0">0</div><div class="lbl">free forever (T0)</div></div>
-      <div class="stat"><div class="num" id="statBrowser">0</div><div class="lbl">zero-setup, browser-native</div></div>
-      <div class="stat"><div class="num" id="statCategories">0</div><div class="lbl">categories covered</div></div>
-    </div>
-  </section>
-
-  <section id="tools">
-    <div class="section-head">
-      <h2>Tools <span class="n" id="visibleCount"></span></h2>
-    </div>
-
-    <div class="filters" id="filters" hidden>
-      <input type="search" id="searchInput" placeholder="search by title, tag, waste source…" aria-label="Search tools">
-      <select id="categoryFilter" aria-label="Filter by category"><option value="">All categories</option></select>
-      <select id="modeFilter" aria-label="Filter by solution mode">
-        <option value="">All modes</option>
-        <option value="browser-native">Browser-native</option>
-        <option value="generator">Generator</option>
-        <option value="connector">Connector (BYOK)</option>
-      </select>
-      <select id="tierFilter" aria-label="Filter by zero-cost tier">
-        <option value="">All tiers</option>
-        <option value="T0">T0 — free forever</option>
-        <option value="T1">T1 — card on file</option>
-        <option value="T2">T2 — trial / credit</option>
-        <option value="T3">T3 — open source</option>
-        <option value="T4">T4 — public / institutional</option>
-      </select>
-      <select id="sortFilter" aria-label="Sort tools">
-        <option value="pinned">Pinned first</option>
-        <option value="newest">Newest verified</option>
-        <option value="az">A–Z</option>
-      </select>
-    </div>
-
-    <div class="grid" id="toolGrid"></div>
-
-    <div class="empty" id="emptyState">
-      <div class="prompt-icon">// data/metadata.json is empty</div>
-      <h3>No tools published yet — this directory is waiting on its first build.</h3>
-      <p>
-        This page reads directly from <code>data/metadata.json</code>. Nothing is
-        hardcoded, so the first entry that lands there is the first card that
-        appears here. To add one:
-      </p>
-      <ol>
-        <li>Run <code>prompts/zero-cost-ai-coding-maestro.md</code> against a research-and-build session, with SEARCH ON.</li>
-        <li>Save the returned HTML file to <code>tools/[slug].html</code>.</li>
-        <li>Append the returned metadata snippet to <code>data/metadata.json</code>.</li>
-        <li>Save the research log to <code>research-logs/[slug].md</code> and link it — see <code>docs/dual-value-plan.md</code> §2.</li>
-        <li>Run the pre-publish checklist (<code>docs/dual-value-plan.md</code> §7) before committing.</li>
-      </ol>
-    </div>
-  </section>
-
-  <section class="how">
-    <div class="section-head"><h2>How a tool qualifies</h2></div>
-    <div class="how-grid">
-      <div class="how-step">
-        <div class="idx">01</div>
-        <h4>The problem has to be real</h4>
-        <p>Every research log cites evidence — a GitHub issue, an SO thread, or a paid competitor's existence — that someone actually hits this problem. No invented use cases.</p>
-      </div>
-      <div class="how-step">
-        <div class="idx">02</div>
-        <h4>The tool has to actually run</h4>
-        <p>Browser-native, generated deploy-ready artifact, or a verified BYOK connector — every page ships a working tool, not a description of one.</p>
-      </div>
-      <div class="how-step">
-        <div class="idx">03</div>
-        <h4>The free claim has to be sourced</h4>
-        <p>Every quota, rate limit, and reset cadence is checked against the provider's own current docs on a stated date, with the URL published in the footer.</p>
-      </div>
-    </div>
-  </section>
-
+  <div class="result-count" id="feed-count">loading…</div>
+  <div class="grid-feed" id="feed"></div>
 </main>
 
 <footer>
-  <div class="wrap foot-row">
-    <div>zero-cost-ai-coding — verified <span id="footYear"></span> · terms drift, so does this repo. see the maintenance loop in <a href="docs/dual-value-plan.md">the dual-value plan</a>.</div>
-    <div><a href="prompts/zero-cost-ai-coding-maestro.md">build prompt</a> · <a href="docs/dual-value-plan.md">vetting process</a></div>
-  </div>
+  <p id="footer-desc">Zero-Cost AI Coding — every tool ships with the exact free-tier limit it was verified against, on the day it was verified.</p>
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">back to top ↑</a>
 </footer>
 
 <script>
-(function () {
-  // ---------- theme ----------
-  var THEME_KEY = "zcac-theme";
-  var root = document.documentElement;
-  var toggleBtn = document.getElementById("themeToggle");
-  var states = ["auto", "dark", "light"];
-
-  function applyTheme(pref) {
-    if (pref === "auto") {
-      root.removeAttribute("data-theme");
-    } else {
-      root.setAttribute("data-theme", pref);
-    }
-    toggleBtn.textContent = "theme: " + pref;
+(function(){
+  const root = document.documentElement;
+  const toggle = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
+  const stored = localStorage.getItem('zcac-theme');
+  function applyTheme(mode){
+    if(mode === 'auto'){ root.removeAttribute('data-theme'); icon.textContent='◐'; label.textContent='auto'; }
+    else { root.setAttribute('data-theme', mode); icon.textContent = mode === 'dark' ? '●' : '○'; label.textContent = mode; }
   }
-
-  var savedTheme = localStorage.getItem(THEME_KEY) || "auto";
-  applyTheme(savedTheme);
-
-  toggleBtn.addEventListener("click", function () {
-    var current = localStorage.getItem(THEME_KEY) || "auto";
-    var next = states[(states.indexOf(current) + 1) % states.length];
-    localStorage.setItem(THEME_KEY, next);
-    applyTheme(next);
+  let current = stored || 'auto';
+  applyTheme(current);
+  toggle.addEventListener('click', () => {
+    current = current === 'auto' ? 'light' : current === 'light' ? 'dark' : 'auto';
+    localStorage.setItem('zcac-theme', current);
+    applyTheme(current);
   });
+})();
 
-  document.getElementById("footYear").textContent = new Date().getFullYear();
+(async function(){
+  const feedEl = document.getElementById('feed');
+  const countEl = document.getElementById('feed-count');
+  const filtersEl = document.getElementById('filters');
+  const searchEl = document.getElementById('search');
+  const descEl = document.getElementById('site-desc');
+  const footerDescEl = document.getElementById('footer-desc');
 
-  // ---------- data load ----------
-  var grid = document.getElementById("toolGrid");
-  var emptyState = document.getElementById("emptyState");
-  var filtersBar = document.getElementById("filters");
-  var visibleCount = document.getElementById("visibleCount");
+  let activeMode = null;
 
-  var CATEGORY_LABELS = {
-    code: "Code & repo exhaust",
-    logs: "Log & telemetry intelligence",
-    content: "Content & doc exhaust",
-    devops: "DevOps & CI/CD arbitrage",
-    data: "Data exhaust & personal analytics",
-    infra: "API & infra arbitrage",
-    testing: "Testing, QA & security exhaust",
-    media: "Media & asset exhaust",
-    docs: "Documentation & knowledge graphs",
-    revival: "Micro-SaaS & product exhaust"
-  };
-  var MODE_LABELS = {
-    "browser-native": "Browser-native",
-    "generator": "Generator",
-    "connector": "Connector (BYOK)"
-  };
-
-  var allTools = [];
-
-  function loadEmbeddedFallback() {
-    // Populated only if fetch fails (e.g. opened via file:// with no local server).
-    // Keep this in sync with data/metadata.json manually if you rely on it —
-    // the live site should always read the real file over the network.
-    return [];
+  function fmtDate(iso){
+    try{ return new Date(iso+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+    catch(e){ return iso; }
   }
 
-  fetch("data/metadata.json", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("metadata.json not reachable");
-      return res.json();
-    })
-    .then(init)
-    .catch(function () {
-      init(loadEmbeddedFallback());
+  function cardHTML(a, isPinned){
+    const tags = (a.tags||[]).map(t=>`<span class="tag-pill">${t}</span>`).join('');
+    return `
+      <a class="card ${isPinned?'pinned':''}" href="${a.path}"
+         data-mode="${a.solution_mode||''}" data-search="${(a.title+' '+(a.hook||'')+' '+(a.tags||[]).join(' ')).toLowerCase()}">
+        <div class="card-top">
+          <span class="mode-badge">${a.solution_mode || 'tool'}</span>
+          <span class="reading-time">${a.reading_time_minutes || '—'} min</span>
+        </div>
+        <h2>${a.title}</h2>
+        <p class="hook">${a.hook || ''}</p>
+        ${a.how_free ? `<span class="how-free">$ ${a.how_free}</span>` : ''}
+        <div class="card-bottom">
+          <div class="tags">${tags}</div>
+          ${a.verified ? `<span class="verified">✓ ${fmtDate(a.verified)}</span>` : ''}
+        </div>
+      </a>`;
+  }
+
+  function applyFilters(){
+    const q = searchEl.value.trim().toLowerCase();
+    let visible = 0;
+    document.querySelectorAll('.card').forEach(card=>{
+      const matchesMode = !activeMode || card.dataset.mode === activeMode;
+      const matchesSearch = !q || card.dataset.search.includes(q);
+      const show = matchesMode && matchesSearch;
+      card.classList.toggle('hidden', !show);
+      if(show) visible++;
     });
+    countEl.textContent = visible + (visible === 1 ? ' tool' : ' tools');
+  }
 
-  function init(tools) {
-    allTools = (tools || []).filter(function (t) { return t && t.status === "published"; });
-    renderStats(allTools);
-    populateCategoryFilter(allTools);
+  function renderFilters(articles){
+    const modes = [...new Set(articles.map(a => a.solution_mode).filter(Boolean))];
+    if(modes.length === 0){ filtersEl.innerHTML=''; return; }
+    let html = `<span class="chip active" data-mode="">all</span>`;
+    modes.forEach(m => { html += `<span class="chip" data-mode="${m}">${m}</span>`; });
+    filtersEl.innerHTML = html;
+    filtersEl.querySelectorAll('.chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        filtersEl.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');
+        activeMode = chip.dataset.mode || null;
+        applyFilters();
+      });
+    });
+  }
 
-    if (allTools.length === 0) {
-      emptyState.hidden = false;
-      filtersBar.hidden = true;
-      grid.hidden = true;
+  function render(published, site){
+    if(site && site.description){ descEl.textContent = site.description; footerDescEl.textContent = site.description; }
+    if(published.length === 0){
+      feedEl.innerHTML = '<div class="empty"><div class="glyph">$ no tools published yet</div><p>The first verified, working tool is being built. Run the maestro prompt to add one.</p></div>';
+      countEl.textContent = '0 tools';
       return;
     }
-
-    emptyState.hidden = true;
-    filtersBar.hidden = false;
-    grid.hidden = false;
-
-    ["searchInput", "categoryFilter", "modeFilter", "tierFilter", "sortFilter"].forEach(function (id) {
-      document.getElementById(id).addEventListener("input", render);
-      document.getElementById(id).addEventListener("change", render);
-    });
-
-    render();
+    const pinned = published.filter(a=>a.pinned);
+    const rest = published.filter(a=>!a.pinned).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    let html = '';
+    pinned.forEach(a=>{ html += cardHTML(a,true); });
+    rest.forEach(a=>{ html += cardHTML(a,false); });
+    feedEl.innerHTML = html;
+    renderFilters(published);
+    applyFilters();
   }
 
-  function renderStats(tools) {
-    var t0 = tools.filter(function (t) { return t.ladder_tier === "T0"; }).length;
-    var browser = tools.filter(function (t) { return t.solution_mode === "browser-native"; }).length;
-    var cats = {};
-    tools.forEach(function (t) { if (t.category) cats[t.category] = true; });
+  searchEl.addEventListener('input', applyFilters);
 
-    document.getElementById("statTotal").textContent = tools.length;
-    document.getElementById("statT0").textContent = t0;
-    document.getElementById("statBrowser").textContent = browser;
-    document.getElementById("statCategories").textContent = Object.keys(cats).length;
-  }
-
-  function populateCategoryFilter(tools) {
-    var sel = document.getElementById("categoryFilter");
-    var cats = {};
-    tools.forEach(function (t) { if (t.category) cats[t.category] = true; });
-    Object.keys(cats).sort().forEach(function (c) {
-      var opt = document.createElement("option");
-      opt.value = c;
-      opt.textContent = CATEGORY_LABELS[c] || c;
-      sel.appendChild(opt);
-    });
-  }
-
-  function render() {
-    var q = document.getElementById("searchInput").value.trim().toLowerCase();
-    var cat = document.getElementById("categoryFilter").value;
-    var mode = document.getElementById("modeFilter").value;
-    var tier = document.getElementById("tierFilter").value;
-    var sort = document.getElementById("sortFilter").value;
-
-    var filtered = allTools.filter(function (t) {
-      if (cat && t.category !== cat) return false;
-      if (mode && t.solution_mode !== mode) return false;
-      if (tier && t.ladder_tier !== tier) return false;
-      if (q) {
-        var hay = [
-          t.title, t.hook, t.waste_source, t.free_ai_mechanism,
-          (t.tags || []).join(" ")
-        ].join(" ").toLowerCase();
-        if (hay.indexOf(q) === -1) return false;
-      }
-      return true;
-    });
-
-    filtered.sort(function (a, b) {
-      if (sort === "pinned") {
-        if (!!b.pinned !== !!a.pinned) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
-        return (b.verified || "").localeCompare(a.verified || "");
-      }
-      if (sort === "newest") return (b.verified || "").localeCompare(a.verified || "");
-      if (sort === "az") return (a.title || "").localeCompare(b.title || "");
-      return 0;
-    });
-
-    visibleCount.textContent = "(" + filtered.length + " of " + allTools.length + ")";
-    grid.innerHTML = "";
-
-    filtered.forEach(function (t) {
-      grid.appendChild(renderCard(t));
-    });
-  }
-
-  function renderCard(t) {
-    var card = document.createElement("article");
-    card.className = "card";
-
-    var badges = document.createElement("div");
-    badges.className = "card-badges";
-    if (t.pinned) badges.appendChild(badge("pinned", "★ pinned"));
-    badges.appendChild(badge("mode", MODE_LABELS[t.solution_mode] || t.solution_mode || "mode?"));
-    badges.appendChild(badge("tier", t.ladder_tier || "tier?"));
-    if (t.category) badges.appendChild(badge("", CATEGORY_LABELS[t.category] || t.category));
-    card.appendChild(badges);
-
-    var h3 = document.createElement("h3");
-    var a = document.createElement("a");
-    a.href = t.path || ("tools/" + t.slug + ".html");
-    a.textContent = t.title || "Untitled tool";
-    h3.appendChild(a);
-    card.appendChild(h3);
-
-    var hook = document.createElement("p");
-    hook.className = "hook";
-    hook.textContent = t.hook || "";
-    card.appendChild(hook);
-
-    var pillars = document.createElement("div");
-    pillars.className = "card-pillars";
-    pillars.innerHTML =
-      '<div><span class="tag">waste·</span> ' + esc(t.waste_source || "—") + '</div>' +
-      '<div><span class="tag">ai·</span> ' + esc(t.free_ai_mechanism || "—") + '</div>' +
-      '<div><span class="tag">infra·</span> ' + esc((t.free_infra || []).join(", ") || "—") + '</div>';
-    card.appendChild(pillars);
-
-    var foot = document.createElement("div");
-    foot.className = "card-foot";
-    foot.innerHTML =
-      '<span>' + (t.reading_time_minutes ? t.reading_time_minutes + " min" : "") + '</span>' +
-      '<span>verified ' + esc(t.verified || "—") + '</span>';
-    card.appendChild(foot);
-
-    return card;
-  }
-
-  function badge(cls, text) {
-    var span = document.createElement("span");
-    span.className = "badge" + (cls ? " " + cls : "");
-    span.textContent = text;
-    return span;
-  }
-
-  function esc(str) {
-    var div = document.createElement("div");
-    div.textContent = String(str);
-    return div.innerHTML;
+  try{
+    const res = await fetch('./metadata.json');
+    if(!res.ok) throw new Error('metadata.json not found');
+    const data = await res.json();
+    render((data.articles || []).filter(a => a.status === 'published'), data.site);
+  }catch(err){
+    feedEl.innerHTML = '<div class="empty"><div class="glyph">$ no tools published yet</div><p>The first verified, working tool is being built. Run the maestro prompt to add one.</p></div>';
+    countEl.textContent = '0 tools';
   }
 })();
 </script>
-
 </body>
 </html>
