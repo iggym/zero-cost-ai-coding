@@ -40,6 +40,22 @@
   "reading_time_minutes": 2,
   "pinned": false,
   "verified": "2026-08-15"
+}, {
+  "id": "0001",
+  "slug": "commit-forge",
+  "title": "Commit Forge",
+  "hook": "Generate conventional commit messages from your git diff using Google Gemini's free API — 1,500 requests/day, no card needed.",
+  "path": "tools/commit-forge.html",
+  "date": "2025-07-09",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "connector",
+  "how_free": "Google Gemini 2.0 Flash free tier: 15 RPM, 1,500 RPD, no credit card — verified at ai.google.dev/gemini-api/docs/rate-limits",
+  "source_url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+  "tags": ["git", "commit-messages", "gemini", "conventional-commits", "developer-experience"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2025-07-09"
 }
   ]
 }
