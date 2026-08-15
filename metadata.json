@@ -614,6 +614,44 @@
   "pinned": false,
   "verified": "2026-08-15",
   "recheck_after": "2026-11-13"
+},{
+  "id": "0001",
+  "slug": "docker-compose-generator",
+  "title": "Docker Compose Generator",
+  "hook": "Generate a ready-to-run docker-compose.yml for Postgres, MySQL, Redis, and MongoDB. 100% client-side, unlimited uses, no data leaves your browser.",
+  "path": "tools/docker-compose-generator.html",
+  "date": "2024-05-22",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "generator",
+  "how_free": "100% client-side browser tool; no external API calls. Docker Compose itself is free and open-source.",
+  "source_url": "https://docs.docker.com/compose/",
+  "produces": "docker-compose-config",
+  "accepts": ["docker-compose-config"],
+  "tags": ["devops", "docker", "database", "local-dev"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2024-05-22",
+  "recheck_after": "2024-08-22"
+},{
+  "id": "0045",
+  "slug": "json-diff-patch",
+  "title": "JSON Diff & Patch (RFC 6902)",
+  "hook": "Paste two JSON documents, get a visual diff plus a ready-to-use RFC 6902 JSON Patch — 100% browser-native, no API, no limit.",
+  "path": "tools/json-diff-patch.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "∞ runs — pure client-side deep diff in the browser tab, no external service, no key, no rate limit.",
+  "source_url": "https://datatracker.ietf.org/doc/html/rfc6902",
+  "produces": "json-patch",
+  "accepts": ["json-patch"],
+  "tags": ["json", "diff", "rfc6902", "patch", "browser-native", "api"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "recheck_after": "2026-11-14"
 }
   ]
 }
