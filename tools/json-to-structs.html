@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON → Structs | zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--code:#1c2128;
+  --text:#e6edf3;--muted:#8b949e;--accent:#22c55e;--accent-dim:#16a34a;
+  --border:#30363d;--error:#f85149;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+}
+[data-theme="light"]{
+  --bg:#f6f8fa;--surface:#ffffff;--code:#f0f3f6;
+  --text:#1f2328;--muted:#656d76;--accent:#1a7f37;--accent-dim:#116329;
+  --border:#d0d7de;--error:#cf222e;
+}
+@media(prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){--bg:#f6f8fa;--surface:#ffffff;--code:#f0f3f6;--text:#1f2328;--muted:#656d76;--accent:#1a7f37;--accent-dim:#116329;--border:#d0d7de;--error:#cf222e}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+nav{position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(8px)}
+nav .home{font-family:var(--font-mono);font-size:.8rem;font-weight:500;color:var(--muted)}
+nav .home:hover{color:var(--accent)}
+nav .title{font-family:var(--font-mono);font-size:.85rem;font-weight:700;color:var(--accent)}
+nav .actions{display:flex;align-items:center;gap:.5rem}
+.theme-toggle{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:.25rem .5rem;border-radius:4px;font-size:.75rem;font-family:var(--font-mono)}
+.theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.container{max-width:1100px;margin:0 auto;padding:1.5rem}
+.pitch{margin-bottom:2rem}
+.pitch h1{font-family:var(--font-mono);font-size:1.5rem;font-weight:700;color:var(--accent);margin-bottom:.5rem}
+.pitch p{color:var(--muted);font-size:.9rem;margin-bottom:.75rem;max-width:700px}
+.pitch .limit{font-family:var(--font-mono);font-size:.8rem;color:var(--accent-dim);background:var(--code);display:inline-block;padding:.2rem .6rem;border-radius:4px;border:1px solid var(--border)}
+.share-row{display:flex;gap:.5rem;margin-top:.75rem}
+.share-btn{font-size:.75rem;padding:.3rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);cursor:pointer;font-family:var(--font-mono)}
+.share-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:768px){.tool-grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.panel label{display:block;font-family:var(--font-mono);font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem}
+textarea,.name-input{width:100%;background:var(--code);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:.6rem;font-family:var(--font-mono);font-size:.8rem;line-height:1.5;resize:vertical}
+textarea:focus,.name-input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+textarea{min-height:260px}
+.name-input{margin-top:.5rem;height:auto}
+.error-msg{color:var(--error);font-size:.8rem;font-family:var(--font-mono);margin-top:.5rem}
+.lang-tabs{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.6rem}
+.lang-tab{font-family:var(--font-mono);font-size:.75rem;padding:.3rem .7rem;border:1px solid var(--border);border-radius:4px;background:var(--code);color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s}
+.lang-tab:hover{border-color:var(--accent);color:var(--text)}
+.lang-tab.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.lang-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.output-wrap{position:relative}
+.output-code{width:100%;min-height:260px;max-height:420px;overflow:auto;background:var(--code);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:.6rem;font-family:var(--font-mono);font-size:.8rem;line-height:1.5;white-space:pre;tab-size:4}
+.copy-btn{position:absolute;top:.5rem;right:.5rem;font-family:var(--font-mono);font-size:.7rem;padding:.25rem .5rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);cursor:pointer}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.saved-bar{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);background:var(--code);border:1px solid var(--border);border-radius:4px;padding:.5rem .75rem;margin-bottom:1.25rem;text-align:center}
+.saved-bar .num{font-weight:700;font-size:1rem}
+.info-section{margin-bottom:2rem}
+.info-section h2{font-family:var(--font-mono);font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.5rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
+.info-section p,.info-section li{font-size:.85rem;color:var(--muted);margin-bottom:.4rem}
+.info-section ul{padding-left:1.2rem}
+.export-row{display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap}
+.export-btn{font-family:var(--font-mono);font-size:.72rem;padding:.3rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--muted);cursor:pointer}
+.export-btn:hover{border-color:var(--accent);color:var(--accent)}
+footer{text-align:center;padding:1.5rem 1rem;font-size:.72rem;color:var(--muted);border-top:1px solid var(--border);font-family:var(--font-mono)}
+.toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:.8rem;padding:.5rem 1rem;background:var(--accent);color:#000;border-radius:6px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:100}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<nav>
+  <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home">← zero-cost-ai-coding</a>
+  <span class="title">JSON → Structs</span>
+  <div class="actions"><button class="theme-toggle" id="themeBtn" aria-label="Toggle theme">☀ light</button></div>
+</nav>
+
+<div class="container">
+  <section class="pitch">
+    <h1>JSON → Typed Structs</h1>
+    <p>Paste any JSON, get clean type definitions in TypeScript, Go, Rust, Python, Java, and C# — runs entirely in your browser with no API calls and no limits.</p>
+    <span class="limit">Free: unlimited — browser-native, no service tier</span>
+    <div class="share-row">
+      <button class="share-btn" onclick="shareX()">Share on X</button>
+      <button class="share-btn" onclick="copyLink()">Copy link</button>
+    </div>
+  </section>
+
+  <div class="tool-grid">
+    <div class="panel">
+      <label for="jsonInput">JSON Input</label>
+      <textarea id="jsonInput" spellcheck="false" aria-label="JSON input"></textarea>
+      <div id="parseError" class="error-msg" style="display:none"></div>
+      <label for="rootName" style="margin-top:.6rem">Root type name</label>
+      <input type="text" id="rootName" class="name-input" value="Root" spellcheck="false" aria-label="Root type name">
+      <div class="export-row">
+        <button class="export-btn" onclick="exportJSON()">Export as JSON</button>
+        <button class="export-btn" onclick="importJSON()">Import JSON</button>
+      </div>
+    </div>
+    <div class="panel">
+      <label>Output</label>
+      <div class="lang-tabs" id="langTabs" role="tablist"></div>
+      <div class="output-wrap">
+        <pre class="output-code" id="outputCode" tabindex="0"></pre>
+        <button class="copy-btn" onclick="copyOutput()" aria-label="Copy output">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="saved-bar" id="savedBar">Paste JSON above to see time saved</div>
+
+  <section class="info-section">
+    <h2>What it replaces</h2>
+    <p>No direct paid equivalent found — quicktype.io does this for free as well. The difference: this runs instantly with zero setup, generates all 6 languages in one pass, and produces clean idiomatic output without installing anything or pasting into a heavy app.</p>
+  </section>
+
+  <section class="info-section">
+    <h2>How to use it</h2>
+    <ol>
+      <li>Paste your JSON (API response, config file, etc.) into the input box.</li>
+      <li>Change the root type name if you want something other than "Root".</li>
+      <li>Click a language tab to switch output. Click Copy to grab the code.</li>
+      <li>Export as JSON if you want to feed the schema into another tool.</li>
+    </ol>
+  </section>
+
+  <section class="info-section">
+    <h2>What breaks</h2>
+    <ul>
+      <li><strong>Empty arrays</strong> — can't infer element type, falls back to <code>any</code> / <code>interface{}</code> / <code>Value</code>.</li>
+      <li><strong>null values</strong> — marked as optional, but the concrete type is unknown (was it a string? an object?). You'll need to fill in the actual type.</li>
+      <li><strong>Mixed-type arrays</strong> like <code>[1, "two"]</code> — only the first element's type is used.</li>
+      <li><strong>Very large JSON</strong> — no hard limit, but browser memory is the constraint. Works fine up to a few MB.</li>
+      <li><strong>Non-JSON input</strong> — shows a parse error at the top of the input panel.</li>
+    </ul>
+  </section>
+</div>
+
+<footer>Free-tier claim verified: browser-native computation, no external service — <a href="https://developer.mozilla.org/en-US/docs/Web/API/JSON/parse" style="color:var(--muted)">MDN: JSON.parse()</a></footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- Hidden import textarea -->
+<textarea id="importArea" style="display:none"></textarea>
+
+<script>
+// ===== NAMING UTILITIES =====
+function toPascalCase(s) {
+  if (!s) return s;
+  if (!/[_\-\s]/.test(s)) return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.split(/[_\-\s]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+}
+
+function toSnakeCase(s) {
+  return s.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+}
+
+function toCamelCase(s) {
+  const p = toPascalCase(s);
+  return p.charAt(0).toLowerCase() + p.slice(1);
+}
+
+function singularize(s) {
+  const p = toPascalCase(s);
+  const specials = {
+    People:'Person',Children:'Child',Men:'Man',Women:'Woman',
+    Indices:'Index',Vertices:'Vertex',Mice:'Mouse',Feet:'Foot',
+    Teeth:'Tooth',Data:'Datum',Statuses:'Status',
+    Addresses:'Address',Classes:'Class',Matches:'Match',
+    Databases:'Database',Queries:'Query'
+  };
+  if (specials[p]) return specials[p];
+  if (p.endsWith('ies') && p.length > 3) return p.slice(0,-3)+'y';
+  if (p.endsWith('ses') && !p.endsWith('sses')) return p.slice(0,-1);
+  if (p.endsWith('s') && !p.endsWith('ss') && p.length > 1) return p.slice(0,-1);
+  return p;
+}
+
+// ===== TYPE INFERENCE =====
+function inferTypes(value, name, types) {
+  if (value === null || value === undefined) return { kind:'null' };
+  if (typeof value === 'boolean') return { kind:'primitive', type:'boolean' };
+  if (typeof value === 'number') return { kind:'primitive', type: Number.isInteger(value)?'integer':'float' };
+  if (typeof value === 'string') return { kind:'primitive', type:'string' };
+  if (Array.isArray(value)) {
+    const nonNull = value.filter(v => v !== null && v !== undefined);
+    if (nonNull.length === 0) return { kind:'array', items:{ kind:'primitive', type:'any' } };
+    const itemName = singularize(name);
+    if (nonNull.every(v => typeof v === 'object' && !Array.isArray(v))) {
+      const allKeys = [...new Set(nonNull.flatMap(v => Object.keys(v)))];
+      const fields = [];
+      for (const key of allKeys) {
+        const presentIn = nonNull.filter(v => v[key] !== undefined && v[key] !== null);
+        if (presentIn.length === 0) continue;
+        const fieldType = inferTypes(presentIn[0][key], toPascalCase(key), types);
+        fields.push({ key, typeInfo: fieldType, optional: presentIn.length < nonNull.length });
+      }
+      types.push({ name: itemName, fields });
+      return { kind:'array', items:{ kind:'object', typeName: itemName } };
+    }
+    const items = inferTypes(nonNull[0], itemName, types);
+    return { kind:'array', items };
+  }
+  if (typeof value === 'object') {
+    const fields = [];
+    for (const [key, val] of Object.entries(value)) {
+      const fieldType = inferTypes(val, toPascalCase(key), types);
+      fields.push({ key, typeInfo: fieldType, optional: val === null });
+    }
+    types.push({ name, fields });
+    return { kind:'object', typeName: name };
+  }
+  return { kind:'primitive', type:'any' };
+}
+
+function countFields(types) {
+  return types.reduce((sum, t) => sum + t.fields.length, 0);
+}
+
+// ===== TYPESCRIPT =====
+function tsType(ti) {
+  switch(ti.kind) {
+    case 'primitive': return {string:'string',integer:'number',float:'number',boolean:'boolean',any:'any'}[ti.type]||'any';
+    case 'array': return tsType(ti.items)+'[]';
+    case 'object': return ti.typeName;
+    case 'null': return 'null';
+    default: return 'any';
+  }
+}
+function generateTypeScript(types) {
+  return types.map(t => {
+    const lines = t.fields.map(f => `  ${f.key}${f.optional?'?':''}: ${tsType(f.typeInfo)};`);
+    return `export interface ${t.name} {\n${lines.join('\n')}\n}`;
+  }).join('\n\n');
+}
+
+// ===== GO =====
+function goType(ti, opt) {
+  let t;
+  switch(ti.kind) {
+    case 'primitive': t = {string:'string',integer:'int',float:'float64',boolean:'bool',any:'any'}[ti.type]||'any'; break;
+    case 'array': return `[]${goType(ti.items,false)}`;
+    case 'object': t = ti.typeName; break;
+    case 'null': t = 'any'; break;
+    default: t = 'any';
+  }
+  return opt ? `*${t}` : t;
+}
+function generateGo(types) {
+  return types.map(t => {
+    const names = t.fields.map(f => toPascalCase(f.key));
+    const typeStrs = t.fields.map(f => goType(f.typeInfo, f.optional));
+    const maxN = Math.max(...names.map(n=>n.length),0);
+    const maxT = Math.max(...typeStrs.map(s=>s.length),0);
+    const lines = t.fields.map((f,i) => {
+      const nm = names[i].padEnd(maxN+1);
+      const tp = typeStrs[i].padEnd(maxT+1);
+      const tag = `\`json:"${f.key}${f.optional?',omitempty':''}"\``;
+      return `    ${nm}${tp}${tag}`;
+    });
+    return `type ${t.name} struct {\n${lines.join('\n')}\n}`;
+  }).join('\n\n');
+}
+
+// ===== RUST =====
+const rustKw = new Set(['type','fn','let','if','else','for','while','loop','match','struct','enum','impl','trait','mod','use','pub','self','super','crate','return','as','break','const','continue','extern','in','mut','ref','static','unsafe','where','async','await','yield','move','dyn']);
+function rustFieldName(key) {
+  const s = toSnakeCase(key);
+  return rustKw.has(s) ? `r#${s}` : s;
+}
+function rustType(ti, opt) {
+  let t;
+  switch(ti.kind) {
+    case 'primitive': t = {string:'String',integer:'i64',float:'f64',boolean:'bool',any:'serde_json::Value'}[ti.type]||'serde_json::Value'; break;
+    case 'array': return `Vec<${rustType(ti.items,false)}>`;
+    case 'object': t = ti.typeName; break;
+    case 'null': t = 'serde_json::Value'; break;
+    default: t = 'serde_json::Value';
+  }
+  return opt ? `Option<${t}>` : t;
+}
+function generateRust(types) {
+  let code = 'use serde::{Serialize, Deserialize};\n\n';
+  code += types.map(t => {
+    const lines = t.fields.map(f => {
+      const fn = rustFieldName(f.key);
+      const rename = fn !== f.key ? `    #[serde(rename = "${f.key}")]\n` : '';
+      return `${rename}    pub ${fn}: ${rustType(f.typeInfo,f.optional)},`;
+    });
+    return `#[derive(Debug, Clone, Serialize, Deserialize)]\npub struct ${t.name} {\n${lines.join('\n')}\n}`;
+  }).join('\n\n');
+  return code;
+}
+
+// ===== PYTHON =====
+function pyType(ti, opt) {
+  let t;
+  switch(ti.kind) {
+    case 'primitive': t = {string:'str',integer:'int',float:'float',boolean:'bool',any:'Any'}[ti.type]||'Any'; break;
+    case 'array': return `List[${pyType(ti.items,false)}]`;
+    case 'object': t = ti.typeName; break;
+    case 'null': t = 'Any'; break;
+    default: t = 'Any';
+  }
+  return opt ? `Optional[${t}]` : t;
+}
+function generatePython(types) {
+  let code = 'from dataclasses import dataclass\nfrom typing import List, Optional, Any\n\n';
+  code += types.map(t => {
+    const lines = t.fields.map(f => {
+      const fn = toSnakeCase(f.key);
+      const pt = pyType(f.typeInfo, f.optional);
+      return f.optional ? `    ${fn}: ${pt} = None` : `    ${fn}: ${pt}`;
+    });
+    return `@dataclass\nclass ${t.name}:\n${lines.join('\n')}`;
+  }).join('\n\n');
+  return code;
+}
+
+// ===== JAVA =====
+function javaType(ti, boxed) {
+  switch(ti.kind) {
+    case 'primitive': {
+      if (boxed) return {string:'String',integer:'Integer',float:'Double',boolean:'Boolean',any:'Object'}[ti.type]||'Object';
+      return {string:'String',integer:'int',float:'double',boolean:'boolean',any:'Object'}[ti.type]||'Object';
+    }
+    case 'array': return `List<${javaType(ti.items,true)}>`;
+    case 'object': return ti.typeName;
+    case 'null': return boxed?'Object':'Object';
+    default: return 'Object';
+  }
+}
+function generateJava(types) {
+  let code = 'import java.util.List;\n\n';
+  code += types.map(t => {
+    const params = t.fields.map(f => `    ${javaType(f.typeInfo,false)} ${toCamelCase(f.key)}`);
+    return `public record ${t.name}(\n${params.join(',\n')}\n) {}`;
+  }).join('\n\n');
+  return code;
+}
+
+// ===== C# =====
+function csType(ti, opt) {
+  let t;
+  switch(ti.kind) {
+    case 'primitive': t = {string:'string',integer:'int',float:'double',boolean:'bool',any:'object'}[ti.type]||'object'; break;
+    case 'array': return `List<${csType(ti.items,false)}>`;
+    case 'object': t = ti.typeName; break;
+    case 'null': t = 'object'; break;
+    default: t = 'object';
+  }
+  if (opt && ['int','double','bool'].includes(t)) return `${t}?`;
+  return t;
+}
+function generateCSharp(types) {
+  let code = 'using System.Collections.Generic;\n\n';
+  code += types.map(t => {
+    const lines = t.fields.map(f => `    public ${csType(f.typeInfo,f.optional)} ${toPascalCase(f.key)} { get; set; }`);
+    return `public class ${t.name}\n{\n${lines.join('\n')}\n}`;
+  }).join('\n\n');
+  return code;
+}
+
+// ===== GENERATOR REGISTRY =====
+const generators = {
+  typescript: { label:'TypeScript', fn: generateTypeScript },
+  go:         { label:'Go',         fn: generateGo },
+  rust:       { label:'Rust',       fn: generateRust },
+  python:     { label:'Python',     fn: generatePython },
+  java:       { label:'Java',       fn: generateJava },
+  csharp:     { label:'C#',         fn: generateCSharp },
+};
+
+// ===== STATE =====
+let currentLang = 'typescript';
+let lastTypes = [];
+let lastFieldCount = 0;
+let lastRootName = 'Root';
+
+// ===== UI =====
+function buildLangTabs() {
+  const container = document.getElementById('langTabs');
+  container.innerHTML = '';
+  for (const [id, gen] of Object.entries(generators)) {
+    const btn = document.createElement('button');
+    btn.className = 'lang-tab' + (id === currentLang ? ' active' : '');
+    btn.textContent = gen.label;
+    btn.setAttribute('role','tab');
+    btn.setAttribute('aria-selected', id === currentLang ? 'true' : 'false');
+    btn.addEventListener('click', () => selectLang(id));
+    container.appendChild(btn);
+  }
+}
+
+function selectLang(id) {
+  currentLang = id;
+  document.querySelectorAll('.lang-tab').forEach((btn,i) => {
+    const langId = Object.keys(generators)[i];
+    btn.classList.toggle('active', langId === id);
+    btn.setAttribute('aria-selected', langId === id ? 'true' : 'false');
+  });
+  renderOutput();
+}
+
+function processJSON() {
+  const input = document.getElementById('jsonInput').value.trim();
+  const errEl = document.getElementById('parseError');
+  errEl.style.display = 'none';
+
+  if (!input) {
+    document.getElementById('outputCode').textContent = '// Paste JSON on the left to generate types';
+    updateSaved(0);
+    lastTypes = [];
+    return;
+  }
+
+  // Check for zcac import
+  try {
+    const maybeZcac = JSON.parse(input);
+    if (maybeZcac.zcac === true) {
+      if (maybeZcac.kind === 'json-to-structs' && maybeZcac.data) {
+        document.getElementById('jsonInput').value = maybeZcac.data.inputJson || '';
+        document.getElementById('rootName').value = maybeZcac.data.rootName || 'Root';
+        if (maybeZcac.data.selectedLanguage && generators[maybeZcac.data.selectedLanguage]) {
+          selectLang(maybeZcac.data.selectedLanguage);
+        }
+        processJSON();
+        return;
+      }
+      errEl.textContent = 'Import not recognized — this JSON is from a different tool.';
+      errEl.style.display = 'block';
+      return;
+    }
+  } catch(_) { /* not zcac, try as raw json below */ }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(input);
+  } catch(e) {
+    errEl.textContent = 'Parse error: ' + e.message;
+    errEl.style.display = 'block';
+    document.getElementById('outputCode').textContent = '';
+    updateSaved(0);
+    lastTypes = [];
+    return;
+  }
+
+  const rootName = document.getElementById('rootName').value.trim() || 'Root';
+  lastRootName = rootName;
+  const types = [];
+
+  if (parsed === null || typeof parsed !== 'object') {
+    errEl.textContent = 'Root value is a primitive — paste a JSON object or array to generate types.';
+    errEl.style.display = 'block';
+    document.getElementById('outputCode').textContent = '';
+    updateSaved(0);
+    lastTypes = [];
+    return;
+  }
+
+  inferTypes(parsed, rootName, types);
+  lastTypes = types;
+  lastFieldCount = countFields(types);
+  renderOutput();
+  updateSaved(lastFieldCount);
+}
+
+function renderOutput() {
+  if (!lastTypes.length) {
+    document.getElementById('outputCode').textContent = '// No types generated';
+    return;
+  }
+  const gen = generators[currentLang];
+  try {
+    const code = gen.fn(lastTypes);
+    document.getElementById('outputCode').textContent = code;
+  } catch(e) {
+    document.getElementById('outputCode').textContent = '// Generation error: ' + e.message;
+  }
+}
+
+function updateSaved(fieldCount) {
+  const bar = document.getElementById('savedBar');
+  if (fieldCount === 0) {
+    bar.textContent = 'Paste JSON above to see time saved';
+    return;
+  }
+  const seconds = fieldCount * 20;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  const timeStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
+  bar.innerHTML = `Fields processed: <span class="num">${fieldCount}</span> &nbsp;|&nbsp; Time saved: <span class="num">~${timeStr}</span> &nbsp;<span style="font-size:.7rem;color:var(--muted)">(~20s/field typed by hand)</span>`;
+}
+
+function copyOutput() {
+  const code = document.getElementById('outputCode').textContent;
+  if (!code || code.startsWith('//')) return;
+  navigator.clipboard.writeText(code).then(() => showToast('Copied to clipboard'));
+}
+
+function exportJSON() {
+  if (!lastTypes.length) { showToast('Nothing to export — process JSON first'); return; }
+  const data = {
+    zcac: true,
+    kind: 'json-to-structs',
+    data: {
+      inputJson: document.getElementById('jsonInput').value,
+      rootName: lastRootName,
+      types: lastTypes,
+      selectedLanguage: currentLang,
+      fieldCount: lastFieldCount
+    }
+  };
+  const json = JSON.stringify(data, null, 2);
+  navigator.clipboard.writeText(json).then(() => showToast('Export JSON copied to clipboard'));
+}
+
+function importJSON() {
+  const input = document.getElementById('importArea');
+  // Use a simple prompt-free approach: create a file input
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json,application/json';
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target.result;
+      // If it's zcac, handle it
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.zcac === true && parsed.kind === 'json-to-structs' && parsed.data) {
+          document.getElementById('jsonInput').value = parsed.data.inputJson || '';
+          document.getElementById('rootName').value = parsed.data.rootName || 'Root';
+          if (parsed.data.selectedLanguage && generators[parsed.data.selectedLanguage]) {
+            selectLang(parsed.data.selectedLanguage);
+          }
+          processJSON();
+          showToast('Imported from JSON file');
+          return;
+        }
+        // Regular JSON — put in textarea
+        document.getElementById('jsonInput').value = text;
+        processJSON();
+        showToast('Loaded JSON file');
+      } catch(err) {
+        showToast('Invalid JSON file');
+      }
+      document.body.removeChild(fileInput);
+    };
+    reader.readAsText(file);
+  });
+  fileInput.click();
+}
+
+function shareX() {
+  const url = window.location.href;
+  const text = 'JSON → Typed Structs — paste JSON, get types in 6 languages, free, browser-native';
+  window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => showToast('Link copied'));
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ===== THEME =====
+function initTheme() {
+  const btn = document.getElementById('themeBtn');
+  const stored = sessionStorage.getItem('theme');
+  if (stored) {
+    document.documentElement.setAttribute('data-theme', stored);
+  }
+  updateThemeBtn();
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    sessionStorage.setItem('theme', next);
+    updateThemeBtn();
+  });
+}
+function updateThemeBtn() {
+  const isDark = !document.documentElement.getAttribute('data-theme') || document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('themeBtn').textContent = isDark ? '☀ light' : '☾ dark';
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+  buildLangTabs();
+
+  const example = `{
+  "id": 1,
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "is_active": true,
+  "score": 98.5,
+  "roles": ["admin", "editor"],
+  "profile": {
+    "avatar_url": "https://img.example.com/jane.jpg",
+    "bio": "Full-stack developer",
+    "created_at": "2024-01-15T10:30:00Z"
+  },
+  "projects": [
+    {
+      "id": 101,
+      "title": "Project Alpha",
+      "status": "active",
+      "tags": ["go", "k8s"]
+    }
+  ]
+}`;
+
+  document.getElementById('jsonInput').value = example;
+  document.getElementById('jsonInput').addEventListener('input', processJSON);
+  document.getElementById('rootName').addEventListener('input', processJSON);
+
+  processJSON();
+});
+</script>
+</body>
+</html>
