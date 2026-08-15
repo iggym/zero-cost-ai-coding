@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log Parser · zero-cost-ai-coding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            --bg: #0d0f14;
+            --surface: #181c22;
+            --surface2: #222831;
+            --text: #e8edf2;
+            --text2: #9aa6b5;
+            --accent: #4ade80;
+            --accent-dim: #2a7a4a;
+            --border: #2a313a;
+            --radius: 8px;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
+            --mono: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f4f6fa;
+                --surface: #ffffff;
+                --surface2: #eaeef3;
+                --text: #1a1f26;
+                --text2: #4a5568;
+                --border: #d0d7e0;
+            }
+        }
+        *:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0 16px 32px;
+            transition: background 0.2s, color 0.2s;
+        }
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+            backdrop-filter: blur(8px);
+            padding: 12px 0 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar-left a {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text);
+            text-decoration: none;
+        }
+        .topbar-left a:hover {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .topbar-left .home-icon {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .topbar-right {
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text2);
+        }
+        .theme-toggle {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            color: var(--text2);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .theme-toggle:hover {
+            background: var(--border);
+        }
+        .container {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+        .pitch {
+            margin-bottom: 32px;
+        }
+        .pitch h1 {
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 1.8rem;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+        .pitch .hook {
+            font-size: 1.05rem;
+            color: var(--text2);
+            margin-bottom: 8px;
+        }
+        .pitch .meta {
+            font-size: 0.85rem;
+            color: var(--text2);
+            border-left: 3px solid var(--accent);
+            padding-left: 12px;
+            margin: 8px 0 12px;
+        }
+        .pitch .share-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .share-row button {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+            color: var(--text2);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .share-row button:hover {
+            background: var(--border);
+            color: var(--text);
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 20px 24px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+        }
+        .card label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: var(--text2);
+        }
+        textarea,
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            font-family: var(--mono);
+            font-size: 0.9rem;
+            color: var(--text);
+            resize: vertical;
+            transition: border 0.15s;
+        }
+        textarea:focus,
+        input:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+        textarea {
+            min-height: 140px;
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .row label {
+            margin-bottom: 0;
+            font-weight: 400;
+            font-size: 0.9rem;
+        }
+        .row input[type="password"] {
+            flex: 1 1 200px;
+            min-width: 140px;
+        }
+        .btn {
+            background: var(--accent);
+            color: #0d0f14;
+            border: none;
+            border-radius: var(--radius);
+            padding: 8px 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn:hover {
+            opacity: 0.85;
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+        .btn-secondary {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+        .btn-sm {
+            padding: 4px 14px;
+            font-size: 0.8rem;
+        }
+        .output-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 400px;
+            overflow: auto;
+            margin-top: 10px;
+        }
+        .output-box .empty {
+            color: var(--text2);
+            font-style: italic;
+        }
+        .saved-readout {
+            font-family: var(--mono);
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin: 12px 0 4px;
+        }
+        .saved-assumption {
+            font-size: 0.8rem;
+            color: var(--text2);
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--text2);
+            text-align: center;
+        }
+        .flex {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .gap-sm {
+            gap: 6px;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mt-12 {
+            margin-top: 12px;
+        }
+        .text2 {
+            color: var(--text2);
+        }
+        .mono {
+            font-family: var(--mono);
+        }
+        @media (max-width: 480px) {
+            .topbar {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .pitch h1 {
+                font-size: 1.4rem;
+            }
+            .card {
+                padding: 16px;
+            }
+            .row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .row input[type="password"] {
+                flex: unset;
+            }
+        }
+        /* prefers-reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- TOPBAR -->
+        <div class="topbar">
+            <div class="topbar-left">
+                <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-icon">←</a>
+                <a href="https://iggym.github.io/zero-cost-ai-coding/">zero‑cost‑ai‑coding</a>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">🌓</button>
+            </div>
+            <div class="topbar-right">Log Parser</div>
+        </div>
+
+        <!-- PITCH -->
+        <div class="pitch">
+            <h1>Log Parser</h1>
+            <div class="hook">Paste raw error logs, stack traces, or code output — get back structured JSON with extracted fields and a suggested fix, all via Hugging Face's free zero-shot classification.</div>
+            <div class="meta">
+                <strong>Free tier</strong>: unlimited requests/day (rate-limited; resets periodically) · no card required · <a href="https://huggingface.co/docs/api-inference/index" target="_blank">Hugging Face Inference API</a>
+            </div>
+            <div class="share-row">
+                <button id="shareX">🐦 X</button>
+                <button id="shareCopy">📋 Copy link</button>
+            </div>
+        </div>
+
+        <!-- MAIN TOOL -->
+        <div class="card">
+            <h2>1. Enter your API key</h2>
+            <p class="text2" style="font-size:0.9rem;margin-bottom:10px;">
+                Get a free key from <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a>
+                (read-only is fine). Stored in session only — cleared when you close the tab.
+            </p>
+            <div class="row">
+                <input type="password" id="hfToken" placeholder="hf_xxxxxxxxxxxxxxxxxxxx" />
+                <button class="btn btn-secondary btn-sm" id="tokenSave">Save key</button>
+                <button class="btn btn-secondary btn-sm" id="tokenClear">Clear</button>
+                <span id="tokenStatus" class="text2" style="font-size:0.8rem;"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>2. Paste your log or code output</h2>
+            <textarea id="logInput" placeholder="Paste error logs, stack traces, or any terminal output here...">Error: ENOENT: no such file or directory, open '/app/config.json'
+    at Object.openSync (node:fs:596:3)
+    at Object.readFileSync (node:fs:464:35)
+    at start (/app/server.js:12:18)</textarea>
+            <div class="flex mt-8">
+                <button class="btn" id="parseBtn">Parse & classify</button>
+                <button class="btn btn-secondary btn-sm" id="clearBtn">Clear</button>
+                <span class="text2" style="font-size:0.8rem;margin-left:auto;" id="charCount">0 chars</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex" style="justify-content:space-between;">
+                <h2>3. Structured output</h2>
+                <div class="flex gap-sm">
+                    <button class="btn btn-secondary btn-sm" id="copyJsonBtn">Copy JSON</button>
+                    <button class="btn btn-secondary btn-sm" id="downloadJsonBtn">Download JSON</button>
+                </div>
+            </div>
+            <div id="outputArea" class="output-box"><span class="empty">No output yet — paste a log and click Parse.</span></div>
+            <div id="savedReadout" class="saved-readout">—</div>
+            <div class="saved-assumption" id="savedAssumption">Assumption: ~8 sec to manually scan and transcribe each line.</div>
+        </div>
+
+        <div class="card">
+            <h2>4. Import / composability</h2>
+            <p class="text2" style="font-size:0.9rem;margin-bottom:8px;">
+                Paste a JSON export from this tool (or any tool using <code>{"zcac":true,"kind":"structured-log"}</code>) to restore state.
+            </p>
+            <textarea id="importBox" placeholder='Paste {"zcac":true,"kind":"structured-log","data":{...}} here...' style="min-height:60px;"></textarea>
+            <button class="btn btn-secondary btn-sm mt-8" id="importBtn">Import</button>
+            <span id="importStatus" class="text2" style="font-size:0.8rem;margin-left:10px;"></span>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p>
+                Free-tier limit verified at
+                <a href="https://huggingface.co/docs/api-inference/index" target="_blank">Hugging Face Inference API docs</a>
+                · Built for
+                <a href="https://iggym.github.io/zero-cost-ai-coding/">zero-cost-ai-coding</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            "use strict";
+
+            // DOM refs
+            const hfToken = document.getElementById('hfToken');
+            const tokenStatus = document.getElementById('tokenStatus');
+            const tokenSave = document.getElementById('tokenSave');
+            const tokenClear = document.getElementById('tokenClear');
+            const logInput = document.getElementById('logInput');
+            const charCount = document.getElementById('charCount');
+            const parseBtn = document.getElementById('parseBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const outputArea = document.getElementById('outputArea');
+            const savedReadout = document.getElementById('savedReadout');
+            const savedAssumption = document.getElementById('savedAssumption');
+            const copyJsonBtn = document.getElementById('copyJsonBtn');
+            const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+            const importBox = document.getElementById('importBox');
+            const importBtn = document.getElementById('importBtn');
+            const importStatus = document.getElementById('importStatus');
+            const themeToggle = document.getElementById('themeToggle');
+            const shareX = document.getElementById('shareX');
+            const shareCopy = document.getElementById('shareCopy');
+
+            // State
+            let currentToken = sessionStorage.getItem('hf_token') || '';
+            let currentOutput = null; // structured data
+            let currentRawJson = null; // stringified JSON for export
+
+            // ---- THEME ----
+            function setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                if (theme === 'light') {
+                    document.documentElement.style.setProperty('--bg', '#f4f6fa');
+                    document.documentElement.style.setProperty('--surface', '#ffffff');
+                    document.documentElement.style.setProperty('--surface2', '#eaeef3');
+                    document.documentElement.style.setProperty('--text', '#1a1f26');
+                    document.documentElement.style.setProperty('--text2', '#4a5568');
+                    document.documentElement.style.setProperty('--border', '#d0d7e0');
+                } else {
+                    document.documentElement.style.setProperty('--bg', '#0d0f14');
+                    document.documentElement.style.setProperty('--surface', '#181c22');
+                    document.documentElement.style.setProperty('--surface2', '#222831');
+                    document.documentElement.style.setProperty('--text', '#e8edf2');
+                    document.documentElement.style.setProperty('--text2', '#9aa6b5');
+                    document.documentElement.style.setProperty('--border', '#2a313a');
+                }
+                localStorage.setItem('zcac-theme', theme);
+            }
+
+            function toggleTheme() {
+                const current = document.documentElement.getAttribute('data-theme') || 'dark';
+                setTheme(current === 'dark' ? 'light' : 'dark');
+            }
+
+            const savedTheme = localStorage.getItem('zcac-theme') ||
+                (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            setTheme(savedTheme);
+            themeToggle.addEventListener('click', toggleTheme);
+
+            // ---- TOKEN ----
+            if (currentToken) {
+                hfToken.value = currentToken;
+                tokenStatus.textContent = '✓ key loaded from session';
+                tokenStatus.style.color = 'var(--accent)';
+            }
+
+            tokenSave.addEventListener('click', function() {
+                const val = hfToken.value.trim();
+                if (val.length < 10) {
+                    tokenStatus.textContent = '✗ too short (looks like hf_...)';
+                    tokenStatus.style.color = '#f87171';
+                    return;
+                }
+                currentToken = val;
+                sessionStorage.setItem('hf_token', val);
+                tokenStatus.textContent = '✓ saved (cleared on tab close)';
+                tokenStatus.style.color = 'var(--accent)';
+            });
+
+            tokenClear.addEventListener('click', function() {
+                currentToken = '';
+                sessionStorage.removeItem('hf_token');
+                hfToken.value = '';
+                tokenStatus.textContent = '✗ key cleared';
+                tokenStatus.style.color = 'var(--text2)';
+            });
+
+            // ---- CHAR COUNT ----
+            logInput.addEventListener('input', function() {
+                charCount.textContent = logInput.value.length + ' chars';
+            });
+            charCount.textContent = logInput.value.length + ' chars';
+
+            // ---- CLEAR ----
+            clearBtn.addEventListener('click', function() {
+                logInput.value = '';
+                charCount.textContent = '0 chars';
+                outputArea.innerHTML = '<span class="empty">No output yet — paste a log and click Parse.</span>';
+                currentOutput = null;
+                currentRawJson = null;
+                savedReadout.textContent = '—';
+            });
+
+            // ---- CORE: PARSE + CLASSIFY ----
+            async function parseLog() {
+                const token = currentToken || hfToken.value.trim();
+                if (!token || token.length < 10) {
+                    tokenStatus.textContent = '✗ Enter a valid Hugging Face token first';
+                    tokenStatus.style.color = '#f87171';
+                    return;
+                }
+                if (!token.startsWith('hf_')) {
+                    tokenStatus.textContent = '✗ Token should start with hf_';
+                    tokenStatus.style.color = '#f87171';
+                    return;
+                }
+                // Ensure token is saved
+                if (!currentToken) {
+                    currentToken = token;
+                    sessionStorage.setItem('hf_token', token);
+                    tokenStatus.textContent = '✓ key saved from this run';
+                    tokenStatus.style.color = 'var(--accent)';
+                }
+
+                const text = logInput.value.trim();
+                if (!text) {
+                    outputArea.innerHTML = '<span class="empty">✗ Paste some log output first.</span>';
+                    return;
+                }
+
+                // Update UI
+                parseBtn.disabled = true;
+                parseBtn.textContent = 'Classifying...';
+                outputArea.innerHTML = '<span class="empty">⏳ Calling Hugging Face zero-shot...</span>';
+
+                // Prepare candidate labels
+                const candidates = [
+                    'file not found',
+                    'permission denied',
+                    'syntax error',
+                    'type error',
+                    'reference error',
+                    'network error',
+                    'timeout',
+                    'out of memory',
+                    'invalid argument',
+                    'connection refused',
+                    'authentication failed',
+                    'rate limited',
+                    'configuration error',
+                    'dependency missing',
+                    'compilation error'
+                ];
+
+                try {
+                    // Hugging Face Inference API — zero-shot classification
+                    const resp = await fetch(
+                        'https://api-inference.huggingface.co/models/facebook/bart-large-mnli', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer ' + token,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                inputs: text,
+                                parameters: {
+                                    candidate_labels: candidates,
+                                    multi_label: true
+                                }
+                            })
+                        }
+                    );
+
+                    if (!resp.ok) {
+                        let errMsg = `API error: ${resp.status}`;
+                        try {
+                            const errBody = await resp.json();
+                            if (errBody.error) errMsg += ' — ' + errBody.error;
+                        } catch (_) { /* ignore */ }
+                        throw new Error(errMsg);
+                    }
+
+                    const data = await resp.json();
+                    // data: { labels: [...], scores: [...] }
+
+                    // Extract top label
+                    const labels = data.labels || [];
+                    const scores = data.scores || [];
+                    const topIndex = scores.indexOf(Math.max(...scores));
+                    const topLabel = labels[topIndex] || 'unknown';
+                    const topScore = scores[topIndex] || 0;
+
+                    // Simple extraction: try to pull out file path, error code, line number
+                    const fileMatch = text.match(/(?:open|read|write|stat|access)\s+['"]?([^'"\n]+)['"]?/i);
+                    const path = fileMatch ? fileMatch[1] : null;
+                    const lineMatch = text.match(/:(\d+):\d+\)?/);
+                    const line = lineMatch ? parseInt(lineMatch[1]) : null;
+                    const errorCodeMatch = text.match(/([A-Z]{3,5}:[A-Z0-9_]+)/);
+                    const errorCode = errorCodeMatch ? errorCodeMatch[1] : null;
+
+                    // Build structured output
+                    const structured = {
+                        raw: text,
+                        classification: {
+                            top_label: topLabel,
+                            confidence: Math.round(topScore * 100) / 100,
+                            all_scores: labels.map((l, i) => ({ label: l, score: Math.round(scores[i] * 100) / 100 }))
+                        },
+                        extracted: {
+                            file_path: path,
+                            line_number: line,
+                            error_code: errorCode,
+                            suggestion: topLabel === 'file not found' ? 'Check the file path and permissions.' :
+                                topLabel === 'permission denied' ? 'Verify file permissions and ownership.' :
+                                topLabel === 'syntax error' ? 'Review the syntax around the reported line.' :
+                                topLabel === 'connection refused' ? 'Check if the service is running and the port is open.' :
+                                topLabel === 'authentication failed' ? 'Verify your credentials and tokens.' :
+                                topLabel === 'rate limited' ? 'Slow down requests or check your quota.' :
+                                topLabel === 'configuration error' ? 'Review your config files and environment variables.' :
+                                topLabel === 'dependency missing' ? 'Install the required dependency.' :
+                                'Review the error message for details.'
+                        }
+                    };
+
+                    // Build export JSON
+                    const exportJson = {
+                        zcac: true,
+                        kind: 'structured-log',
+                        data: structured
+                    };
+                    currentOutput = structured;
+                    currentRawJson = JSON.stringify(exportJson, null, 2);
+
+                    // Render
+                    outputArea.textContent = currentRawJson;
+
+                    // Saved readout: ~8 sec per line (manual review)
+                    const lineCount = text.split('\n').filter(l => l.trim()).length;
+                    const savedSec = Math.round(lineCount * 8);
+                    savedReadout.textContent = savedSec > 0 ? `~${savedSec}s saved` : '—';
+                    savedAssumption.textContent = `Assumption: ~8 sec to manually scan and transcribe each line (${lineCount} lines).`;
+
+                    // Store for import
+                    try {
+                        sessionStorage.setItem('zcac_last_structured', JSON.stringify(exportJson));
+                    } catch (_) {}
+
+                } catch (err) {
+                    outputArea.innerHTML = `<span style="color:#f87171;">✗ Error: ${err.message}</span>`;
+                } finally {
+                    parseBtn.disabled = false;
+                    parseBtn.textContent = 'Parse & classify';
+                }
+            }
+
+            parseBtn.addEventListener('click', parseLog);
+
+            // Ctrl+Enter shortcut
+            logInput.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    parseBtn.click();
+                }
+            });
+
+            // ---- COPY / DOWNLOAD JSON ----
+            copyJsonBtn.addEventListener('click', function() {
+                if (!currentRawJson) {
+                    outputArea.innerHTML = '<span class="empty">✗ No output to copy — parse a log first.</span>';
+                    return;
+                }
+                navigator.clipboard.writeText(currentRawJson).then(() => {
+                    const orig = copyJsonBtn.textContent;
+                    copyJsonBtn.textContent = '✓ Copied!';
+                    setTimeout(() => copyJsonBtn.textContent = orig, 1800);
+                }).catch(() => {
+                    // fallback
+                    const ta = document.createElement('textarea');
+                    ta.value = currentRawJson;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    const orig = copyJsonBtn.textContent;
+                    copyJsonBtn.textContent = '✓ Copied!';
+                    setTimeout(() => copyJsonBtn.textContent = orig, 1800);
+                });
+            });
+
+            downloadJsonBtn.addEventListener('click', function() {
+                if (!currentRawJson) {
+                    outputArea.innerHTML = '<span class="empty">✗ No output to download — parse a log first.</span>';
+                    return;
+                }
+                const blob = new Blob([currentRawJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'structured-log_' + new Date().toISOString().slice(0, 10) + '.json';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            });
+
+            // ---- IMPORT ----
+            importBtn.addEventListener('click', function() {
+                const raw = importBox.value.trim();
+                if (!raw) {
+                    importStatus.textContent = '✗ Paste some JSON first.';
+                    importStatus.style.color = '#f87171';
+                    return;
+                }
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (!parsed.zcac || parsed.kind !== 'structured-log' || !parsed.data) {
+                        importStatus.textContent = '✗ Not a valid zcac structured-log export.';
+                        importStatus.style.color = '#f87171';
+                        return;
+                    }
+                    // Restore
+                    currentOutput = parsed.data;
+                    currentRawJson = JSON.stringify(parsed, null, 2);
+                    outputArea.textContent = currentRawJson;
+                    const text = parsed.data.raw || '';
+                    if (text) logInput.value = text;
+                    charCount.textContent = text.length + ' chars';
+                    // readout
+                    const lineCount = text.split('\n').filter(l => l.trim()).length;
+                    const savedSec = Math.round(lineCount * 8);
+                    savedReadout.textContent = savedSec > 0 ? `~${savedSec}s saved` : '—';
+                    savedAssumption.textContent = `Assumption: ~8 sec per line (${lineCount} lines).`;
+                    importStatus.textContent = '✓ Imported successfully.';
+                    importStatus.style.color = 'var(--accent)';
+                } catch (e) {
+                    importStatus.textContent = '✗ Invalid JSON: ' + e.message;
+                    importStatus.style.color = '#f87171';
+                }
+            });
+
+            // ---- SHARE ----
+            shareX.addEventListener('click', function() {
+                const url = encodeURIComponent(window.location.href);
+                const text = encodeURIComponent('Log Parser: turn raw errors into structured JSON with zero-shot AI — free, no card.');
+                window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+            });
+
+            shareCopy.addEventListener('click', function() {
+                navigator.clipboard.writeText(window.location.href).then(() => {
+                    const orig = shareCopy.textContent;
+                    shareCopy.textContent = '✓ Link copied!';
+                    setTimeout(() => shareCopy.textContent = orig, 1800);
+                }).catch(() => {
+                    // fallback
+                    const input = document.createElement('input');
+                    input.value = window.location.href;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    input.remove();
+                    const orig = shareCopy.textContent;
+                    shareCopy.textContent = '✓ Link copied!';
+                    setTimeout(() => shareCopy.textContent = orig, 1800);
+                });
+            });
+
+            // ---- RESTORE FROM SESSION on load ----
+            try {
+                const saved = sessionStorage.getItem('zcac_last_structured');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.zcac && parsed.kind === 'structured-log' && parsed.data) {
+                        currentOutput = parsed.data;
+                        currentRawJson = JSON.stringify(parsed, null, 2);
+                        outputArea.textContent = currentRawJson;
+                        if (parsed.data.raw) {
+                            logInput.value = parsed.data.raw;
+                            charCount.textContent = parsed.data.raw.length + ' chars';
+                            const lineCount = parsed.data.raw.split('\n').filter(l => l.trim()).length;
+                            const savedSec = Math.round(lineCount * 8);
+                            savedReadout.textContent = savedSec > 0 ? `~${savedSec}s saved` : '—';
+                            savedAssumption.textContent = `Assumption: ~8 sec per line (${lineCount} lines).`;
+                        }
+                    }
+                }
+            } catch (_) {}
+
+        })();
+    </script>
+</body>
+</html>
