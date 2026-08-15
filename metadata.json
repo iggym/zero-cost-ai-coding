@@ -595,6 +595,25 @@
   "pinned": false,
   "verified": "2026-08-15",
   "recheck_after": "2026-11-13"
+},{
+  "id": "0037",
+  "slug": "json-structure-explorer",
+  "title": "JSON Structure Explorer",
+  "hook": "Paste any JSON, see its type structure tree with inferred types, required/optional markers, nesting depth — then export TypeScript interfaces, JSON Schema, or all paths. Everything runs in your browser, no uploads.",
+  "path": "tools/json-structure-explorer.html",
+  "date": "2026-08-15",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "100% browser-native — no server, no API calls, no account needed. Paste JSON and the page analyzes it client-side with zero limits.",
+  "source_url": "https://stackoverflow.com/tags/json (361K+ questions); paid alternatives: jsonviewer.tools ($2.49/mo or $99 lifetime), ForgeJSON Pro ($12/mo), JSON Editor Online ($3/mo)",
+  "produces": "json-structure",
+  "accepts": ["json-structure"],
+  "tags": ["json", "typescript", "schema", "developer-tools", "structure-analysis"],
+  "reading_time_minutes": 1,
+  "pinned": false,
+  "verified": "2026-08-15",
+  "recheck_after": "2026-11-13"
 }
   ]
 }
