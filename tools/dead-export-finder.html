@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dead Export Finder — zero-cost-ai-coding</title>
+<meta name="description" content="Drop a repo folder in your browser and get the list of unused exports and unreachable files. Runs entirely client-side, no upload, no account.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1117; --panel:#141a22; --panel2:#1a222c; --line:#26303d;
+  --text:#dfe6ee; --dim:#8b98a9; --accent:#3ddc84; --accent-dim:#1f7a4c;
+  --warn:#e3b341; --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --body:'Inter',system-ui,-apple-system,sans-serif;
+}
+html[data-theme="light"]{
+  --bg:#f7f9fb; --panel:#fff; --panel2:#eef2f6; --line:#d6dde6;
+  --text:#151b23; --dim:#5b6672; --accent:#0f8a45; --accent-dim:#0f8a45;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);line-height:1.6;font-size:16px}
+.wrap{max-width:940px;margin:0 auto;padding:28px 20px 80px}
+a{color:var(--accent)}
+h1,h2,h3{font-family:var(--mono);line-height:1.25}
+h1{font-size:1.85rem;margin:.2em 0 .3em;letter-spacing:-.5px}
+h2{font-size:1.1rem;margin:2.2em 0 .6em;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:500}
+code,kbd{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:2px 5px;border-radius:4px}
+header.top{display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:var(--mono);font-size:.8rem}
+header.top a{color:var(--dim);text-decoration:none}
+header.top a:hover{color:var(--accent)}
+button{font-family:var(--mono);cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:7px 12px;font-size:.8rem}
+button:hover{border-color:var(--accent-dim)}
+button.primary{background:var(--accent);color:#05130b;border-color:var(--accent);font-weight:700}
+html[data-theme="light"] button.primary{color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+.lede{font-size:1.06rem;color:var(--text)}
+.lede strong{color:var(--accent);font-weight:600}
+.share{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap}
+.limit{font-family:var(--mono);font-size:.78rem;color:var(--dim);border-left:2px solid var(--accent-dim);padding:6px 0 6px 10px;margin:16px 0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+#drop{border:1.5px dashed var(--line);border-radius:10px;padding:34px 18px;text-align:center;background:var(--panel)}
+#drop.over{border-color:var(--accent);background:var(--panel2)}
+#drop p{margin:8px 0;color:var(--dim);font-size:.9rem}
+.opts{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:14px;font-size:.85rem;color:var(--dim)}
+label.ck{display:flex;gap:7px;align-items:center;cursor:pointer;font-family:var(--mono);font-size:.8rem}
+input[type=text]{font-family:var(--mono);font-size:.8rem;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-family:var(--mono);font-size:1.5rem;color:var(--accent);line-height:1.2}
+.stat span{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 10px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.tabs button[aria-selected="true"]{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+html[data-theme="light"] .tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.78rem}
+th{text-align:left;color:var(--dim);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+td{padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+tr:hover td{background:var(--panel2)}
+.name{color:var(--accent)}
+.kind{color:var(--dim);font-size:.9em}
+.scroll{max-height:440px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+pre{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-family:var(--mono);font-size:.78rem;margin:8px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.muted{color:var(--dim);font-size:.86rem}
+.empty{padding:26px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:.85rem}
+ol li,ul li{margin:.35em 0}
+footer{margin-top:46px;padding-top:14px;border-top:1px solid var(--line);font-size:.76rem;color:var(--dim);font-family:var(--mono)}
+.bar{height:3px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:10px;display:none}
+.bar div{height:100%;background:var(--accent);width:0%}
+@media (prefers-reduced-motion: no-preference){#drop,button{transition:border-color .15s,background .15s}.bar div{transition:width .12s linear}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <a href="https://iggym.github.io/zero-cost-ai-coding">← zero-cost-ai-coding</a>
+  <button id="theme" aria-label="Toggle colour theme">◐ theme</button>
+</header>
+
+<h1>Dead Export Finder</h1>
+
+<p class="lede">Drop your repo folder onto this page and get every <strong>unused export and unreachable file</strong> in it — a full import graph built in your browser, typically under a second for a few thousand files. Nothing uploads anywhere; the free tier is your own CPU, and <strong>GitHub Pages serves it under a soft 100 GB/month bandwidth cap</strong>.</p>
+
+<div class="share">
+  <button id="shareX">share on X</button>
+  <button id="shareLink">copy link</button>
+</div>
+
+<p class="limit">FREE-TIER LIMIT — Analysis is 100% client-side: no API, no key, no quota, no request cap. The only ceiling is browser memory (comfortable to ~20k files) and the GitHub Pages soft limit of 100 GB bandwidth/month + 1 GB site size that hosts this page.</p>
+
+<h2>What it replaces</h2>
+<p class="muted">Nothing paid, and that's the point — this is the job <a href="https://knip.dev" target="_blank" rel="noopener">Knip</a> and <a href="https://github.com/nadeesha/ts-prune" target="_blank" rel="noopener">ts-prune</a> do, and both are free and better than this at the deep end (monorepos, plugin configs, auto-fix). What they both cost you is a checkout, an <code>npm install</code>, and a config file before you see a single result. This is for the moment before that: a repo you're deciding whether to revive, someone else's codebase in a review, or a "how bad is it actually" check you want answered in fifteen seconds without installing anything. If the answer is "bad," install Knip.</p>
+
+<h2>Use it</h2>
+<div class="panel">
+  <div id="drop">
+    <p style="color:var(--text);font-family:var(--mono)">Drop a project folder here</p>
+    <p>or</p>
+    <div class="row" style="justify-content:center">
+      <button class="primary" id="pickDir">choose folder…</button>
+      <button id="demo">run the demo repo</button>
+    </div>
+    <p style="margin-top:14px">Files never leave your machine. <code>node_modules</code>, <code>dist</code>, <code>build</code>, <code>.git</code>, <code>coverage</code> and <code>.d.ts</code> are skipped automatically.</p>
+    <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+  </div>
+
+  <div class="opts">
+    <label class="ck"><input type="checkbox" id="incTests" checked> count tests as entry points</label>
+    <label class="ck"><input type="checkbox" id="hideTypes"> hide type-only exports</label>
+  </div>
+  <div style="margin-top:12px">
+    <label class="muted" for="entries">Extra entry points (comma-separated globs — files reachable from these are alive)</label>
+    <input type="text" id="entries" placeholder="src/index.ts, src/cli.ts, **/pages/**" style="margin-top:6px">
+  </div>
+  <div class="bar" id="bar"><div></div></div>
+</div>
+
+<div id="out" hidden>
+  <div class="stats" id="stats"></div>
+  <div class="tabs" id="tabs">
+    <button data-tab="exports" aria-selected="true">unused exports</button>
+    <button data-tab="local" aria-selected="false">used only in own file</button>
+    <button data-tab="files" aria-selected="false">unreachable files</button>
+    <button data-tab="report" aria-selected="false">report</button>
+  </div>
+  <div id="panelExports"></div>
+  <div id="panelLocal" hidden></div>
+  <div id="panelFiles" hidden></div>
+  <div id="panelReport" hidden>
+    <div class="row">
+      <button id="copyReport" class="primary">copy markdown report</button>
+      <button id="copyList">copy plain path list</button>
+      <button id="dl">download .md</button>
+    </div>
+    <pre id="reportPre"></pre>
+  </div>
+</div>
+
+<h2>How to read it</h2>
+<ol class="muted">
+  <li><b>Unused exports</b> — exported, never imported anywhere, and never referenced inside their own file either. These are the deletion candidates: drop the <code>export</code> keyword and the whole thing usually falls out.</li>
+  <li><b>Used only in own file</b> — the name is used locally but nothing imports it. Not dead code; just remove the <code>export</code> and it becomes a private helper. Kept separate because deleting these <em>would</em> break the build.</li>
+  <li><b>Unreachable files</b> — nothing reachable from your entry points imports them. Check these before deleting: a file loaded by a build tool, a glob, or a string path will show up here as a false positive.</li>
+</ol>
+<p class="muted">Verify anything before you delete it — the fastest check is to remove the <code>export</code> keyword, run your typechecker/build, and see if anything screams.</p>
+
+<h2>What breaks</h2>
+<ul class="muted">
+  <li><b>There's no cap to hit</b>, so nothing degrades on quota. Very large repos (20k+ files) will make the tab chug while it reads and parses; it's one pass, so it finishes, it just takes a few seconds.</li>
+  <li><b>It's a regex-and-heuristics parser, not a TypeScript compiler.</b> It strips comments and string bodies first (so a commented-out export doesn't count), resolves relative paths, <code>index</code> files, TS's <code>.js</code>→<code>.ts</code> rewriting, and <code>@/</code> + <code>~/</code> aliases. It does not read your <code>tsconfig.json</code> <code>paths</code> — custom aliases resolve to nothing, and their targets will look unreachable.</li>
+  <li><b>Dynamic and namespace imports widen the net, deliberately.</b> If a module is hit by <code>import * as x</code>, <code>require()</code>, or <code>import()</code>, every export in it is marked used, because the tool can't see which names get touched. That means false negatives (real dead code hidden), never false positives, in that direction.</li>
+  <li><b>Framework magic is invisible.</b> Exports consumed by convention — Next.js <code>getServerSideProps</code>, Vite <code>glob</code> imports, decorators, DI containers, anything referenced by string — look dead and aren't. Default entry globs already cover <code>pages/</code>, <code>app/</code>, configs and tests; add your own for the rest.</li>
+  <li><b>Public library entry points are excluded</b> from the unused-export list, since their consumers live outside the repo. If you're auditing an app rather than a library, that's a handful of exports it won't flag.</li>
+  <li><code>export * from</code> re-exports are counted as a wildcard use of the target module — the count of files doing this is shown in the stats, since it's the main reason a number comes back lower than expected.</li>
+  <li>Folder drop needs a Chromium browser or recent Safari/Firefox (<code>webkitdirectory</code>). Firefox handles the "choose folder" button fine but drag-and-drop of a folder is less reliable there.</li>
+</ul>
+
+<footer>
+  Free-tier claim verified 2026-08-15 against GitHub's own docs: <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits" target="_blank" rel="noopener">GitHub Pages limits</a> — soft 100 GB/month bandwidth, 1 GB published site. Analysis itself runs locally and has no provider or quota. · <a href="../">zero-cost-ai-coding</a>
+</footer>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------------- theme + share ---------------- */
+var root=document.documentElement;
+try{var sv=localStorage.getItem('zca-theme'); if(sv) root.setAttribute('data-theme',sv);}catch(e){}
+document.getElementById('theme').onclick=function(){
+  var n=root.getAttribute('data-theme')==='dark'?'light':'dark';
+  root.setAttribute('data-theme',n); try{localStorage.setItem('zca-theme',n);}catch(e){}
+};
+function flash(btn,msg){var o=btn.textContent;btn.textContent=msg;setTimeout(function(){btn.textContent=o;},1400);}
+function copy(text,btn,msg){
+  var done=function(){flash(btn,msg||'copied ✓');};
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,function(){fallback(text,done);});}
+  else fallback(text,done);
+}
+function fallback(text,done){
+  var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){}document.body.removeChild(ta);
+}
+document.getElementById('shareX').onclick=function(){
+  var t='Dead Export Finder: drop a repo folder in the browser, get every unused export and unreachable file. Runs client-side, nothing uploads.';
+  window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(t)+'&url='+encodeURIComponent(location.href),'_blank','noopener');
+};
+document.getElementById('shareLink').onclick=function(e){copy(location.href,e.currentTarget,'link copied ✓');};
+
+/* ================= ANALYSIS ENGINE ================= */
+var CODE_EXT=['ts','tsx','js','jsx','mjs','cjs','mts','cts'];
+var SKIP_DIR=/(^|\/)(node_modules|\.git|dist|build|out|coverage|\.next|\.nuxt|\.svelte-kit|vendor|__snapshots__|\.venv|target)(\/|$)/;
+
+function isCode(p){
+  if(SKIP_DIR.test(p))return false;
+  if(/\.min\.js$/.test(p))return false;
+  if(/\.d\.ts$/.test(p))return false;
+  return CODE_EXT.indexOf(p.split('.').pop().toLowerCase())>-1;
+}
+
+/* Blank out comments and string bodies, preserving length and newlines, so
+   offsets stay valid but their contents can't produce phantom matches. */
+function blankNonCode(src){
+  var out=src.split(''),i=0,n=src.length,state='code',quote='';
+  while(i<n){
+    var c=src[i],d=src[i+1];
+    if(state==='code'){
+      if(c==='/'&&d==='/'){state='line';out[i]=out[i+1]=' ';i+=2;continue;}
+      if(c==='/'&&d==='*'){state='block';out[i]=out[i+1]=' ';i+=2;continue;}
+      if(c==='"'||c==="'"||c==='`'){state='str';quote=c;i++;continue;}
+      i++;continue;
+    }
+    if(state==='line'){if(c==='\n')state='code';else out[i]=' ';i++;continue;}
+    if(state==='block'){if(c==='*'&&d==='/'){out[i]=out[i+1]=' ';i+=2;state='code';continue;}if(c!=='\n')out[i]=' ';i++;continue;}
+    if(state==='str'){
+      if(c==='\\'){out[i]=' ';if(i+1<n&&src[i+1]!=='\n')out[i+1]=' ';i+=2;continue;}
+      if(c===quote){state='code';i++;continue;}
+      if(quote==='`'&&c==='$'&&d==='{'){ /* template expr: leave as code */
+        i+=2;var depth=1;
+        while(i<n&&depth>0){if(src[i]==='{')depth++;else if(src[i]==='}'){depth--;if(depth===0){i++;break;}}i++;}
+        continue;
+      }
+      if(c!=='\n')out[i]=' ';
+      i++;continue;
+    }
+  }
+  return out.join('');
+}
+function lineIndex(src){var arr=[0];for(var i=0;i<src.length;i++)if(src[i]==='\n')arr.push(i+1);return arr;}
+function lineOf(idx,starts){var lo=0,hi=starts.length-1;while(lo<hi){var m=(lo+hi+1)>>1;if(starts[m]<=idx)lo=m;else hi=m-1;}return lo+1;}
+function esc(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+
+function parseExports(raw){
+  var src=blankNonCode(raw),starts=lineIndex(src),found=[],seen={};
+  function add(name,idx,kind){
+    if(!name||seen[name])return;
+    seen[name]=1;found.push({name:name,line:lineOf(idx,starts),kind:kind});
+  }
+  var m,re;
+  re=/\bexport\s+default\b/g; while((m=re.exec(src)))add('default',m.index,'default');
+
+  re=/\bexport\s*\{([^}]*)\}/g;
+  while((m=re.exec(src))){
+    var idx=m.index;
+    m[1].split(',').forEach(function(part){
+      var p=part.trim(); if(!p)return;
+      var bits=p.replace(/\btype\s+/,'').split(/\s+as\s+/);
+      var ex=(bits[1]||bits[0]).trim();
+      if(/^[A-Za-z_$][\w$]*$/.test(ex))add(ex,idx,'named');
+    });
+  }
+  /* `export default class X {}` exports "default", not X — skip those here. */
+  re=/\bexport\s+(?:declare\s+)?(default\s+)?(?:async\s+)?(const|let|var|function\*?|class|type|interface|enum|abstract\s+class)\s+([A-Za-z_$][\w$]*)/g;
+  while((m=re.exec(src))){ if(m[1])continue; add(m[3],m.index,m[2].split(/\s+/)[0]); }
+
+  re=/\bexport\s+(?:const|let|var)\s*([{[])([^}\]]*)[}\]]\s*=/g;
+  while((m=re.exec(src))){
+    var at=m.index;
+    m[2].split(',').forEach(function(part){
+      var nm=part.split(':').pop().split('=')[0].trim().replace(/^\.\.\./,'');
+      if(/^[A-Za-z_$][\w$]*$/.test(nm))add(nm,at,'const');
+    });
+  }
+  re=/\b(?:module\.)?exports\.([A-Za-z_$][\w$]*)\s*=/g;
+  while((m=re.exec(src)))add(m[1],m.index,'cjs');
+
+  /* local usage: referenced again inside its own file? */
+  var scan=src.replace(/\bexport\s*\{[^}]*\}/g,' ');
+  var supportsLookbehind=true;
+  try{new RegExp('(?<!x)y');}catch(e){supportsLookbehind=false;}
+  found.forEach(function(e){
+    if(e.name==='default'){e.localUses=0;return;}
+    var pat=supportsLookbehind?'(?<![\\w$.])'+esc(e.name)+'(?![\\w$])':'(^|[^\\w$.])'+esc(e.name)+'(?![\\w$])';
+    var hits=(scan.match(new RegExp(pat,'g'))||[]).length;
+    e.localUses=Math.max(0,hits-1);
+  });
+
+  return {exports:found,hasStarExport:/\bexport\s*\*\s*(?:as\s+[A-Za-z_$][\w$]*\s*)?from\b/.test(src)};
+}
+
+function clauseNames(clause){
+  if(!clause)return [[],false];
+  var ns=false,names=[];
+  var braced=clause.match(/\{([^}]*)\}/);
+  var outside=clause.replace(/\{[^}]*\}/g,'');
+  if(/\*\s*as\s+[A-Za-z_$][\w$]*/.test(outside))ns=true;
+  outside.split(',').forEach(function(p){
+    var t=p.trim(); if(!t||t.charAt(0)==='*')return;
+    if(/^[A-Za-z_$][\w$]*$/.test(t))names.push('default');
+  });
+  if(braced)braced[1].split(',').forEach(function(p){
+    var t=p.trim().replace(/^type\s+/,''); if(!t)return;
+    var orig=t.split(/\s+as\s+/)[0].trim();
+    if(/^[A-Za-z_$][\w$]*$/.test(orig))names.push(orig);
+  });
+  return [names,ns];
+}
+
+function parseImports(raw){
+  var src=blankNonCode(raw),specs=[],m,re;
+  function readSpec(endOfMatch){
+    var qi=endOfMatch-1,q=raw[qi],end=raw.indexOf(q,qi+1);
+    return end<0?null:raw.slice(qi+1,end);
+  }
+  re=/\bimport\s+(?:type\s+)?(?:([\s\S]*?)\s+from\s+)?['"`]/g;
+  while((m=re.exec(src))){
+    var s=readSpec(m.index+m[0].length); if(s===null)continue;
+    var cn=clauseNames((m[1]||'').trim());
+    specs.push({spec:s,names:cn[0],ns:cn[1]});
+  }
+  re=/\bexport\s+(?:type\s+)?(\*(?:\s+as\s+[A-Za-z_$][\w$]*)?|\{[^}]*\})\s+from\s+['"`]/g;
+  while((m=re.exec(src))){
+    var s2=readSpec(m.index+m[0].length); if(s2===null)continue;
+    var cl=m[1].trim();
+    if(cl.charAt(0)==='*')specs.push({spec:s2,names:[],ns:true});
+    else{var c2=clauseNames(cl);specs.push({spec:s2,names:c2[0],ns:c2[1]});}
+  }
+  re=/\b(?:require|import)\s*\(\s*['"`]/g;
+  while((m=re.exec(src))){
+    var s3=readSpec(m.index+m[0].length); if(s3===null)continue;
+    specs.push({spec:s3,names:[],ns:true});
+  }
+  return specs;
+}
+
+function normalize(p){
+  var parts=[];
+  p.split('/').forEach(function(x){
+    if(x==='.'||x==='')return;
+    if(x==='..')parts.pop(); else parts.push(x);
+  });
+  return parts.join('/');
+}
+function resolve(fromFile,spec,fileSet,aliases){
+  var base=null,i;
+  if(spec.indexOf('./')===0||spec.indexOf('../')===0){
+    base=normalize(fromFile.split('/').slice(0,-1).join('/')+'/'+spec);
+  }else{
+    for(i=0;i<aliases.length;i++){
+      var pre=aliases[i][0],tgt=aliases[i][1];
+      if(spec===pre||spec.indexOf(pre+'/')===0){base=normalize(tgt+spec.slice(pre.length));break;}
+    }
+    if(base===null)return null; /* bare package */
+  }
+  var cands=[base],jsExt=base.match(/\.(js|mjs|cjs)$/);
+  if(jsExt){var stem=base.replace(/\.(js|mjs|cjs)$/,'');cands.push(stem+'.ts',stem+'.tsx',stem);}
+  for(i=0;i<CODE_EXT.length;i++)cands.push(base+'.'+CODE_EXT[i]);
+  for(i=0;i<CODE_EXT.length;i++)cands.push(base+'/index.'+CODE_EXT[i]);
+  for(i=0;i<cands.length;i++)if(fileSet[cands[i]])return cands[i];
+  return null;
+}
+
+var BASE_ENTRY=['**/index.{ts,tsx,js,jsx,mjs,cjs}','src/main.*','src/app.*','src/index.*',
+  '**/*.config.*','**/pages/**','**/app/**/{page,layout,route,loading,error,template,default}.*',
+  'scripts/**','**/*.stories.*'];
+var TEST_ENTRY=['**/*.test.*','**/*.spec.*','test/**','tests/**','**/__tests__/**','**/*.bench.*'];
+
+function globToRe(glob){
+  var re='',i=0;
+  while(i<glob.length){
+    var c=glob[i];
+    if(c==='*'&&glob[i+1]==='*'){
+      if(glob[i+2]==='/'){re+='(?:.*/)?';i+=3;}else{re+='.*';i+=2;}
+      continue;
+    }
+    if(c==='*'){re+='[^/]*';i++;continue;}
+    if(c==='?'){re+='[^/]';i++;continue;}
+    if(c==='{'){
+      var close=glob.indexOf('}',i);
+      if(close>-1){
+        re+='(?:'+glob.slice(i+1,close).split(',').map(function(s){
+          return s.trim().replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'[^/]*');
+        }).join('|')+')';
+        i=close+1;continue;
+      }
+    }
+    re+=c.replace(/[.+^${}()|[\]\\]/g,'\\$&');
+    i++;
+  }
+  return new RegExp('^'+re+'$');
+}
+
+function analyze(files,opts){
+  opts=opts||{};
+  var globs=BASE_ENTRY.concat(opts.includeTests?TEST_ENTRY:[]).concat(opts.extra||[]);
+  var entryRes=globs.map(globToRe);
+  var aliases=[['@','src'],['~','src'],['@','.'],['#','src']];
+  var code=files.filter(function(f){return isCode(f.path);});
+  var fileSet={},info={},i;
+  code.forEach(function(f){fileSet[f.path]=1;});
+
+  code.forEach(function(f){
+    var ex=parseExports(f.text);
+    info[f.path]={path:f.path,exports:ex.exports,hasStarExport:ex.hasStarExport,
+      imports:parseImports(f.text),used:{},wildcard:false,importedBy:{},importedByN:0,
+      lines:f.text.split('\n').length,bytes:f.text.length};
+  });
+
+  /* pass 1 — resolve edges */
+  var edges={},unresolved=[];
+  Object.keys(info).forEach(function(p){
+    var f=info[p],list=[];
+    f.imports.forEach(function(imp){
+      var t=resolve(p,imp.spec,fileSet,aliases);
+      if(!t){ if(imp.spec.charAt(0)==='.')unresolved.push({from:p,spec:imp.spec}); return; }
+      if(t===p)return;
+      list.push({target:t,imp:imp});
+    });
+    edges[p]=list;
+  });
+
+  /* pass 2 — reachability from entries */
+  function isEntry(p){for(var k=0;k<entryRes.length;k++)if(entryRes[k].test(p))return true;return false;}
+  var entries=Object.keys(info).filter(isEntry);
+  var reachable={},stack=entries.slice();
+  while(stack.length){
+    var p2=stack.pop();
+    if(reachable[p2])continue;
+    reachable[p2]=1;
+    (edges[p2]||[]).forEach(function(e){if(!reachable[e.target])stack.push(e.target);});
+  }
+
+  /* pass 3 — usage, counted only from live files */
+  Object.keys(edges).forEach(function(from){
+    if(!reachable[from])return;
+    edges[from].forEach(function(e){
+      var t=info[e.target];
+      if(!t.importedBy[from]){t.importedBy[from]=1;t.importedByN++;}
+      if(e.imp.ns||e.imp.names.length===0)t.wildcard=true;
+      e.imp.names.forEach(function(n){t.used[n]=1;});
+    });
+  });
+
+  var unusedExports=[],localOnly=[],unusedFiles=[],starFiles=0,wildcardFiles=0,totalExports=0;
+  Object.keys(info).forEach(function(p){
+    var f=info[p];
+    if(!reachable[p]){unusedFiles.push({path:p,lines:f.lines,bytes:f.bytes,exports:f.exports.length});return;}
+    totalExports+=f.exports.length;
+    if(f.hasStarExport)starFiles++;
+    if(f.wildcard){wildcardFiles++;return;}
+    if(isEntry(p))return;
+    f.exports.forEach(function(e){
+      if(f.used[e.name])return;
+      var row={path:p,name:e.name,line:e.line,kind:e.kind,importedBy:f.importedByN,localUses:e.localUses||0};
+      if(row.localUses>0)localOnly.push(row); else unusedExports.push(row);
+    });
+  });
+
+  var bySite=function(a,b){return a.path<b.path?-1:a.path>b.path?1:a.line-b.line;};
+  unusedExports.sort(bySite); localOnly.sort(bySite);
+  unusedFiles.sort(function(a,b){return b.lines-a.lines;});
+
+  return {scanned:code.length,total:files.length,entries:entries.length,totalExports:totalExports,
+    unusedExports:unusedExports,localOnly:localOnly,unusedFiles:unusedFiles,
+    unresolved:unresolved,starFiles:starFiles,wildcardFiles:wildcardFiles,
+    deadLines:unusedFiles.reduce(function(s,f){return s+f.lines;},0)};
+}
+
+/* ================= UI ================= */
+var out=document.getElementById('out'),bar=document.getElementById('bar'),barFill=bar.firstElementChild;
+var lastResult=null,lastName='project';
+
+function h(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+function table(rows,cols){
+  if(!rows.length)return '<div class="empty">nothing here — clean on this axis ✓</div>';
+  var head='<tr>'+cols.map(function(c){return '<th>'+c[0]+'</th>';}).join('')+'</tr>';
+  var body=rows.map(function(r){
+    return '<tr>'+cols.map(function(c){return '<td>'+c[1](r)+'</td>';}).join('')+'</tr>';
+  }).join('');
+  return '<div class="scroll"><table>'+head+body+'</table></div>';
+}
+
+function render(){
+  var r=lastResult; if(!r)return;
+  var hideTypes=document.getElementById('hideTypes').checked;
+  var typeK={type:1,interface:1};
+  var ue=r.unusedExports.filter(function(x){return !(hideTypes&&typeK[x.kind]);});
+  var lo=r.localOnly.filter(function(x){return !(hideTypes&&typeK[x.kind]);});
+
+  document.getElementById('stats').innerHTML=
+    stat(r.scanned,'files scanned')+
+    stat(ue.length,'unused exports')+
+    stat(lo.length,'export-only-locally')+
+    stat(r.unusedFiles.length,'unreachable files')+
+    stat(r.deadLines.toLocaleString(),'lines in those files')+
+    stat(r.entries,'entry points');
+
+  document.getElementById('panelExports').innerHTML=
+    '<p class="muted">Exported, never imported, never used in its own file. Deletion candidates.</p>'+
+    table(ue,[['file',function(r){return h(r.path)+'<span class="kind">:'+r.line+'</span>';}],
+              ['export',function(r){return '<span class="name">'+h(r.name)+'</span>';}],
+              ['kind',function(r){return '<span class="kind">'+h(r.kind)+'</span>';}],
+              ['importers of file',function(r){return r.importedBy;}]]);
+
+  document.getElementById('panelLocal').innerHTML=
+    '<p class="muted">Used inside its own file but imported by nobody. Don\'t delete — just drop the <code>export</code> keyword.</p>'+
+    table(lo,[['file',function(r){return h(r.path)+'<span class="kind">:'+r.line+'</span>';}],
+              ['export',function(r){return '<span class="name">'+h(r.name)+'</span>';}],
+              ['kind',function(r){return '<span class="kind">'+h(r.kind)+'</span>';}],
+              ['local uses',function(r){return r.localUses;}]]);
+
+  document.getElementById('panelFiles').innerHTML=
+    '<p class="muted">Not reachable from any entry point. Check for build-tool/string-path loading before deleting.</p>'+
+    table(r.unusedFiles,[['file',function(r){return h(r.path);}],
+              ['lines',function(r){return r.lines;}],
+              ['exports',function(r){return r.exports;}]]);
+
+  document.getElementById('reportPre').textContent=buildReport(ue,lo,r);
+  out.hidden=false;
+}
+function stat(v,l){return '<div class="stat"><b>'+v+'</b><span>'+l+'</span></div>';}
+
+function buildReport(ue,lo,r){
+  var L=[];
+  L.push('# Dead code report — '+lastName);
+  L.push('');
+  L.push('Generated '+new Date().toISOString().slice(0,10)+' with Dead Export Finder (client-side static analysis).');
+  L.push('');
+  L.push('| metric | count |');
+  L.push('|---|---|');
+  L.push('| files scanned | '+r.scanned+' |');
+  L.push('| entry points | '+r.entries+' |');
+  L.push('| unused exports | '+ue.length+' |');
+  L.push('| exported but used only locally | '+lo.length+' |');
+  L.push('| unreachable files | '+r.unusedFiles.length+' ('+r.deadLines+' lines) |');
+  L.push('| files with wildcard/dynamic imports (not analysed for unused exports) | '+r.wildcardFiles+' |');
+  L.push('');
+  L.push('## Unused exports ('+ue.length+')');
+  L.push(ue.length?'':'_none_');
+  ue.forEach(function(x){L.push('- `'+x.path+':'+x.line+'` — **'+x.name+'** ('+x.kind+')');});
+  L.push('');
+  L.push('## Exported but used only in own file ('+lo.length+')');
+  L.push('Remove the `export` keyword; do not delete.');
+  L.push(lo.length?'':'_none_');
+  lo.forEach(function(x){L.push('- `'+x.path+':'+x.line+'` — **'+x.name+'** ('+x.kind+', '+x.localUses+' local uses)');});
+  L.push('');
+  L.push('## Unreachable files ('+r.unusedFiles.length+')');
+  L.push(r.unusedFiles.length?'':'_none_');
+  r.unusedFiles.forEach(function(f){L.push('- `'+f.path+'` — '+f.lines+' lines, '+f.exports+' exports');});
+  if(r.unresolved.length){
+    L.push('');
+    L.push('## Unresolved relative imports ('+r.unresolved.length+')');
+    L.push('These point at paths not present in the scanned set — often a tsconfig alias or a generated file.');
+    r.unresolved.slice(0,40).forEach(function(u){L.push('- `'+u.from+'` → `'+u.spec+'`');});
+  }
+  L.push('');
+  L.push('_Heuristic analysis: dynamic imports, framework conventions and tsconfig `paths` aliases are not fully resolved. Verify before deleting._');
+  return L.join('\n');
+}
+
+document.getElementById('tabs').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  [].forEach.call(this.querySelectorAll('button'),function(x){x.setAttribute('aria-selected',String(x===b));});
+  var map={exports:'panelExports',local:'panelLocal',files:'panelFiles',report:'panelReport'};
+  Object.keys(map).forEach(function(k){document.getElementById(map[k]).hidden=(k!==b.dataset.tab);});
+});
+document.getElementById('hideTypes').onchange=render;
+document.getElementById('incTests').onchange=function(){if(lastFiles)run(lastFiles,lastName);};
+document.getElementById('entries').addEventListener('change',function(){if(lastFiles)run(lastFiles,lastName);});
+
+document.getElementById('copyReport').onclick=function(e){copy(document.getElementById('reportPre').textContent,e.currentTarget,'report copied ✓');};
+document.getElementById('copyList').onclick=function(e){
+  var r=lastResult;
+  var lines=r.unusedExports.map(function(x){return x.path+':'+x.line+' '+x.name;})
+    .concat(r.unusedFiles.map(function(f){return f.path;}));
+  copy(lines.join('\n'),e.currentTarget,'list copied ✓');
+};
+document.getElementById('dl').onclick=function(){
+  var blob=new Blob([document.getElementById('reportPre').textContent],{type:'text/markdown'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='dead-code-'+lastName+'.md';a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+};
+
+/* ---------------- input handling ---------------- */
+var lastFiles=null;
+function run(files,name){
+  lastFiles=files; lastName=name||'project';
+  var extra=document.getElementById('entries').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  lastResult=analyze(files,{includeTests:document.getElementById('incTests').checked,extra:extra});
+  render();
+  out.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+}
+
+function readAll(fileList){
+  var files=[].slice.call(fileList).filter(function(f){
+    var p=f.webkitRelativePath||f.name;
+    return isCode(p)&&f.size<2000000;
+  });
+  if(!files.length){alert('No analysable .ts/.tsx/.js/.jsx files found in that folder.');return;}
+  bar.style.display='block';barFill.style.width='0%';
+  var res=[],done=0;
+  var root='';
+  var first=files[0].webkitRelativePath||'';
+  if(first.indexOf('/')>-1)root=first.split('/')[0];
+  function strip(p){return root&&p.indexOf(root+'/')===0?p.slice(root.length+1):p;}
+  var CONC=24,idx=0;
+  function next(){
+    if(idx>=files.length)return;
+    var f=files[idx++];
+    var fr=new FileReader();
+    fr.onload=function(){
+      res.push({path:strip(f.webkitRelativePath||f.name),text:fr.result});
+      done++;barFill.style.width=(done/files.length*100).toFixed(1)+'%';
+      if(done===files.length){bar.style.display='none';run(res,root||'project');}
+      else next();
+    };
+    fr.onerror=function(){done++;if(done===files.length){bar.style.display='none';run(res,root||'project');}else next();};
+    fr.readAsText(f);
+  }
+  for(var k=0;k<Math.min(CONC,files.length);k++)next();
+}
+
+var dirInput=document.getElementById('dirInput'),drop=document.getElementById('drop');
+document.getElementById('pickDir').onclick=function(){dirInput.click();};
+dirInput.onchange=function(){if(dirInput.files.length)readAll(dirInput.files);};
+
+['dragenter','dragover'].forEach(function(ev){
+  drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('over');});
+});
+['dragleave','drop'].forEach(function(ev){
+  drop.addEventListener(ev,function(e){e.preventDefault();if(ev==='drop'||e.target===drop)drop.classList.remove('over');});
+});
+drop.addEventListener('drop',function(e){
+  e.preventDefault();
+  var items=e.dataTransfer.items;
+  if(items&&items.length&&items[0].webkitGetAsEntry){
+    var entries=[];
+    for(var i=0;i<items.length;i++){var en=items[i].webkitGetAsEntry();if(en)entries.push(en);}
+    var collected=[],pending=0,rootName=entries.length===1&&entries[0].isDirectory?entries[0].name:'project';
+    bar.style.display='block';barFill.style.width='10%';
+    function walk(entry,path){
+      pending++;
+      if(entry.isFile){
+        entry.file(function(f){
+          var p=path+entry.name;
+          if(isCode(p)&&f.size<2000000){
+            var fr=new FileReader();
+            fr.onload=function(){collected.push({path:p,text:fr.result});finish();};
+            fr.onerror=finish; fr.readAsText(f);
+          } else finish();
+        },finish);
+      } else if(entry.isDirectory){
+        if(SKIP_DIR.test(path+entry.name+'/')){finish();return;}
+        var rd=entry.createReader(),all=[];
+        (function readBatch(){
+          rd.readEntries(function(res){
+            if(!res.length){all.forEach(function(x){walk(x,path+entry.name+'/');});finish();return;}
+            all=all.concat(res);readBatch();
+          },finish);
+        })();
+      } else finish();
+    }
+    function finish(){
+      pending--;
+      if(pending===0){
+        bar.style.display='none';
+        if(!collected.length){alert('No analysable source files found in that drop.');return;}
+        var strip=rootName!=='project'?function(p){return p.indexOf(rootName+'/')===0?p.slice(rootName.length+1):p;}:function(p){return p;};
+        run(collected.map(function(f){return {path:strip(f.path),text:f.text};}),rootName);
+      }
+    }
+    entries.forEach(function(en){walk(en,'');});
+  } else if(e.dataTransfer.files&&e.dataTransfer.files.length){
+    readAll(e.dataTransfer.files);
+  }
+});
+
+/* ---------------- demo repo ---------------- */
+document.getElementById('demo').onclick=function(){
+  run(DEMO,'demo-app');
+};
+var DEMO=[
+{path:'src/index.ts',text:"import {createApp} from './core/factory';\nimport {formatDate} from './utils/date';\nimport {API_BASE} from './config';\n\nconst app = createApp({base: API_BASE});\nconsole.log('booted at', formatDate(new Date()));\n\nexport default app;\n"},
+{path:'src/core/factory.ts',text:"import {Router} from '../router';\nimport {logger} from '../utils/log';\n\nexport function createApp(opts: {base: string}) {\n  const router = new Router();\n  logger.info('app created', opts.base);\n  return {router, opts};\n}\n\n// Left over from the v1 rewrite — nothing calls it any more.\nexport function createLegacyApp() {\n  return {legacy: true};\n}\n"},
+{path:'src/router.ts',text:"export class Router {\n  private routes: string[] = [];\n  add(path: string) { this.routes.push(path); return this; }\n  match(path: string) { return this.routes.includes(path); }\n}\n\nexport interface RouteMeta { title: string; auth: boolean }\n\nexport const DEFAULT_ROUTE = '/';\n"},
+{path:'src/config.ts',text:"export const API_BASE = 'https://api.example.com';\nexport const TIMEOUT_MS = 8000;\nexport const RETRIES = 3;\n\nconst RATE_LIMIT = 60;\nexport function budget() { return RATE_LIMIT * RETRIES; }\n"},
+{path:'src/utils/date.ts',text:"const PAD = (n: number) => String(n).padStart(2, '0');\n\nexport function formatDate(d: Date) {\n  return d.getFullYear() + '-' + PAD(d.getMonth() + 1) + '-' + PAD(d.getDate());\n}\n\nexport function formatTime(d: Date) {\n  return PAD(d.getHours()) + ':' + PAD(d.getMinutes());\n}\n\n// Used by formatRange below, but nothing outside this file imports either one.\nexport function daysBetween(a: Date, b: Date) {\n  return Math.round((+b - +a) / 86400000);\n}\n\nexport function formatRange(a: Date, b: Date) {\n  return formatDate(a) + ' → ' + formatDate(b) + ' (' + daysBetween(a, b) + 'd)';\n}\n\n// This one only looks exported — it's inside a string.\nconst hint = \"export function notReal() {}\";\n"},
+{path:'src/utils/log.ts',text:"export const logger = {\n  info: (...a: unknown[]) => console.log('[info]', ...a),\n  warn: (...a: unknown[]) => console.warn('[warn]', ...a)\n};\n\n/* export const debugLogger = ... — commented out months ago, must not be counted */\n\nexport type LogLevel = 'info' | 'warn' | 'error';\n"},
+{path:'src/legacy/migrate-v1.ts',text:"import {logger} from '../utils/log';\n\nexport function migrateV1(rows: unknown[]) {\n  logger.warn('migrating', rows.length);\n  return rows;\n}\n\nexport const V1_SCHEMA_VERSION = 1;\nexport const V1_TABLES = ['users', 'sessions', 'tokens'];\n"},
+{path:'src/legacy/old-client.ts',text:"import {migrateV1} from './migrate-v1';\n\nexport class OldClient {\n  sync(rows: unknown[]) { return migrateV1(rows); }\n}\n"},
+{path:'src/utils/date.test.ts',text:"import {formatDate, formatTime} from './date';\n\ntest('formats', () => {\n  expect(formatDate(new Date(0))).toBeTruthy();\n  expect(formatTime(new Date(0))).toBeTruthy();\n});\n"}
+];
+
+})();
+</script>
+</body>
+</html>
