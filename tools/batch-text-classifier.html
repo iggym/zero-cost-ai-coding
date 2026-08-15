@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Text Classifier — zero-cost-ai-coding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --bg-alt: #141414;
+            --text: #e5e5e5;
+            --text-muted: #a3a3a3;
+            --border: #262626;
+            --accent: #22c55e;
+            --accent-hover: #16a34a;
+            --error: #ef4444;
+            --focus: #3b82f6;
+        }
+        html.light {
+            --bg: #ffffff;
+            --bg-alt: #f5f5f5;
+            --text: #171717;
+            --text-muted: #525252;
+            --border: #e5e5e5;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        h1, h2, h3, code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+        h1 { font-size: 1.5rem; font-weight: 500; }
+        h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text); }
+        p { margin-bottom: 0.75rem; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+            outline: 2px solid var(--focus);
+            outline-offset: 2px;
+        }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-alt);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 1rem; }
+        .topbar-title { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-muted); }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            flex: 1;
+        }
+        .pitch {
+            border-left: 3px solid var(--accent);
+            padding-left: 1rem;
+            margin-bottom: 2rem;
+        }
+        .pitch p { font-size: 1.05rem; }
+        .section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .section h2 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            resize: vertical;
+        }
+        textarea { min-height: 150px; }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.6rem 1.2rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        button:hover:not(:disabled) { background: var(--accent-hover); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.secondary {
+            background: var(--bg-alt);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        button.secondary:hover:not(:disabled) { background: var(--border); }
+        .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+        .results { margin-top: 1.5rem; }
+        .result-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .result-text { font-size: 0.9rem; }
+        .result-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 500;
+            background: var(--accent);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        .result-score {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: 0.5rem;
+        }
+        .status {
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .status.info { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--error); }
+        .status.loading { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        .summary {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .summary-item {
+            padding: 0.5rem;
+            background: var(--bg);
+            border-radius: 3px;
+            text-align: center;
+        }
+        .summary-label { font-size: 0.75rem; color: var(--text-muted); }
+        .summary-count { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 600; }
+        .savings {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .savings strong { color: var(--accent); }
+        .share-btns { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .share-btn {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        footer {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem 0.6rem;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .theme-toggle:hover { background: var(--border); }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            .topbar { padding: 0.75rem 1rem; }
+            .result-item { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div class="topbar-left">
+            <a href="https://iggym.github.io/zero-cost-ai-coding/" aria-label="Home">← Home</a>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle light mode">Light mode</button>
+        </div>
+        <div class="topbar-title">Batch Text Classifier</div>
+    </div>
+    <main class="container">
+        <div class="pitch">
+            <h1>Batch Text Classifier</h1>
+            <p>Paste a list of items, define your labels, and classify each line using a real NLP model running entirely in your browser — no API key, no data leaves your machine. The model (67 MB) is cached after first load; subsequent visits load instantly. There is no rate limit because there is no server involved.</p>
+        </div>
+        <div class="section">
+            <h2>What it replaces</h2>
+            <p><a href="https://monkeylearn.com/" target="_blank" rel="noopener">MonkeyLearn</a> charges from $299/month for their paid text classification plans (the free plan caps at 500 queries/month). AWS Comprehend and Google Cloud NLP charge per-request for similar zero-shot classification. This tool does the same core task — sorting text into your custom categories — for $0, with your data staying on your device.</p>
+        </div>
+        <div class="section">
+            <h2>How to use</h2>
+            <p><strong>1. Paste your text:</strong> one item per line. Support tickets, user feedback, survey responses, log messages — anything you need sorted into buckets.</p>
+            <p><strong>2. Define labels:</strong> comma-separated list of the categories you want. Could be "bug, feature, question", "urgent, normal, low", "positive, negative, neutral", or whatever fits your data.</p>
+            <p><strong>3. Click Classify.</strong> The first run downloads the model (~67 MB). After that it's cached in your browser. Each line gets classified against your labels, with a confidence score.</p>
+        </div>
+        <div class="section">
+            <h2>What breaks</h2>
+            <p>The model is trained primarily on English text. Non-English input will get unreliable results. Very short inputs (single words) may produce low-confidence classifications — the model works best with at least a full sentence of context. Classification runs on your CPU via WASM, so processing 100+ items on a phone may take a minute or two. WebGPU acceleration is available in the underlying library but isn't wired up here for cross-browser reliability — if you need that, you want a server-side pipeline instead.</p>
+        </div>
+        <div id="statusArea"></div>
+        <div class="section">
+            <h2>Your Text (one item per line)</h2>
+            <textarea id="inputText" placeholder="The app crashes when I click save&#10;Love the new dark mode!&#10;How do I export to CSV?&#10;This is taking too long to load" aria-label="Text to classify, one item per line"></textarea>
+            <div style="margin-top: 0.75rem;">
+                <label for="labelsInput" style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted);">Labels (comma-separated):</label>
+                <input type="text" id="labelsInput" value="bug, feature, question, other" aria-label="Classification labels, comma separated">
+            </div>
+            <div class="btn-row">
+                <button id="classifyBtn">Classify</button>
+                <button class="secondary" id="clearBtn">Clear</button>
+            </div>
+        </div>
+        <div id="resultsArea"></div>
+        <div class="section">
+            <h2>Import / Export</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Export results as JSON, or paste JSON from another tool to import.</p>
+            <div class="btn-row">
+                <button class="secondary" id="exportJsonBtn">Copy as JSON</button>
+                <button class="secondary" id="downloadJsonBtn">Download JSON</button>
+            </div>
+            <div style="margin-top: 1rem;">
+                <label for="importText" style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted);">Paste JSON to import:</label>
+                <textarea id="importText" placeholder='{"zcac": true, "kind": "batch-classification-results", ...}' style="min-height: 80px;" aria-label="JSON to import"></textarea>
+                <button class="secondary" id="importBtn" style="margin-top: 0.5rem;">Import</button>
+            </div>
+        </div>
+        <div class="share-btns">
+            <button class="secondary share-btn" id="shareXBtn" aria-label="Share on X">Share on X</button>
+            <button class="secondary share-btn" id="shareCopyBtn" aria-label="Copy link">Copy link</button>
+        </div>
+    </main>
+    <footer>
+        Free-tier verified against <a href="https://huggingface.co/docs/transformers.js/en/index" target="_blank" rel="noopener">Transformers.js docs</a> (browser-native, no API limits) and <a href="https://huggingface.co/Xenova/distilbert-base-uncased-mnli" target="_blank" rel="noopener">model card</a>. No rate limit because no server is involved.
+    </footer>
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0';
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+        
+        const MODEL_ID = 'Xenova/distilbert-base-uncased-mnli';
+        const SECONDS_PER_ITEM = 10;
+        let classifier = null;
+        let currentResults = null;
+        
+        // Theme toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const savedTheme = sessionStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.documentElement.classList.add('light');
+            themeToggle.textContent = 'Dark mode';
+        }
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('light');
+            const isLight = document.documentElement.classList.contains('light');
+            themeToggle.textContent = isLight ? 'Dark mode' : 'Light mode';
+            sessionStorage.setItem('theme', isLight ? 'light' : 'dark');
+        });
+        
+        // Status helpers
+        const statusArea = document.getElementById('statusArea');
+        function showStatus(msg, type = 'info') {
+            statusArea.innerHTML = `<div class="status ${type}">${msg}</div>`;
+        }
+        function showProgress(file, progress) {
+            const pct = Math.round(progress * 100);
+            statusArea.innerHTML = `
+                <div class="status loading">
+                    Loading model file: ${file} (${pct}%)
+                    <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div>
+                </div>`;
+        }
+        function clearStatus() { statusArea.innerHTML = ''; }
+        
+        // Load model
+        async function loadModel() {
+            if (classifier) return classifier;
+            showStatus('Loading classification model (~67 MB, cached after first load)...', 'loading');
+            try {
+                classifier = await pipeline('zero-shot-classification', MODEL_ID, {
+                    dtype: 'q8',
+                    progress_callback: (progress) => {
+                        if (progress.status === 'progress_total' && progress.progress !== undefined) {
+                            showProgress('model', progress.progress / 100);
+                        } else if (progress.status === 'progress' && progress.progress !== undefined) {
+                            showProgress(progress.file || 'file', progress.progress / 100);
+                        }
+                    }
+                });
+                clearStatus();
+                return classifier;
+            } catch (e) {
+                showStatus(`Failed to load model: ${e.message}. Check your internet connection and try again.`, 'error');
+                throw e;
+            }
+        }
+        
+        // Classify
+        const classifyBtn = document.getElementById('classifyBtn');
+        const inputText = document.getElementById('inputText');
+        const labelsInput = document.getElementById('labelsInput');
+        const resultsArea = document.getElementById('resultsArea');
+        
+        classifyBtn.addEventListener('click', async () => {
+            const text = inputText.value.trim();
+            const labelsStr = labelsInput.value.trim();
+            if (!text) { showStatus('Please paste some text to classify.', 'error'); return; }
+            if (!labelsStr) { showStatus('Please define at least one label.', 'error'); return; }
+            
+            const labels = labelsStr.split(',').map(l => l.trim()).filter(l => l);
+            if (labels.length === 0) { showStatus('Please define at least one label.', 'error'); return; }
+            
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length === 0) { showStatus('Please paste some text to classify.', 'error'); return; }
+            
+            classifyBtn.disabled = true;
+            try {
+                const pipe = await loadModel();
+                const results = [];
+                for (let i = 0; i < lines.length; i++) {
+                    showStatus(`Classifying item ${i + 1} of ${lines.length}...`, 'loading');
+                    const res = await pipe(lines[i], labels);
+                    results.push({
+                        text: lines[i],
+                        label: res.labels[0],
+                        score: res.scores[0],
+                        allScores: res.labels.map((l, idx) => ({ label: l, score: res.scores[idx] }))
+                    });
+                }
+                currentResults = { items: results, labels, createdAt: new Date().toISOString() };
+                renderResults(currentResults);
+                clearStatus();
+            } catch (e) {
+                showStatus(`Classification failed: ${e.message}`, 'error');
+            } finally {
+                classifyBtn.disabled = false;
+            }
+        });
+        
+        function renderResults(data) {
+            if (!data || !data.items) { resultsArea.innerHTML = ''; return; }
+            
+            // Summary counts
+            const counts = {};
+            data.items.forEach(item => { counts[item.label] = (counts[item.label] || 0) + 1; });
+            
+            const totalItems = data.items.length;
+            const savedSeconds = totalItems * SECONDS_PER_ITEM;
+            const savedMinutes = Math.round(savedSeconds / 60 * 10) / 10;
+            
+            let html = '<div class="results">';
+            html += '<h2>Results</h2>';
+            
+            // Summary
+            html += '<div class="summary"><h2>Summary</h2><div class="summary-grid">';
+            for (const [label, count] of Object.entries(counts)) {
+                html += `<div class="summary-item"><div class="summary-count">${count}</div><div class="summary-label">${escapeHtml(label)}</div></div>`;
+            }
+            html += '</div></div>';
+            
+            // Savings
+            html += `<div class="savings"><strong>~${savedMinutes} min</strong> saved (assumes ~${SECONDS_PER_ITEM} sec/item to manually read and categorize)</div>`;
+            
+            // Items
+            html += '<div style="margin-top: 1rem;">';
+            data.items.forEach((item, idx) => {
+                const pct = Math.round(item.score * 100);
+                html += `
+                    <div class="result-item">
+                        <div class="result-text">${idx + 1}. ${escapeHtml(item.text)}</div>
+                        <div>
+                            <span class="result-label">${escapeHtml(item.label)}</span>
+                            <span class="result-score">${pct}%</span>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            
+            // Export buttons
+            html += '<div class="btn-row"><button class="secondary" id="copyResultsBtn">Copy results as JSON</button></div>';
+            html += '</div>';
+            
+            resultsArea.innerHTML = html;
+            
+            document.getElementById('copyResultsBtn')?.addEventListener('click', () => {
+                const json = JSON.stringify({ zcac: true, kind: 'batch-classification-results', data }, null, 2);
+                navigator.clipboard.writeText(json).then(() => {
+                    showStatus('Results copied to clipboard.', 'info');
+                    setTimeout(clearStatus, 2000);
+                });
+            });
+        }
+        
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+        
+        // Clear
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            inputText.value = '';
+            currentResults = null;
+            resultsArea.innerHTML = '';
+            clearStatus();
+        });
+        
+        // Export
+        document.getElementById('exportJsonBtn').addEventListener('click', () => {
+            if (!currentResults) { showStatus('No results to export. Run classification first.', 'error'); return; }
+            const json = JSON.stringify({ zcac: true, kind: 'batch-classification-results', data: currentResults }, null, 2);
+            navigator.clipboard.writeText(json).then(() => {
+                showStatus('JSON copied to clipboard.', 'info');
+                setTimeout(clearStatus, 2000);
+            });
+        });
+        
+        document.getElementById('downloadJsonBtn').addEventListener('click', () => {
+            if (!currentResults) { showStatus('No results to download. Run classification first.', 'error'); return; }
+            const json = JSON.stringify({ zcac: true, kind: 'batch-classification-results', data: currentResults }, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'classification-results.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        
+        // Import
+        document.getElementById('importBtn').addEventListener('click', () => {
+            const text = document.getElementById('importText').value.trim();
+            if (!text) { showStatus('Paste some JSON first.', 'error'); return; }
+            try {
+                const parsed = JSON.parse(text);
+                if (!parsed.zcac || !parsed.data) {
+                    showStatus('Not recognized: missing zcac or data field.', 'error');
+                    return;
+                }
+                if (parsed.kind !== 'batch-classification-results') {
+                    showStatus(`Not recognized: kind "${escapeHtml(parsed.kind)}" is not handled by this tool.`, 'error');
+                    return;
+                }
+                currentResults = parsed.data;
+                renderResults(currentResults);
+                clearStatus();
+                showStatus('Imported successfully.', 'info');
+                setTimeout(clearStatus, 2000);
+            } catch (e) {
+                showStatus(`Invalid JSON: ${e.message}`, 'error');
+            }
+        });
+        
+        // Share
+        document.getElementById('shareXBtn').addEventListener('click', () => {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent('Batch Text Classifier — classify text in your browser with zero-shot NLP, no API key needed');
+            window.open(`https://x.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+        });
+        document.getElementById('shareCopyBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                showStatus('Link copied to clipboard.', 'info');
+                setTimeout(clearStatus, 2000);
+            });
+        });
+    </script>
+</body>
+</html>
