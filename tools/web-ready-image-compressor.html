@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Web-Ready Image Compressor — Zero-Cost AI Coding</title>
+<meta name="description" content="Compress and convert images to JPEG, WebP, AVIF, or PNG entirely in your browser tab — unlimited images, no upload, no API key, no quota.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+/* set theme before paint to avoid a flash */
+(function () {
+  try {
+    var s = localStorage.getItem('zcac-theme');
+    var t = s || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
+})();
+</script>
+<style>
+:root {
+  --bg: #0b0f14;
+  --panel: #12161d;
+  --panel-2: #171d25;
+  --border: #252d37;
+  --text: #e6edf3;
+  --muted: #93a1b0;
+  --accent: #2ee58c;
+  --accent-ink: #06281a;
+  --danger: #ff7b72;
+  --warn: #e3b341;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+html[data-theme="light"] {
+  --bg: #f5f7f9;
+  --panel: #ffffff;
+  --panel-2: #eef1f4;
+  --border: #d7dde3;
+  --text: #1c2229;
+  --muted: #56606c;
+  --accent: #0b9d5f;
+  --accent-ink: #ffffff;
+  --danger: #c9362f;
+  --warn: #8a6116;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3, .mono { font-family: var(--mono); }
+h1 { font-size: clamp(1.5rem, 4.5vw, 2.1rem); line-height: 1.15; margin: 0 0 .5rem; }
+h2 { font-size: 1.05rem; margin: 0 0 .5rem; letter-spacing: .02em; }
+p { margin: 0 0 .8rem; }
+code, pre { font-family: var(--mono); }
+kbd {
+  font-family: var(--mono); font-size: .78em;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-bottom-width: 2px; border-radius: 5px; padding: .1em .4em;
+}
+
+/* top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  padding: .55rem 1rem;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar .home {
+  display: inline-flex; align-items: center; gap: .45rem;
+  font-family: var(--mono); font-size: .85rem; font-weight: 600;
+}
+.topbar .home .dot { color: var(--accent); }
+.topbar .title { font-family: var(--mono); font-size: .85rem; color: var(--muted); }
+.topbar .theme-btn {
+  appearance: none; border: 1px solid var(--border); background: var(--panel);
+  color: var(--text); border-radius: 8px; cursor: pointer;
+  width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+}
+.topbar .theme-btn svg { width: 16px; height: 16px; fill: currentColor; }
+html[data-theme="dark"] .theme-btn .icon-sun { display: none; }
+html[data-theme="light"] .theme-btn .icon-moon { display: none; }
+
+.wrap { max-width: 920px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+/* pitch */
+.pitch { border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 1.25rem 1.25rem 1rem; }
+.pitch .kicker { font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: .5rem; }
+.pitch .freetier {
+  display: inline-block; margin: .25rem 0 .9rem;
+  font-family: var(--mono); font-size: .82rem; font-weight: 600;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  padding: .3rem .6rem; border-radius: 7px;
+}
+.share { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .25rem; }
+.share button {
+  appearance: none; cursor: pointer; font: 600 .82rem var(--sans);
+  color: var(--text); background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .42rem .7rem;
+}
+.share button:hover { border-color: var(--accent); }
+
+/* info blocks */
+.info { display: grid; gap: .75rem; margin: 1rem 0; }
+.info .card { border: 1px solid var(--border); background: var(--panel); border-radius: 12px; padding: .9rem 1rem; }
+.info .card h2 { color: var(--accent); }
+.info .card p { margin: 0; color: var(--text); }
+.info .card ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+.info .card li { margin: .2rem 0; }
+.info .card li::marker { color: var(--accent); }
+.muted { color: var(--muted); }
+
+/* tool area */
+.tool { border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 1rem; margin-top: 1rem; }
+.dropzone {
+  border: 2px dashed var(--border); border-radius: 12px; padding: 1.6rem 1rem;
+  text-align: center; cursor: pointer; background: var(--panel-2);
+  transition: border-color .15s ease, background .15s ease;
+}
+.dropzone:hover, .dropzone.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--panel-2)); }
+.dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.dropzone .big { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; }
+.dropzone .sub { color: var(--muted); font-size: .88rem; margin-top: .25rem; }
+
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin: 1rem 0; align-items: end; }
+.field { display: flex; flex-direction: column; gap: .3rem; }
+.field label { font-size: .78rem; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+.field select, .field input[type="number"], .field input[type="text"] {
+  font: 500 .9rem var(--sans); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: .5rem .55rem; width: 100%;
+}
+.field select:focus-visible, .field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field .qwrap { display: flex; align-items: center; gap: .6rem; }
+.field input[type="range"] { flex: 1; accent-color: var(--accent); min-width: 0; }
+.field .qval { font-family: var(--mono); font-size: .85rem; color: var(--accent); min-width: 3.2ch; text-align: right; }
+.hint { font-size: .78rem; color: var(--muted); margin: -.4rem 0 .9rem; }
+
+/* savings readout */
+.readout {
+  display: flex; flex-wrap: wrap; gap: .6rem 1.6rem; align-items: baseline;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 12px; padding: .8rem 1rem; margin: .75rem 0;
+}
+.readout .num { font-family: var(--mono); font-size: 1.35rem; font-weight: 700; color: var(--accent); }
+.readout .lbl { font-size: .8rem; color: var(--muted); }
+.readout .assume { flex-basis: 100%; font-size: .76rem; color: var(--muted); }
+
+/* toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+.btn {
+  appearance: none; cursor: pointer; font: 600 .85rem var(--sans);
+  color: var(--accent-ink); background: var(--accent); border: 1px solid var(--accent);
+  border-radius: 8px; padding: .5rem .8rem;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.ghost:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, .share button:focus-visible, .topbar .theme-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* results */
+.results { display: grid; gap: .6rem; }
+.result { display: grid; grid-template-columns: 74px 1fr auto; gap: .75rem; align-items: center;
+  border: 1px solid var(--border); border-radius: 12px; padding: .65rem .75rem; background: var(--panel-2); }
+.result .thumbs { display: flex; flex-direction: column; gap: .3rem; }
+.result .thumbs img { width: 74px; height: 50px; object-fit: contain; background:
+  repeating-conic-gradient(#2a2f37 0 25%, #23282f 0 50%) 0 0/16px 16px; border-radius: 6px; border: 1px solid var(--border); }
+html[data-theme="light"] .result .thumbs img { background: repeating-conic-gradient(#d9dde1 0 25%, #e8ebee 0 50%) 0 0/16px 16px; }
+.result .meta { min-width: 0; }
+.result .fname { font-family: var(--mono); font-size: .82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result .size { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
+.result .size b { color: var(--text); font-weight: 600; }
+.result .saved { font-family: var(--mono); font-size: .85rem; font-weight: 700; margin-top: .15rem; }
+.result .saved.down { color: var(--accent); }
+.result .saved.up { color: var(--warn); }
+.result .err { color: var(--danger); font-size: .8rem; margin-top: .15rem; }
+.result .actions { display: flex; flex-direction: column; gap: .35rem; }
+.result .actions button {
+  appearance: none; cursor: pointer; font: 600 .75rem var(--sans);
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 7px; padding: .34rem .55rem;
+}
+.result .actions button:hover { border-color: var(--accent); }
+.result .actions button.remove:hover { border-color: var(--danger); color: var(--danger); }
+.result .actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.empty { color: var(--muted); text-align: center; padding: 1rem .5rem; font-size: .9rem; }
+
+.status { font-size: .8rem; color: var(--muted); min-height: 1.2em; margin-top: .6rem; }
+.status[role="status"] { aria-live: polite; }
+
+footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: .8rem; color: var(--muted); }
+footer a { color: var(--muted); text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+@media (max-width: 520px) {
+  .result { grid-template-columns: 60px 1fr; }
+  .result .thumbs img { width: 60px; height: 40px; }
+  .result .actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
+  .topbar .title { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">
+    <span class="dot">$</span> zero-cost-ai-coding
+  </a>
+  <span class="title">web-ready-image-compressor</span>
+  <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle light / dark mode">
+    <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-1.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7ZM12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.5 4.5l1.8 1.8M17.7 17.7l1.8 1.8M4.5 19.5l1.8-1.8M17.7 6.3l1.8-1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 13.2A8.6 8.6 0 0 1 10.8 3a8.6 8.6 0 1 0 10.2 10.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+  </button>
+</header>
+
+<div class="wrap">
+  <section class="pitch" aria-labelledby="pitch-title">
+    <div class="kicker">browser-native · zero upload · no quota</div>
+    <h1 id="pitch-title">Web-Ready Image Compressor</h1>
+    <p>Drop in images and it re-encodes them to JPEG, WebP, AVIF, or PNG right in your browser tab — <strong>unlimited images, no upload, no API key, no quota.</strong> The only limit is your device's CPU and memory, because every pixel is processed locally on the Canvas API.</p>
+    <span class="freetier">$ ∞ runs — 100% client-side, no server, no account, nothing leaves the tab</span>
+    <div class="share">
+      <button id="shareX" type="button">Share on X</button>
+      <button id="shareLink" type="button">Copy link</button>
+    </div>
+  </section>
+
+  <section class="info" aria-label="What it replaces, how to use it, and what breaks">
+    <div class="card">
+      <h2>What it replaces</h2>
+      <p>TinyPNG/Tinify's API. Their pricing: the first <strong>500 images/month are free</strong>, then <strong>$0.009 per image</strong> up to 10,000, then $0.002 per image (verified at <a href="https://tinify.com/developers" target="_blank" rel="noopener">tinify.com/developers</a>). Their free web tool caps you at 20 images per batch and 5 MB per file, and every image is uploaded to their servers. This page does the same job locally, unlimited, and your files never leave the tab.</p>
+    </div>
+    <div class="card">
+      <h2>How to use it</h2>
+      <ul>
+        <li>Drop files, paste an image (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd>), or click the box to browse. Files are decoded locally.</li>
+        <li>Pick a format — <strong>Auto</strong> encodes WebP + JPEG (or WebP + PNG for transparent images) and keeps the smallest per image. Set quality and optional max dimensions.</li>
+        <li>Download files individually, grab everything as a <strong>.zip</strong>, or copy/download a JSON manifest of sizes.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>What breaks</h2>
+      <ul>
+        <li><strong>AVIF</strong> encoding isn't available in every browser; the option hides itself where unsupported.</li>
+        <li>The quality slider only affects lossy formats (JPEG/WebP/AVIF). <strong>PNG is lossless</strong>, so a PNG output can come out <em>larger</em> than an already-optimized PNG — for photos, use WebP or AVIF.</li>
+        <li>Canvas always strips EXIF/GPS/metadata (usually what you want — know it happens). Animated GIF/WebP/APNG become their <strong>first frame</strong>. HEIC/RAW won't decode in most browsers. SVG needs explicit width/height.</li>
+        <li>Browsers cap canvas around <strong>16,384 px per side</strong>; larger images get scaled down. This is a re-encoder, not a lossless optimizer — it won't beat oxipng/pngquant on already-tiny PNGs, but it will take a 4 MB photo down to a few hundred KB.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="tool" aria-label="Image compressor">
+    <div class="dropzone" id="dropzone" tabindex="-1">
+      <label for="fileInput" style="display:block; cursor:pointer;">
+        <input type="file" id="fileInput" accept="image/*" multiple>
+        <span class="big">Drop images here</span>
+        <div class="sub">or click to browse · or paste with Ctrl/⌘+V · nothing is uploaded</div>
+      </label>
+    </div>
+
+    <div class="settings">
+      <div class="field">
+        <label for="fmtSel">Format</label>
+        <select id="fmtSel">
+          <option value="auto" selected>Auto (smallest)</option>
+          <option value="webp">WebP</option>
+          <option value="jpeg">JPEG</option>
+          <option value="avif">AVIF</option>
+          <option value="png">PNG (lossless)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="qual">Quality <span id="qualNote"></span></label>
+        <div class="qwrap">
+          <input type="range" id="qual" min="0.1" max="1" step="0.01" value="0.82">
+          <span class="qval" id="qualVal">82%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="maxW">Max width (px)</label>
+        <input type="number" id="maxW" min="1" step="1" placeholder="keep">
+      </div>
+      <div class="field">
+        <label for="maxH">Max height (px)</label>
+        <input type="number" id="maxH" min="1" step="1" placeholder="keep">
+      </div>
+    </div>
+    <div class="hint">Quality is ignored for PNG output (lossless). Resize happens before encode, so a max dimension both shrinks the file and cuts pixels.</div>
+
+    <div class="readout" aria-live="polite">
+      <div><div class="num" id="savedBytes">0 MB</div><div class="lbl">net size change</div></div>
+      <div><div class="num" id="savedPct">—</div><div class="lbl">overall % change</div></div>
+      <div><div class="num" id="savedCash">$0.00</div><div class="lbl">TinyPNG API credit equivalent</div></div>
+      <div class="assume">Assumes every image lands past TinyPNG's 500/month free tier, at its $0.009/image API price (tinify.com/developers). Counts only images that actually shrank.</div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn" id="applyAll" type="button">Apply settings to all</button>
+      <button class="btn ghost" id="zipAll" type="button" disabled>Download all (.zip)</button>
+      <button class="btn ghost" id="copyJson" type="button" disabled>Copy JSON</button>
+      <button class="btn ghost" id="dlJson" type="button" disabled>Download JSON</button>
+      <button class="btn ghost" id="clearAll" type="button">Clear all</button>
+    </div>
+
+    <div class="results" id="results">
+      <div class="empty">No images yet — drop some in and results show up here.</div>
+    </div>
+    <div class="status" id="status" role="status"></div>
+  </section>
+
+  <footer>
+    Paid-alternative pricing verified at <a href="https://tinify.com/developers" target="_blank" rel="noopener">tinify.com/developers</a> on 2026-08-15. This tool itself has no provider quota — Canvas encoding runs in your browser tab, so it works offline and never uploads your images.
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Web-Ready Image Compressor — all processing is client-side.
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+const FMT_MIME = { jpeg: "image/jpeg", webp: "image/webp", avif: "image/avif", png: "image/png" };
+const FMT_EXT  = { jpeg: "jpg",  webp: "webp",  avif: "avif",  png: "png"  };
+const ALPHA_TYPES = new Set(["image/png", "image/webp", "image/gif", "image/svg+xml"]);
+const ALPHA_EXT   = new Set(["png", "webp", "gif", "svg"]);
+
+let items = [];      // { id, name, file, bitmap, origBytes, hasAlpha, out, error, urlIn, urlOut }
+let avifSupported = true;
+
+/* ---------- theme ---------- */
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem("zcac-theme", t); } catch (e) {}
+}
+$("themeBtn").addEventListener("click", () => {
+  applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+
+/* ---------- small utils ---------- */
+function fmtBytes(n) {
+  if (!Number.isFinite(n)) return "—";
+  if (n < 1024) return n + " B";
+  const u = ["KB", "MB", "GB"];
+  let i = -1; let v = n;
+  do { v /= 1024; i++; } while (v >= 1024 && i < u.length - 1);
+  return v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2) + " " + u[i];
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function baseName(name) {
+  const n = String(name).replace(/\\/g, "/").split("/").pop() || "image";
+  return n;
+}
+function uniqueName(itemsArr, name) {
+  if (!itemsArr.some((it) => it.name === name)) return name;
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  let i = 2;
+  while (itemsArr.some((it) => it.name === `${stem}-${i}${ext}`)) i++;
+  return `${stem}-${i}${ext}`;
+}
+function setStatus(msg) { $("status").textContent = msg; }
+
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch (e) { return false; }
+}
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/* ---------- AVIF support detection ---------- */
+function detectAvif() {
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 2;
+    const url = c.toDataURL("image/avif");
+    avifSupported = url.indexOf("data:image/avif") === 0;
+  } catch (e) { avifSupported = false; }
+  if (!avifSupported) {
+    const opt = $("fmtSel").querySelector('option[value="avif"]');
+    if (opt) opt.disabled = true;
+  }
+}
+
+/* ---------- dims ---------- */
+function computeDims(w, h, maxW, maxH) {
+  let W = w, H = h;
+  if (maxW && W > maxW) { H = Math.max(1, Math.round(H * maxW / W)); W = maxW; }
+  if (maxH && H > maxH) { W = Math.max(1, Math.round(W * maxH / H)); H = maxH; }
+  return [W, H];
+}
+
+/* ---------- encoding ---------- */
+async function encodeOne(bitmap, format, quality, maxW, maxH) {
+  const [W, H] = computeDims(bitmap.width, bitmap.height, maxW, maxH);
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (format === "jpeg") {            // JPEG has no alpha — flatten onto white
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.drawImage(bitmap, 0, 0, W, H);
+  const blob = await new Promise((res, rej) => canvas.toBlob((b) => b ? res(b) : rej(new Error("encode returned null")), FMT_MIME[format], format === "png" ? undefined : quality));
+  return { blob, bytes: blob.size, format, width: W, height: H };
+}
+
+async function encodeAuto(bitmap, settings, hasAlpha) {
+  const q = settings.quality;
+  const cands = [];
+  cands.push(await encodeOne(bitmap, "webp", q, settings.maxW, settings.maxH));
+  if (hasAlpha) cands.push(await encodeOne(bitmap, "png", q, settings.maxW, settings.maxH));
+  else cands.push(await encodeOne(bitmap, "jpeg", q, settings.maxW, settings.maxH));
+  cands.sort((a, b) => a.bytes - b.bytes);
+  return cands[0];
+}
+
+/* ---------- settings ---------- */
+function currentSettings() {
+  const maxW = parseInt($("maxW").value, 10);
+  const maxH = parseInt($("maxH").value, 10);
+  return {
+    format: $("fmtSel").value,
+    quality: parseFloat($("qual").value),
+    maxW: Number.isFinite(maxW) && maxW > 0 ? maxW : null,
+    maxH: Number.isFinite(maxH) && maxH > 0 ? maxH : null,
+  };
+}
+
+/* ---------- add files ---------- */
+function fileIsImage(f) {
+  if (f.type && f.type.startsWith("image/")) return true;
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  return ["png", "jpg", "jpeg", "webp", "avif", "gif", "svg", "bmp"].includes(ext);
+}
+function guessAlpha(f) {
+  if (f.type && ALPHA_TYPES.has(f.type)) return true;
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  return ALPHA_EXT.has(ext);
+}
+
+async function addFiles(fileList) {
+  const files = Array.from(fileList || []);
+  const imgFiles = files.filter(fileIsImage);
+  const skipped = files.length - imgFiles.length;
+  if (skipped > 0) setStatus(`Skipped ${skipped} non-image file${skipped === 1 ? "" : "s"}.`);
+  if (imgFiles.length === 0) return;
+
+  const settings = currentSettings();
+  for (const file of imgFiles) {
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file);
+    } catch (e) {
+      items.push({ id: ++uid, name: baseName(file.name), file, bitmap: null, origBytes: file.size,
+        hasAlpha: guessAlpha(file), out: null, error: "Couldn't decode this file in the browser.", urlIn: null, urlOut: null });
+      render(); continue;
+    }
+    const item = { id: ++uid, name: uniqueName(items, baseName(file.name)), file, bitmap, origBytes: file.size,
+      hasAlpha: guessAlpha(file), out: null, error: null, urlIn: URL.createObjectURL(file), urlOut: null };
+    items.push(item);
+    render();
+    await encodeItem(item, settings);
+  }
+  setStatus(`${imgFiles.length} file${imgFiles.length === 1 ? "" : "s"} processed.`);
+}
+
+let uid = 0;
+async function encodeItem(item, settings) {
+  try {
+    const out = settings.format === "auto"
+      ? await encodeAuto(item.bitmap, settings, item.hasAlpha)
+      : await encodeOne(item.bitmap, settings.format, settings.quality, settings.maxW, settings.maxH);
+    if (item.urlOut) URL.revokeObjectURL(item.urlOut);
+    item.out = out;
+    item.urlOut = URL.createObjectURL(out.blob);
+    item.error = null;
+  } catch (e) {
+    item.out = null;
+    item.error = settings.format === "avif" && !avifSupported
+      ? "AVIF encoding isn't supported in this browser."
+      : "Encoding failed: " + e.message;
+  }
+  render();
+}
+
+async function reEncodeAll() {
+  const settings = currentSettings();
+  const todo = items.filter((it) => it.bitmap);
+  setStatus(`Re-encoding ${todo.length} image${todo.length === 1 ? "" : "s"}…`);
+  for (const it of todo) await encodeItem(it, settings);
+  setStatus("Done.");
+}
+
+/* ---------- render ---------- */
+function render() {
+  const box = $("results");
+  if (items.length === 0) {
+    box.innerHTML = '<div class="empty">No images yet — drop some in and results show up here.</div>';
+  } else {
+    box.innerHTML = items.map(cardHTML).join("");
+  }
+  // totals
+  const done = items.filter((it) => it.out);
+  const orig = done.reduce((s, it) => s + it.origBytes, 0);
+  const out = done.reduce((s, it) => s + it.out.bytes, 0);
+  const saved = orig - out;
+  const shrank = done.filter((it) => it.out.bytes < it.origBytes);
+  const pct = orig > 0 ? (saved / orig) * 100 : 0;
+
+  $("savedBytes").textContent = (saved >= 0 ? "" : "+") + fmtBytes(Math.abs(saved));
+  $("savedBytes").style.color = saved < 0 ? "var(--warn)" : "";
+  $("savedPct").textContent = done.length ? (pct >= 0 ? "−" : "+") + Math.abs(pct).toFixed(0) + "%" : "—";
+  $("savedCash").textContent = "$" + (shrank.length * 0.009).toFixed(2);
+
+  const any = done.length > 0;
+  $("zipAll").disabled = !any;
+  $("copyJson").disabled = !any;
+  $("dlJson").disabled = !any;
+}
+
+function cardHTML(it) {
+  const sizeLine = it.error
+    ? `<span class="err">${esc(it.error)}</span>`
+    : it.out
+      ? `<div class="size">${fmtBytes(it.origBytes)} → <b>${fmtBytes(it.out.bytes)}</b> · ${it.out.width}×${it.out.height} · ${it.out.format.toUpperCase()}</div>`
+      : `<div class="size">${fmtBytes(it.origBytes)} → encoding…</div>`;
+  const savedLine = (!it.error && it.out)
+    ? (it.out.bytes < it.origBytes
+        ? `<div class="saved down">−${((1 - it.out.bytes / it.origBytes) * 100).toFixed(0)}% (${fmtBytes(it.origBytes - it.out.bytes)} saved)</div>`
+        : `<div class="saved up">+${((it.out.bytes / it.origBytes - 1) * 100).toFixed(0)}% — output is larger</div>`)
+    : "";
+  const inThumb = it.urlIn ? `<img src="${it.urlIn}" alt="Original ${esc(it.name)}">` : "";
+  const outThumb = it.urlOut ? `<img src="${it.urlOut}" alt="Optimized ${esc(it.name)}">` : "";
+  const dlBtn = it.out ? `<button type="button" data-act="dl" data-id="${it.id}">Download</button>` : "";
+  return `<div class="result" data-id="${it.id}">
+    <div class="thumbs">${inThumb}${outThumb}</div>
+    <div class="meta">
+      <div class="fname" title="${esc(it.name)}">${esc(it.name)}</div>
+      ${sizeLine}${savedLine}
+    </div>
+    <div class="actions">
+      ${dlBtn}
+      <button type="button" data-act="rm" data-id="${it.id}" class="remove" aria-label="Remove ${esc(it.name)}">Remove</button>
+    </div>
+  </div>`;
+}
+
+$("results").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const id = parseInt(btn.dataset.id, 10);
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  if (btn.dataset.act === "rm") removeItem(id);
+  if (btn.dataset.act === "dl" && it.out) {
+    const ext = FMT_EXT[it.out.format];
+    const stem = it.name.replace(/\.[^.]+$/, "");
+    downloadBlob(it.out.blob, `${stem}.${ext}`);
+  }
+});
+
+function removeItem(id) {
+  const it = items.find((x) => x.id === id);
+  if (it) {
+    if (it.urlIn) URL.revokeObjectURL(it.urlIn);
+    if (it.urlOut) URL.revokeObjectURL(it.urlOut);
+    if (it.bitmap) it.bitmap.close();
+  }
+  items = items.filter((x) => x.id !== id);
+  render();
+}
+
+function clearAll() {
+  for (const it of items) {
+    if (it.urlIn) URL.revokeObjectURL(it.urlIn);
+    if (it.urlOut) URL.revokeObjectURL(it.urlOut);
+    if (it.bitmap) it.bitmap.close();
+  }
+  items = [];
+  $("fileInput").value = "";
+  render();
+  setStatus("");
+}
+
+/* ---------- manifest (shared zcac shape) ---------- */
+function buildManifest() {
+  const done = items.filter((it) => it.out);
+  const orig = done.reduce((s, it) => s + it.origBytes, 0);
+  const out = done.reduce((s, it) => s + it.out.bytes, 0);
+  const settings = currentSettings();
+  return {
+    zcac: true,
+    kind: "image-optimize-report",
+    data: {
+      generated: new Date().toISOString(),
+      settings,
+      images: done.map((it) => ({
+        name: it.name,
+        originalBytes: it.origBytes,
+        outputBytes: it.out.bytes,
+        savedBytes: it.origBytes - it.out.bytes,
+        width: it.out.width,
+        height: it.out.height,
+        format: it.out.format,
+        quality: it.out.format === "png" ? null : settings.quality,
+      })),
+      totals: {
+        images: done.length,
+        originalBytes: orig,
+        outputBytes: out,
+        savedBytes: orig - out,
+      },
+    },
+  };
+}
+
+/* ---------- zip (stored, no compression — files are already compressed) ---------- */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function buildZip(entries) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const { name, bytes } of entries) {
+    const nb = enc.encode(name);
+    const crc = crc32(bytes);
+    const local = new Uint8Array(30 + nb.length);
+    const dv = new DataView(local.buffer);
+    dv.setUint32(0, 0x04034b50, true);
+    dv.setUint16(4, 20, true);
+    dv.setUint16(6, 0x0800, true);   // UTF-8 names
+    dv.setUint16(8, 0, true);        // method: stored
+    dv.setUint16(10, 0, true);
+    dv.setUint16(12, 0, true);
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, bytes.length, true);
+    dv.setUint32(22, bytes.length, true);
+    dv.setUint16(26, nb.length, true);
+    dv.setUint16(28, 0, true);
+    local.set(nb, 30);
+    chunks.push(local, bytes);
+
+    const cen = new Uint8Array(46 + nb.length);
+    const cd = new DataView(cen.buffer);
+    cd.setUint32(0, 0x02014b50, true);
+    cd.setUint16(4, 20, true);
+    cd.setUint16(6, 20, true);
+    cd.setUint16(8, 0x0800, true);
+    cd.setUint16(10, 0, true);
+    cd.setUint16(12, 0, true);
+    cd.setUint16(14, 0, true);
+    cd.setUint32(16, crc, true);
+    cd.setUint32(20, bytes.length, true);
+    cd.setUint32(24, bytes.length, true);
+    cd.setUint16(28, nb.length, true);
+    cd.setUint16(30, 0, true);
+    cd.setUint16(32, 0, true);
+    cd.setUint16(34, 0, true);
+    cd.setUint16(36, 0, true);
+    cd.setUint32(38, 0, true);
+    cd.setUint32(42, offset, true);
+    cen.set(nb, 46);
+    central.push(cen);
+
+    offset += 30 + nb.length + bytes.length;
+  }
+  const count = entries.length;
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, count, true);
+  ev.setUint16(10, count, true);
+  const cenSize = central.reduce((s, c) => s + c.length, 0);
+  ev.setUint32(12, cenSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  const all = new Uint8Array(offset + cenSize + 22);
+  let pos = 0;
+  for (const c of chunks) { all.set(c, pos); pos += c.length; }
+  for (const c of central) { all.set(c, pos); pos += c.length; }
+  all.set(eocd, pos);
+  return new Blob([all], { type: "application/zip" });
+}
+
+async function downloadAllZip() {
+  const done = items.filter((it) => it.out);
+  if (!done.length) return;
+  setStatus("Building zip…");
+  const entries = [];
+  for (const it of done) {
+    const ext = FMT_EXT[it.out.format];
+    const stem = it.name.replace(/\.[^.]+$/, "");
+    const bytes = new Uint8Array(await it.out.blob.arrayBuffer());
+    entries.push({ name: uniqueName(entries, `${stem}.${ext}`), bytes });
+  }
+  const zip = await buildZip(entries);
+  downloadBlob(zip, "optimized-images.zip");
+  setStatus(`Zipped ${entries.length} file${entries.length === 1 ? "" : "s"}.`);
+}
+
+/* ---------- wiring ---------- */
+const dz = $("dropzone");
+dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+dz.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dz.classList.remove("drag");
+  if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+$("fileInput").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
+
+document.addEventListener("paste", (e) => {
+  const files = [];
+  const cd = e.clipboardData;
+  if (!cd) return;
+  if (cd.files && cd.files.length) { for (const f of cd.files) files.push(f); }
+  else if (cd.items) {
+    for (const it of cd.items) if (it.kind === "file" && it.type.startsWith("image/")) {
+      const f = it.getAsFile();
+      if (f) files.push(f);
+    }
+  }
+  if (files.some(fileIsImage)) { e.preventDefault(); addFiles(files); }
+});
+
+$("qual").addEventListener("input", () => {
+  $("qualVal").textContent = Math.round(parseFloat($("qual").value) * 100) + "%";
+});
+$("fmtSel").addEventListener("change", () => {
+  $("qualNote").textContent = $("fmtSel").value === "png" ? "(ignored — lossless)" : "";
+});
+$("applyAll").addEventListener("click", reEncodeAll);
+$("zipAll").addEventListener("click", downloadAllZip);
+$("clearAll").addEventListener("click", clearAll);
+
+$("copyJson").addEventListener("click", async () => {
+  const ok = await copyText(JSON.stringify(buildManifest(), null, 2));
+  setStatus(ok ? "Manifest copied to clipboard." : "Copy failed — your browser blocked it.");
+});
+$("dlJson").addEventListener("click", () => {
+  downloadBlob(new Blob([JSON.stringify(buildManifest(), null, 2)], { type: "application/json" }), "image-optimize-report.json");
+});
+
+$("shareX").addEventListener("click", () => {
+  const text = encodeURIComponent("Web-Ready Image Compressor — unlimited client-side image compression, no upload: ");
+  const url = encodeURIComponent(location.href);
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank", "noopener");
+});
+$("shareLink").addEventListener("click", async () => {
+  const ok = await copyText(location.href);
+  setStatus(ok ? "Link copied to clipboard." : "Copy failed — your browser blocked it.");
+});
+
+/* ---------- init ---------- */
+detectAvif();
+$("qualNote").textContent = "";
+render();
+</script>
+</body>
+</html>
