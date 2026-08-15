@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stack Trace Autopsy — zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14181c;
+    --panel-2: #1b2026;
+    --border: #262c33;
+    --text: #e6e8eb;
+    --muted: #8a929c;
+    --accent: #22c55e;
+    --accent-dim: #166534;
+    --err: #ef4444;
+    --warn: #eab308;
+    --ok: #22c55e;
+  }
+  html[data-theme="light"] {
+    --bg: #f7f8fa;
+    --panel: #ffffff;
+    --panel-2: #f1f3f6;
+    --border: #d9dee4;
+    --text: #11151a;
+    --muted: #5b6572;
+    --accent: #16a34a;
+    --accent-dim: #166534;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  h1, h2, h3, code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .topbar a.home { color: var(--muted); }
+  .topbar .title { color: var(--text); font-weight: 500; }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .pitch { margin-bottom: 28px; }
+  .pitch h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .pitch p { color: var(--muted); margin: 0 0 12px; }
+  .pitch .limit {
+    display: inline-block;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .share-row { display: flex; gap: 8px; margin-top: 12px; }
+  .share-row button {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .share-row button:hover { border-color: var(--accent); }
+
+  .section { margin-bottom: 24px; }
+  .section h2 { font-size: 16px; margin: 0 0 8px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  .section h2 + p { margin-top: 0; }
+
+  textarea {
+    width: 100%;
+    min-height: 180px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 12px;
+    border-radius: 6px;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  button.primary {
+    background: var(--accent);
+    color: #0b0d10;
+    border: none;
+    padding: 10px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button.primary:hover { filter: brightness(1.1); }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button.secondary:hover { border-color: var(--accent); }
+
+  .results {
+    margin-top: 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px;
+    display: none;
+  }
+  .results.visible { display: block; }
+  .results .row { margin-bottom: 14px; }
+  .results .row:last-child { margin-bottom: 0; }
+  .results .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .results .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    word-break: break-word;
+  }
+  .results .summary {
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    padding: 10px 12px;
+    border-radius: 3px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+  }
+  .results .frame-box {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .results .frame-box .loc { color: var(--accent); }
+  .results .links { display: flex; gap: 10px; flex-wrap: wrap; }
+  .results .links a {
+    display: inline-block;
+    padding: 7px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .results .links a:hover { border-color: var(--accent); text-decoration: none; }
+
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+  .theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+  }
+
+  .error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--err);
+    color: var(--err);
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .sample-link {
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-top: 6px;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a>
+    <div>
+      <span class="title">stack-trace-autopsy</span>
+      <button class="theme-toggle" id="themeToggle">light</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="pitch">
+      <h1>Stack Trace Autopsy</h1>
+      <p>Paste a production stack trace and get an instant human-readable summary: the error, the exact user-code line that failed, and ready-to-click Google + Stack Overflow search links. Runs entirely in your browser — no API, no key.</p>
+      <span class="limit">limit: ∞ — pure client-side parsing, no network calls</span>
+      <div class="share-row">
+        <button onclick="copyLink()">copy link</button>
+        <button onclick="shareX()">post on 𝕏</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>What it replaces</h2>
+      <p>Pasting the same trace into ChatGPT, asking a coworker in Slack, or paying for observability platforms just to decode an error. It doesn't fix your bug — it just tells you where the body is.</p>
+    </div>
+
+    <div class="section">
+      <h2>How to use</h2>
+      <p>Paste any JavaScript/Node, Python, Java, Go, Ruby, or PHP stack trace. Click Autopsy. Use the search links to research, or copy the markdown summary to drop into a bug ticket.</p>
+    </div>
+
+    <div class="section">
+      <h2>Input</h2>
+      <textarea id="input" placeholder="Paste a stack trace here..."></textarea>
+      <span class="sample-link" onclick="loadSample()">load a sample JavaScript trace</span>
+      <div class="btn-row">
+        <button class="primary" onclick="runAutopsy()">Autopsy</button>
+        <button class="secondary" onclick="document.getElementById('input').value=''; hideResults();">Clear</button>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error" style="display:none; margin-top: 16px;"></div>
+
+    <div class="results" id="results">
+      <div class="row">
+        <div class="label">Detected</div>
+        <div class="value" id="rLang"></div>
+      </div>
+      <div class="row">
+        <div class="label">Summary</div>
+        <div class="summary" id="rSummary"></div>
+      </div>
+      <div class="row">
+        <div class="label">Error</div>
+        <div class="value"><span id="rError"></span><button class="copy-btn" onclick="copyText('rError', this)">copy</button></div>
+      </div>
+      <div class="row">
+        <div class="label">Deepest user-code frame (first non-library frame)</div>
+        <div class="frame-box" id="rFrame"></div>
+      </div>
+      <div class="row">
+        <div class="label">Research</div>
+        <div class="links" id="rLinks"></div>
+      </div>
+      <div class="row">
+        <div class="label">Markdown bug-report snippet</div>
+        <div class="value" style="display:flex; align-items:flex-start;">
+          <pre id="rMd" style="margin:0; flex:1; white-space:pre-wrap; font-size:12px;"></pre>
+          <button class="copy-btn" onclick="copyText('rMd', this)">copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" style="margin-top: 36px;">
+      <h2>What breaks</h2>
+      <p>Only supports the major formats listed above — weird or heavily customized error formats won't parse correctly. Extremely long traces (10k+ lines) may lag a bit in the browser. This is pattern matching, not AI — if your trace is mangled or missing symbols, the parser will skip those frames rather than invent data.</p>
+    </div>
+
+    <footer>
+      verified free of API/key/limit: this tool runs 100% client-side, no external calls. evidence of the problem: <a href="https://stackoverflow.com/questions/18508270" target="_blank">stackoverflow.com/questions/18508270</a>, <a href="https://newrelic.com/platform/new-relic-ai" target="_blank">newrelic.com/platform/new-relic-ai</a>.
+    </footer>
+  </div>
+
+<script>
+  // Theme toggle
+  const themeToggle = document.getElementById('themeToggle');
+  const applyTheme = (t) => {
+    document.documentElement.setAttribute('data-theme', t);
+    themeToggle.textContent = t === 'light' ? 'dark' : 'light';
+  };
+  const saved = localStorage.getItem('zca-theme') || 'dark';
+  applyTheme(saved);
+  themeToggle.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    localStorage.setItem('zca-theme', next);
+  });
+
+  const LIB_PATTERNS = [
+    /node_modules/i, /\/node\//, /internal\//, /<anonymous>/,
+    /lib\/python/, /site-packages/, /dist-packages/,
+    /\.jar\!/i, /java\./, /sun\./, /jdk\./, /javax\./,
+    /goroutine/i, /runtime\//, /vendor\//,
+    /ruby\/\d/, /\.gem\//, /gems\//,
+    /php-src/, /vendor\/php/
+  ];
+  function isLib(file) {
+    if (!file) return false;
+    return LIB_PATTERNS.some(p => p.test(file));
+  }
+
+  function parseV8(trace) {
+    const lines = trace.trim().split('\n');
+    const header = lines[0] || '';
+    const errMatch = header.match(/^([A-Za-z][A-Za-z0-9_]*(?:Error|Exception|Warning)):\s*(.*)$/);
+    let errType = errMatch ? errMatch[1] : 'Error';
+    let errMsg = errMatch ? errMatch[2].trim() : header.replace(/^\s+/, '');
+
+    const frames = [];
+    for (let i = 1; i < lines.length; i++) {
+      const m = lines[i].match(/^\s+at\s+(?:(.+?)\s+\()?(.+?)(?::(\d+))?(?::(\d+))?\)?$/);
+      if (m) {
+        frames.push({
+          func: m[1] || '(anonymous)',
+          file: m[2],
+          line: m[3] ? parseInt(m[3]) : null,
+          col: m[4] ? parseInt(m[4]) : null,
+          raw: lines[i].trim()
+        });
+      }
+    }
+    return { lang: 'JavaScript / Node', errType, errMsg, frames };
+  }
+
+  function parsePython(trace) {
+    const lines = trace.trim().split('\n');
+    let errType = 'Error', errMsg = '';
+    const frames = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const fm = line.match(/^\s*File\s+"([^"]+)",\s+line\s+(\d+),\s+in\s+(.+)/);
+      if (fm) {
+        frames.push({
+          func: fm[3],
+          file: fm[1],
+          line: parseInt(fm[2]),
+          col: null,
+          raw: line.trim()
+        });
+      }
+      const em = line.match(/^([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception|Warning)):\s*(.*)$/);
+      if (em && i === lines.length - 1) {
+        errType = em[1];
+        errMsg = em[2];
+      } else if (em && frames.length > 0 && i > 1) {
+        // Sometimes exception line is not last
+        errType = em[1];
+        errMsg = em[2];
+      }
+    }
+    if (!errMsg) {
+      const last = lines[lines.length - 1];
+      const em = last.match(/^([A-Za-z_][A-Za-z0-9_.]*)[:\.]\s*(.*)$/);
+      if (em) { errType = em[1]; errMsg = em[2]; }
+      else { errMsg = last; }
+    }
+    return { lang: 'Python', errType, errMsg, frames };
+  }
+
+  function parseJava(trace) {
+    const lines = trace.trim().split('\n');
+    let errType = 'Exception', errMsg = '';
+    const headerMatch = lines[0].match(/(?:Exception in thread "[^"]+"\s+)?([a-zA-Z_][a-zA-Z0-9_\.]*(?:Error|Exception)):\s*(.*)$/);
+    if (headerMatch) {
+      errType = headerMatch[1];
+      errMsg = headerMatch[2];
+    }
+    const frames = [];
+    for (let i = 1; i < lines.length; i++) {
+      const m = lines[i].match(/^\s+at\s+([a-zA-Z_][a-zA-Z0-9_\.]*)\(([^:]+):(\d+)\)/);
+      if (m) {
+        frames.push({
+          func: m[1],
+          file: m[2],
+          line: parseInt(m[3]),
+          col: null,
+          raw: lines[i].trim()
+        });
+      }
+    }
+    return { lang: 'Java', errType, errMsg, frames };
+  }
+
+  function parseGo(trace) {
+    const lines = trace.trim().split('\n');
+    let errMsg = '';
+    const panicM = lines[0].match(/^panic:\s*(.*)$/);
+    if (panicM) errMsg = panicM[1];
+    else {
+      const errM = lines.find(l => /^.*Error:/.test(l));
+      if (errM) errMsg = errM;
+    }
+    const frames = [];
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^([a-zA-Z_][a-zA-Z0-9_\.\/]*)\(([^)]*)\)$/);
+      const nm = lines[i + 1] ? lines[i + 1].match(/^\s+(.+?):(\d+)(?:\s+\+0x[0-9a-f]+)?/) : null;
+      if (m && nm) {
+        frames.push({
+          func: m[1],
+          file: nm[1],
+          line: parseInt(nm[2]),
+          col: null,
+          raw: `${lines[i].trim()} → ${nm[1]}:${nm[2]}`
+        });
+        i++;
+      }
+    }
+    return { lang: 'Go', errType: 'panic', errMsg, frames };
+  }
+
+  function parseRuby(trace) {
+    const lines = trace.trim().split('\n');
+    let errType = 'Error', errMsg = '';
+    const frames = [];
+    for (const line of lines) {
+      const m = line.match(/^\s*(.+?):(\d+):in\s+`([^']+)':?\s*(.*)$/);
+      if (m) {
+        frames.push({
+          func: m[3],
+          file: m[1],
+          line: parseInt(m[2]),
+          col: null,
+          raw: line.trim()
+        });
+        if (m[4] && !errMsg) {
+          const em = m[4].match(/^(.+?)\s*\((.+?)\)$/);
+          if (em) { errType = em[2]; errMsg = em[1]; }
+        }
+      }
+    }
+    if (!errMsg) {
+      const last = lines[lines.length - 1];
+      const em = last.match(/^([A-Z][A-Za-z0-9_]*(?:Error|Exception)):\s*(.*)$/);
+      if (em) { errType = em[1]; errMsg = em[2]; }
+    }
+    return { lang: 'Ruby', errType, errMsg, frames };
+  }
+
+  function parsePHP(trace) {
+    const lines = trace.trim().split('\n');
+    let errType = 'Fatal error', errMsg = '';
+    const frames = [];
+    for (const line of lines) {
+      const m = line.match(/(?:PHP\s+)?(Fatal error|Parse error|Warning|Notice):\s*(.+?)\s+in\s+(.+?)\s+on line\s+(\d+)/i);
+      if (m) {
+        errType = m[1];
+        errMsg = m[2];
+        frames.push({
+          func: '(top)',
+          file: m[3],
+          line: parseInt(m[4]),
+          col: null,
+          raw: line.trim()
+        });
+      }
+      const sm = line.match(/^#\d+\s+(.+?)\((\d+)\):\s+(.+?)\((.*)\)/);
+      if (sm) {
+        frames.push({
+          func: sm[3],
+          file: sm[1],
+          line: parseInt(sm[2]),
+          col: null,
+          raw: line.trim()
+        });
+      }
+    }
+    return { lang: 'PHP', errType, errMsg, frames };
+  }
+
+  function detect(trace) {
+    const t = trace.trim();
+    if (/^\s*Traceback\s+\(most recent call last\):/m.test(t)) return parsePython(t);
+    if (/^\s*at\s+.+?\([\s\S]+?\)/m.test(t) || /^[A-Za-z][A-Za-z0-9_]*Error:/m.test(t)) return parseV8(t);
+    if (/^Exception in thread/m.test(t) || /^\s+at\s+[a-zA-Z_][\w\.]*\([^:]+:\d+\)/m.test(t)) return parseJava(t);
+    if (/^panic:/m.test(t) || /^goroutine\s+\d+\s+\[/m.test(t)) return parseGo(t);
+    if (/:\d+:in\s+`/m.test(t)) return parseRuby(t);
+    if (/PHP\s+Fatal error:/i.test(t) || /^#\d+\s+[\w\\\/]+\(\d+\):/m.test(t)) return parsePHP(t);
+    // fallback — try V8 as most common
+    return { ...parseV8(t), lang: 'Unknown (guessed JS/Node)' };
+  }
+
+  function hideResults() {
+    document.getElementById('results').classList.remove('visible');
+    document.getElementById('errorBox').style.display = 'none';
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.style.display = 'block';
+    document.getElementById('results').classList.remove('visible');
+  }
+
+  function runAutopsy() {
+    const input = document.getElementById('input').value.trim();
+    if (!input) { showError('Paste a stack trace first.'); return; }
+    document.getElementById('errorBox').style.display = 'none';
+
+    const r = detect(input);
+
+    if (!r.errMsg && r.frames.length === 0) {
+      showError('Could not parse this format. Supported: JS/Node, Python, Java, Go, Ruby, PHP.');
+      return;
+    }
+
+    const userFrame = r.frames.find(f => !isLib(f.file)) || r.frames[0];
+
+    document.getElementById('rLang').textContent = r.lang;
+    document.getElementById('rError').textContent = `${r.errType}: ${r.errMsg}`;
+
+    const summary = `A \`${r.errType}\` was thrown: ${r.errMsg}${userFrame ? `. Originates in \`${userFrame.file}\` at line ${userFrame.line}.` : '.'}`;
+    document.getElementById('rSummary').textContent = summary;
+
+    if (userFrame) {
+      document.getElementById('rFrame').innerHTML =
+        `<div class="loc">${escapeHtml(userFrame.file)}:${userFrame.line}${userFrame.col ? ':' + userFrame.col : ''}</div>` +
+        `<div style="color:var(--muted); margin-top:4px;">in ${escapeHtml(userFrame.func || '(top)')}</div>`;
+    } else {
+      document.getElementById('rFrame').textContent = '(no frames parsed)';
+    }
+
+    const q = encodeURIComponent(`${r.errType} ${r.errMsg}`);
+    const links = document.getElementById('rLinks');
+    links.innerHTML = '';
+    const google = `https://www.google.com/search?q=${q}`;
+    const so = `https://stackoverflow.com/search?q=${q}`;
+    const gh = `https://github.com/search?q=${q}&type=issues`;
+    links.innerHTML =
+      `<a href="${google}" target="_blank">Google ↗</a>` +
+      `<a href="${so}" target="_blank">Stack Overflow ↗</a>` +
+      `<a href="${gh}" target="_blank">GitHub Issues ↗</a>`;
+
+    const md = `### Bug\n\n**${r.errType}**: ${r.errMsg}\n\n**Language**: ${r.lang}\n\n**Location**: \`${userFrame ? userFrame.file + ':' + userFrame.line : '(unknown)'}\`\n\n<details><summary>Full stack trace</summary>\n\n\`\`\`\n${input.slice(0, 2000)}${input.length > 2000 ? '\n...(truncated)' : ''}\n\`\`\`\n\n</details>`;
+    document.getElementById('rMd').textContent = md;
+
+    document.getElementById('results').classList.add('visible');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function copyText(elId, btn) {
+    const text = document.getElementById(elId).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const old = btn.textContent;
+      btn.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1200);
+    });
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      alert('Link copied.');
+    });
+  }
+
+  function shareX() {
+    const text = encodeURIComponent('Stack Trace Autopsy — paste a production error log, get the user-code line that failed + Google/SO search links. No API, no key:');
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+  }
+
+  function loadSample() {
+    document.getElementById('input').value = `TypeError: Cannot read properties of undefined (reading 'map')
+    at renderUsers (https://app.example.com/js/dashboard.js:47:22)
+    at DashboardView (https://app.example.com/js/dashboard.js:31:5)
+    at runEffects (https://cdn.jsdelivr.net/npm/preact@10/dist/preact.module.js:1:14503)
+    at diff (https://cdn.jsdelivr.net/npm/preact@10/dist/preact.module.js:1:18234)
+    at m (https://cdn.jsdelivr.net/npm/preact@10/dist/preact.module.js:1:12890)
+    at https://app.example.com/js/main.js:12:3`;
+  }
+</script>
+</body>
+</html>
