@@ -72,6 +72,22 @@
   "reading_time_minutes": 3,
   "pinned": false,
   "verified": "2026-08-15"
+}, {
+  "id": "0042",
+  "slug": "stack-trace-autopsy",
+  "title": "Stack Trace Autopsy",
+  "hook": "Paste a production stack trace and get the error, the exact user-code line that failed, and ready-to-click Google/Stack Overflow search links — 100% client-side, no API, no limit.",
+  "path": "tools/stack-trace-autopsy.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "∞ runs — pure client-side regex/string parsing in the browser tab, no external service, no key, no rate limit.",
+  "source_url": "https://stackoverflow.com/questions/18508270/nullpointerexception-i-dont-understand",
+  "tags": ["debugging", "browser-native", "errors", "javascript", "python", "java"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-16"
 }
   ]
 }
