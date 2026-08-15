@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Log Analyzer | Zero-Cost AI Coding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d1117;
+            --fg: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #2ea043;
+            --card: #161b22;
+            --border: #30363d;
+            --danger: #f85149;
+            --warn: #d29922;
+        }
+        [data-theme="light"] {
+            --bg: #ffffff;
+            --fg: #1f2328;
+            --muted: #656d76;
+            --accent: #1a7f37;
+            --card: #f6f8fa;
+            --border: #d0d7de;
+            --danger: #cf222e;
+            --warn: #9a6700;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background-color: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        .home-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+        .header-right {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--fg);
+        }
+        .pitch {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            color: var(--muted);
+        }
+        .replaces {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+        .replaces strong { color: var(--fg); }
+        .share-buttons {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn {
+            background-color: var(--card);
+            color: var(--fg);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .btn:hover, .btn:focus-visible {
+            border-color: var(--accent);
+            outline: none;
+        }
+        .btn-primary {
+            background-color: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+        .btn-primary:hover, .btn-primary:focus-visible {
+            opacity: 0.9;
+            border-color: var(--accent);
+        }
+        .input-area {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            background-color: var(--card);
+            color: var(--fg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+        textarea:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: -1px;
+            border-color: var(--accent);
+        }
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .savings {
+            margin-left: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .savings span { color: var(--accent); font-weight: 700; }
+        .assumption {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        .results-area {
+            display: none;
+            margin-top: 2rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-box {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .stat-box h3 {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .stat-box span {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--fg);
+        }
+        .lists-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .list-box {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+        .list-box h4 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        ul {
+            list-style: none;
+        }
+        li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            word-break: break-all;
+        }
+        li:last-child { border-bottom: none; }
+        .count {
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+        }
+        .breaks {
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: var(--muted);
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .savings { width: 100%; margin-left: 0; margin-top: 0.5rem; }
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--accent);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← Home</a>
+        <div class="header-right">Local Log Analyzer</div>
+    </header>
+    <main>
+        <h1>Local Log Analyzer</h1>
+        <p class="pitch">Paste your Nginx/Apache access logs to instantly see top IPs, status code breakdown, and error rates. Runs 100% in your browser—no data leaves your machine, no SaaS ingestion limits.</p>
+        
+        <div class="share-buttons">
+            <button class="btn" id="shareX">Share on X</button>
+            <button class="btn" id="shareCopy">Copy Link</button>
+        </div>
+
+        <div class="replaces">
+            <strong>What this replaces:</strong> No direct paid equivalent found, but bypasses free-tier ingestion caps on SaaS log tools (e.g., 500MB/day limits) by processing locally without uploading sensitive traffic data.
+        </div>
+
+        <div class="input-area">
+            <label for="logInput">Paste Logs Here:</label>
+            <textarea id="logInput" aria-label="Log Input">127.0.0.1 - - [10/Oct/2023:13:55:36 +0000] "GET /api/users HTTP/1.1" 200 1234 "https://example.com" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+192.168.1.1 - - [10/Oct/2023:13:55:37 +0000] "POST /api/login HTTP/1.1" 401 89 "-" "PostmanRuntime/7.29.0"
+10.0.0.2 - - [10/Oct/2023:13:55:38 +0000] "GET /assets/style.css HTTP/1.1" 200 4567 "https://example.com" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+127.0.0.1 - - [10/Oct/2023:13:55:39 +0000] "GET /favicon.ico HTTP/1.1" 404 231 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+8.8.8.8 - - [10/Oct/2023:13:55:40 +0000] "GET /api/users HTTP/1.1" 200 1234 "https://google.com" "Mozilla/5.0 (Linux; Android 10)"
+127.0.0.1 - - [10/Oct/2023:13:55:41 +0000] "GET /admin HTTP/1.1" 500 0 "-" "curl/7.68.0"
+10.0.0.2 - - [10/Oct/2023:13:55:42 +0000] "DELETE /api/users/123 HTTP/1.1" 200 0 "https://example.com" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"</textarea>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="analyzeBtn">Analyze Logs</button>
+            <button class="btn" id="exportJsonBtn">Copy as JSON</button>
+            <div class="savings">
+                Saves ~<span id="savedTime">0</span> min of manual parsing
+                <div class="assumption">(Assumption: ~0.1 sec/line to grep/awk manually)</div>
+            </div>
+        </div>
+
+        <div id="resultsArea" class="results-area">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3>Total Requests</h3>
+                    <span id="statTotal">0</span>
+                </div>
+                <div class="stat-box">
+                    <h3>Parsed</h3>
+                    <span id="statParsed">0</span>
+                </div>
+                <div class="stat-box">
+                    <h3>Error Rate</h3>
+                    <span id="statErrors">0%</span>
+                </div>
+            </div>
+            <div class="lists-grid">
+                <div class="list-box">
+                    <h4>Top IPs</h4>
+                    <ul id="listIps"></ul>
+                </div>
+                <div class="list-box">
+                    <h4>Top Paths</h4>
+                    <ul id="listPaths"></ul>
+                </div>
+                <div class="list-box">
+                    <h4>Status Codes</h4>
+                    <ul id="listStatus"></ul>
+                </div>
+                <div class="list-box">
+                    <h4>User Agents</h4>
+                    <ul id="listUAs"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="breaks">
+            <strong>What breaks:</strong> Currently parses standard Nginx combined log format. JSON logs or custom formats won't be parsed (they'll show as unparsed lines). Extremely large files (>50MB) may cause UI lag since rendering is synchronous.
+        </div>
+    </main>
+
+    <footer>
+        Free-tier verification: No external API used. Runs purely client-side. Computed locally via native browser JS and String APIs.
+    </footer>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const logInput = document.getElementById('logInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const exportJsonBtn = document.getElementById('exportJsonBtn');
+        const resultsArea = document.getElementById('resultsArea');
+        const savedTimeEl = document.getElementById('savedTime');
+        
+        // Stats elements
+        const statTotal = document.getElementById('statTotal');
+        const statParsed = document.getElementById('statParsed');
+        const statErrors = document.getElementById('statErrors');
+        
+        // List elements
+        const listIps = document.getElementById('listIps');
+        const listPaths = document.getElementById('listPaths');
+        const listStatus = document.getElementById('listStatus');
+        const listUAs = document.getElementById('listUAs');
+
+        // Toast
+        const toast = document.getElementById('toast');
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // Share buttons
+        document.getElementById('shareX').addEventListener('click', () => {
+            const url = window.location.href;
+            const text = encodeURIComponent("Check out this free Local Log Analyzer that runs in your browser!");
+            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, '_blank');
+        });
+        document.getElementById('shareCopy').addEventListener('click', () => {
+            navigator.clipboard.writeText(window.location.href);
+            showToast('Link copied to clipboard');
+        });
+
+        function getTopItems(obj, limit = 10) {
+            return Object.entries(obj)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, limit);
+        }
+
+        function renderList(element, items) {
+            element.innerHTML = '';
+            if (items.length === 0) {
+                element.innerHTML = '<li><span>No data</span></li>';
+                return;
+            }
+            items.forEach(([key, count]) => {
+                const li = document.createElement('li');
+                const spanKey = document.createElement('span');
+                spanKey.textContent = key;
+                const spanCount = document.createElement('span');
+                spanCount.className = 'count';
+                spanCount.textContent = count;
+                li.appendChild(spanKey);
+                li.appendChild(spanCount);
+                element.appendChild(li);
+            });
+        }
+
+        let currentStats = null;
+
+        analyzeBtn.addEventListener('click', () => {
+            const text = logInput.value.trim();
+            if (!text) {
+                showToast('Please paste some logs first');
+                return;
+            }
+
+            const lines = text.split('\n');
+            const stats = {
+                total: 0,
+                parsed: 0,
+                errors: 0,
+                ips: {},
+                paths: {},
+                statusCodes: {},
+                userAgents: {}
+            };
+
+            // Standard Nginx Combined Log Format Regex
+            const regex = /^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+)(?: (\S+))?" (\d{3}) (\S+) "([^"]*)" "([^"]*)"/;
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                stats.total++;
+                
+                const match = line.match(regex);
+                if (match) {
+                    stats.parsed++;
+                    const ip = match[1];
+                    const path = match[4];
+                    const status = match[6];
+                    const ua = match[9];
+
+                    stats.ips[ip] = (stats.ips[ip] || 0) + 1;
+                    stats.paths[path] = (stats.paths[path] || 0) + 1;
+                    stats.statusCodes[status] = (stats.statusCodes[status] || 0) + 1;
+                    stats.userAgents[ua] = (stats.userAgents[ua] || 0) + 1;
+
+                    if (status.startsWith('4') || status.startsWith('5')) {
+                        stats.errors++;
+                    }
+                }
+            });
+
+            currentStats = stats;
+
+            // Update UI
+            statTotal.textContent = stats.total;
+            statParsed.textContent = stats.parsed;
+            const errorRate = stats.total > 0 ? ((stats.errors / stats.total) * 100).toFixed(1) : 0;
+            statErrors.textContent = `${errorRate}%`;
+
+            renderList(listIps, getTopItems(stats.ips));
+            renderList(listPaths, getTopItems(stats.paths));
+            renderList(listStatus, getTopItems(stats.statusCodes));
+            renderList(listUAs, getTopItems(stats.userAgents, 5)); // UAs are long, limit to 5
+
+            // Time saved calculation
+            const minutes = (stats.parsed * 0.1 / 60).toFixed(1);
+            savedTimeEl.textContent = minutes;
+
+            resultsArea.style.display = 'block';
+            resultsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        exportJsonBtn.addEventListener('click', () => {
+            if (!currentStats) {
+                showToast('Analyze logs first');
+                return;
+            }
+            const exportData = {
+                zcac: true,
+                kind: "log-analysis",
+                data: currentStats
+            };
+            navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+            showToast('JSON copied to clipboard');
+        });
+
+        // Theme toggle (auto-detect from system, but allow toggle if needed later)
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    </script>
+</body>
+</html>
