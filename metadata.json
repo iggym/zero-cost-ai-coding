@@ -24,6 +24,22 @@
   "reading_time_minutes": 1,
   "pinned": false,
   "verified": "2025-07-18"
+}, {
+  "id": "8102",
+  "slug": "sql-schema-to-typescript-generator",
+  "title": "SQL Schema to TypeScript & Migration Generator",
+  "hook": "Convert PostgreSQL DDL schemas into clean TypeScript interfaces and rollback SQL completely client-side.",
+  "path": "tools/sql-schema-to-typescript-generator.html",
+  "date": "2026-08-15",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Unlimited client-side execution using standard Browser Web APIs.",
+  "source_url": "https://developer.mozilla.org/en-US/docs/Web/API",
+  "tags": ["sql", "typescript", "database", "developer-tools"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-15"
 }
   ]
 }
