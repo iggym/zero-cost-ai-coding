@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error Triage — zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0a;--surface:#141414;--surface2:#1c1c1c;--border:#262626;
+  --text:#e5e5e5;--muted:#888;--accent:#22c55e;--accent-dim:#16a34a;
+  --err:#ef4444;--warn:#f59e0b;--code-bg:#1a1a1a;--code-text:#d4d4d4;
+  --radius:8px;
+}
+[data-theme="light"]{
+  --bg:#fafafa;--surface:#fff;--surface2:#f5f5f5;--border:#d4d4d4;
+  --text:#171717;--muted:#666;--accent:#16a34a;--accent-dim:#15803d;
+  --err:#dc2626;--warn:#d97706;--code-bg:#f0f0f0;--code-text:#333;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.mono{font-family:'JetBrains Mono',monospace}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.container{max-width:720px;margin:0 auto;padding:0 20px}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:32px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.home-link{font-size:13px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.page-title{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px}
+.theme-toggle{background:none;border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:var(--radius);cursor:pointer;font-size:14px;font-family:'Inter',sans-serif;transition:color .2s,border-color .2s}
+.theme-toggle:hover{color:var(--text);border-color:var(--muted)}
+
+/* Pitch */
+.pitch{margin-bottom:28px}
+.pitch h1{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;line-height:1.35;margin-bottom:10px;color:var(--text)}
+.pitch p{color:var(--muted);font-size:14px;margin-bottom:6px}
+.limit-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);border:1px solid var(--accent);padding:2px 8px;border-radius:4px;margin-top:4px}
+.replaces{font-size:13px;color:var(--muted);margin-top:8px}
+.replaces strong{color:var(--text);font-weight:600}
+.share-row{display:flex;gap:8px;margin-top:12px}
+.share-btn{font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--muted);cursor:pointer;font-family:'Inter',sans-serif;transition:border-color .2s,color .2s}
+.share-btn:hover{border-color:var(--muted);color:var(--text)}
+
+/* Sections */
+.section{margin-bottom:24px}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+
+/* Key input */
+.key-row{display:flex;gap:8px;align-items:start;flex-wrap:wrap}
+.key-input-wrap{flex:1;min-width:200px;position:relative}
+.key-input{width:100%;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);outline:none}
+.key-input:focus{border-color:var(--accent)}
+.key-input::placeholder{color:var(--muted)}
+.key-hint{font-size:12px;color:var(--muted);margin-top:4px}
+.key-hint a{color:var(--accent)}
+.save-key-btn{padding:8px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);cursor:pointer;transition:border-color .2s}
+.save-key-btn:hover{border-color:var(--accent)}
+.key-saved{font-size:12px;color:var(--accent);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+/* Form */
+.select-wrap select,.error-input{width:100%;padding:10px 12px;font-size:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);outline:none;font-family:'Inter',sans-serif}
+.select-wrap select:focus,.error-input:focus{border-color:var(--accent)}
+.error-input{font-family:'JetBrains Mono',monospace;font-size:13px;resize:vertical;min-height:180px;line-height:1.5}
+.error-input::placeholder{color:var(--muted)}
+.select-wrap select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.char-count{font-size:11px;color:var(--muted);text-align:right;margin-top:2px;font-family:'JetBrains Mono',monospace}
+
+/* Buttons */
+.triage-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;background:var(--accent);color:#000;border:none;border-radius:var(--radius);cursor:pointer;transition:opacity .2s,transform .1s}
+.triage-btn:hover{opacity:.9}
+.triage-btn:active{transform:scale(.98)}
+.triage-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Output */
+.output-area{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:20px;display:none}
+.output-area.visible{display:block}
+.output-area h3.diag-header{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--accent);margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.output-area h3.diag-header:first-child{margin-top:0}
+.output-area h4{font-weight:600;font-size:14px;margin:12px 0 4px}
+.output-area p.diag-para{font-size:14px;margin:4px 0;color:var(--text)}
+.output-area ul.diag-list,.output-area ol.diag-list{padding-left:20px;margin:6px 0}
+.output-area li{font-size:14px;margin:3px 0;color:var(--text)}
+.output-area li strong{color:var(--text)}
+.output-area pre.code-block{background:var(--code-bg);border:1px solid var(--border);border-radius:4px;padding:10px 12px;overflow-x:auto;margin:8px 0;font-size:12px;line-height:1.5}
+.output-area pre.code-block code{color:var(--code-text);font-family:'JetBrains Mono',monospace}
+.output-area code.inline-code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)}
+.output-actions{display:flex;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.copy-diag-btn,.reset-btn{padding:6px 14px;font-size:12px;font-family:'JetBrains Mono',monospace;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none;color:var(--text);transition:border-color .2s}
+.copy-diag-btn:hover,.reset-btn:hover{border-color:var(--accent)}
+.copy-diag-btn.copied{color:var(--accent);border-color:var(--accent)}
+
+/* Loading */
+.loading{display:none;align-items:center;gap:8px;color:var(--muted);font-size:13px;margin-top:12px;font-family:'JetBrains Mono',monospace}
+.loading.visible{display:flex}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){
+  .spinner{animation:none;border-top-color:var(--accent);opacity:.7}
+  *{transition-duration:0s!important;animation-duration:0s!important}
+}
+
+/* Error message */
+.err-msg{display:none;color:var(--err);font-size:13px;margin-top:8px;font-family:'JetBrains Mono',monospace}
+.err-msg.visible{display:block}
+
+/* What breaks */
+.what-breaks{margin-top:32px;padding-top:20px;border-top:1px solid var(--border)}
+.what-breaks h2{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);margin-bottom:6px}
+.what-breaks ul{padding-left:18px}
+.what-breaks li{font-size:13px;color:var(--muted);margin:3px 0}
+
+/* Footer */
+.footer{margin-top:40px;padding:16px 0;border-top:1px solid var(--border);font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.footer a{color:var(--muted);text-decoration:underline}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;padding:8px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent);opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s;pointer-events:none;z-index:100}
+.toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="/" class="home-link">← zero-cost-ai-coding</a>
+    <span class="page-title">Error Triage</span>
+  </div>
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">☀</button>
+</div>
+
+<!-- Pitch -->
+<div class="pitch">
+  <h1>Paste an error. Get a diagnosis.</h1>
+  <p>Stack trace, log dump, or cryptic build failure — get classification, root cause, concrete fix steps, and pitfalls to watch for.</p>
+  <span class="limit-badge">Groq free tier: 30 req/min · 14,400/day</span>
+  <p class="replaces">Replaces: pasting errors into ChatGPT Plus (<strong>$20/mo</strong>), manual Stack Overflow searches, or paid Sentry/Datadog AI triage.</p>
+  <div class="share-row">
+    <button class="share-btn" id="shareX">Share on X</button>
+    <button class="share-btn" id="shareCopy">Copy link</button>
+  </div>
+</div>
+
+<!-- API Key -->
+<div class="section">
+  <div class="section-label">API Key</div>
+  <div class="key-row">
+    <div class="key-input-wrap">
+      <input type="password" class="key-input" id="apiKeyInput" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+    </div>
+    <button class="save-key-btn" id="saveKeyBtn">Save</button>
+  </div>
+  <p class="key-hint">Free key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> — no card needed. Key stays in your browser only.</p>
+  <p class="key-saved" id="keySavedMsg" style="display:none">✓ Key saved locally</p>
+</div>
+
+<!-- Language -->
+<div class="section">
+  <div class="section-label">Language / Context</div>
+  <div class="select-wrap">
+    <select id="langSelect">
+      <option value="auto">Auto-detect</option>
+      <option value="JavaScript / TypeScript">JavaScript / TypeScript</option>
+      <option value="Python">Python</option>
+      <option value="Java">Java</option>
+      <option value="Go">Go</option>
+      <option value="Rust">Rust</option>
+      <option value="Ruby">Ruby</option>
+      <option value="PHP">PHP</option>
+      <option value="C / C++">C / C++</option>
+      <option value="C#">C#</option>
+      <option value="Shell / Bash">Shell / Bash</option>
+      <option value="Docker / Infrastructure">Docker / Infrastructure</option>
+      <option value="SQL / Database">SQL / Database</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+</div>
+
+<!-- Error input -->
+<div class="section">
+  <div class="section-label">Error / Stack Trace / Log</div>
+  <textarea class="error-input" id="errorInput" placeholder="Paste your error here...&#10;&#10;Example:&#10;TypeError: Cannot read properties of undefined (reading 'map')&#10;    at UserList (src/components/UserList.tsx:12:18)&#10;    at renderWithHooks (node_modules/react-dom/cjs/react-dom.development.js:1631:16)" spellcheck="false"></textarea>
+  <div class="char-count" id="charCount">0 chars</div>
+</div>
+
+<!-- Triage button -->
+<button class="triage-btn" id="triageBtn">▶ Triage</button>
+<div class="loading" id="loading"><div class="spinner"></div>Diagnosing...</div>
+<div class="err-msg" id="errMsg"></div>
+
+<!-- Output -->
+<div class="output-area" id="outputArea">
+  <div id="outputContent"></div>
+  <div class="output-actions">
+    <button class="copy-diag-btn" id="copyDiagBtn">Copy diagnosis</button>
+    <button class="reset-btn" id="resetBtn">Triage another</button>
+  </div>
+</div>
+
+<!-- What breaks -->
+<div class="what-breaks">
+  <h2>What breaks</h2>
+  <ul>
+    <li>Rate limited after 30 requests in a minute or 14,400 in a day — Groq returns HTTP 429.</li>
+    <li>LLM suggestions can be wrong. Always verify fixes before applying to production.</li>
+    <li>Very large logs (~6k+ tokens) may get truncated at the model's context window.</li>
+    <li>If Groq changes their free tier, this tool stops working until you find another key.</li>
+  </ul>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Free tier verified at <a href="https://console.groq.com/docs/rate-limits" target="_blank" rel="noopener">console.groq.com/docs/rate-limits</a>
+</div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Theme ───
+const html = document.documentElement;
+const themeBtn = document.getElementById('themeToggle');
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme) html.setAttribute('data-theme', savedTheme);
+else if (window.matchMedia('(prefers-color-scheme: light)').matches) html.setAttribute('data-theme', 'light');
+updateThemeIcon();
+
+themeBtn.addEventListener('click', () => {
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeIcon();
+});
+function updateThemeIcon() {
+  themeBtn.textContent = html.getAttribute('data-theme') === 'dark' ? '☀' : '☾';
+}
+
+// ─── API Key ───
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+const keySavedMsg = document.getElementById('keySavedMsg');
+const savedKey = localStorage.getItem('groq_api_key');
+if (savedKey) {
+  apiKeyInput.value = savedKey;
+  keySavedMsg.style.display = 'block';
+}
+saveKeyBtn.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) { showToast('Enter a key first'); return; }
+  localStorage.setItem('groq_api_key', key);
+  keySavedMsg.style.display = 'block';
+  showToast('Key saved');
+});
+
+// ─── Char count ───
+const errorInput = document.getElementById('errorInput');
+const charCount = document.getElementById('charCount');
+errorInput.addEventListener('input', () => {
+  charCount.textContent = errorInput.value.length + ' chars';
+});
+
+// ─── Share ───
+document.getElementById('shareX').addEventListener('click', () => {
+  const text = encodeURIComponent('Error Triage — free AI-powered error diagnosis for devs. Paste a stack trace, get a fix.');
+  const url = encodeURIComponent(window.location.href);
+  window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+});
+document.getElementById('shareCopy').addEventListener('click', () => {
+  navigator.clipboard.writeText(window.location.href).then(() => showToast('Link copied'));
+});
+
+// ─── Toast ───
+const toast = document.getElementById('toast');
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ─── System prompt ───
+const SYSTEM_PROMPT = `You are an expert error triage assistant for software developers. Analyze the error message, stack trace, or log output and respond in EXACTLY this format:
+
+## Classification
+[The error type: e.g., TypeError, NullReferenceException, BuildError, NetworkError, PermissionError, ConfigError, etc.]
+
+## Severity
+[Critical | High | Medium | Low]
+- Critical: blocks all work, data loss or security risk
+- High: blocks a major feature, no workaround
+- Medium: blocks a feature but a workaround exists
+- Low: cosmetic, minor inconvenience
+
+## Root Cause
+[1-3 sentences explaining what is actually wrong in plain language. Be specific — do not just restate the error message.]
+
+## Fix
+[Numbered, concrete steps to resolve. Include exact code, config snippets, or terminal commands when possible. Be specific — "add \`strict: true\` to tsconfig.json under compilerOptions" not "check your TypeScript config".]
+
+## Watch Out
+[1-3 common mistakes that make this error recur or that developers miss when fixing it. Be practical.]
+
+If the input is not an error, stack trace, or log output, say: "This doesn't look like an error or log output. Paste an error message, stack trace, or log dump and I'll triage it."`;
+
+// ─── Triage ───
+const triageBtn = document.getElementById('triageBtn');
+const loading = document.getElementById('loading');
+const errMsg = document.getElementById('errMsg');
+const outputArea = document.getElementById('outputArea');
+const outputContent = document.getElementById('outputContent');
+let rawDiagnosis = '';
+
+triageBtn.addEventListener('click', runTriage);
+
+async function runTriage() {
+  const apiKey = localStorage.getItem('groq_api_key') || apiKeyInput.value.trim();
+  if (!apiKey) { showErr('Enter a Groq API key first.'); return; }
+  const errorText = errorInput.value.trim();
+  if (!errorText) { showErr('Paste an error, stack trace, or log to triage.'); return; }
+
+  const lang = document.getElementById('langSelect').value;
+  let userMsg = errorText;
+  if (lang !== 'auto') userMsg = `[Context: ${lang}]\n\n${errorText}`;
+
+  triageBtn.disabled = true;
+  loading.classList.add('visible');
+  errMsg.classList.remove('visible');
+  outputArea.classList.remove('visible');
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userMsg }
+        ],
+        temperature: 0.3,
+        max_tokens: 2048
+      })
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) throw new Error('Invalid API key — check it at console.groq.com/keys');
+      if (res.status === 429) throw new Error('Rate limited — wait a minute and try again');
+      if (res.status === 413) throw new Error('Input too large — trim the log and retry');
+      throw new Error('Groq API error (HTTP ' + res.status + ')');
+    }
+
+    const data = await res.json();
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Unexpected response from Groq');
+    }
+    rawDiagnosis = data.choices[0].message.content;
+    outputContent.innerHTML = renderMarkdown(rawDiagnosis);
+    outputArea.classList.add('visible');
+    outputArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    showErr(e.message);
+  } finally {
+    triageBtn.disabled = false;
+    loading.classList.remove('visible');
+  }
+}
+
+function showErr(msg) {
+  errMsg.textContent = msg;
+  errMsg.classList.add('visible');
+}
+
+// ─── Copy diagnosis ───
+const copyDiagBtn = document.getElementById('copyDiagBtn');
+copyDiagBtn.addEventListener('click', () => {
+  if (!rawDiagnosis) return;
+  navigator.clipboard.writeText(rawDiagnosis).then(() => {
+    copyDiagBtn.textContent = '✓ Copied';
+    copyDiagBtn.classList.add('copied');
+    setTimeout(() => { copyDiagBtn.textContent = 'Copy diagnosis'; copyDiagBtn.classList.remove('copied'); }, 1500);
+  });
+});
+
+// ─── Reset ───
+document.getElementById('resetBtn').addEventListener('click', () => {
+  errorInput.value = '';
+  charCount.textContent = '0 chars';
+  outputArea.classList.remove('visible');
+  rawDiagnosis = '';
+  errorInput.focus();
+});
+
+// ─── Markdown renderer ───
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderMarkdown(md) {
+  // Extract fenced code blocks
+  const codeBlocks = [];
+  md = md.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const i = codeBlocks.length;
+    codeBlocks.push('<pre class="code-block"><code>' + escapeHtml(code.trimEnd()) + '</code></pre>');
+    return '\n%%CB' + i + '%%\n';
+  });
+
+  const lines = md.split('\n');
+  let html = '';
+  let inList = false, listTag = '';
+
+  function closeList() {
+    if (inList) { html += listTag === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+  }
+
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (t.startsWith('## ')) {
+      closeList();
+      html += '<h3 class="diag-header">' + inline(t.slice(3)) + '</h3>';
+    } else if (t.startsWith('### ')) {
+      closeList();
+      html += '<h4>' + inline(t.slice(4)) + '</h4>';
+    } else if (/^[-*]\s/.test(t)) {
+      if (!inList || listTag !== 'ul') { closeList(); html += '<ul class="diag-list">'; inList = true; listTag = 'ul'; }
+      html += '<li>' + inline(t.replace(/^[-*]\s/, '')) + '</li>';
+    } else if (/^\d+\.\s/.test(t)) {
+      if (!inList || listTag !== 'ol') { closeList(); html += '<ol class="diag-list">'; inList = true; listTag = 'ol'; }
+      html += '<li>' + inline(t.replace(/^\d+\.\s/, '')) + '</li>';
+    } else if (t === '') {
+      closeList();
+    } else if (/^%%CB\d+%%$/.test(t)) {
+      closeList();
+      html += t;
+    } else {
+      closeList();
+      html += '<p class="diag-para">' + inline(t) + '</p>';
+    }
+  }
+  closeList();
+
+  codeBlocks.forEach((blk, i) => { html = html.replace('%%CB' + i + '%%', blk); });
+  return html;
+}
+
+function inline(s) {
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+  return s;
+}
+</script>
+</body>
+</html>
