@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON to JSON Schema Generator | Zero-Cost AI Coding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #111111;
+            --bg-alt: #1a1a1a;
+            --text: #e0e0e0;
+            --text-muted: #888888;
+            --accent: #00ff9d;
+            --border: #333333;
+            --error: #ff4444;
+        }
+        [data-theme="light"] {
+            --bg: #f4f4f4;
+            --bg-alt: #ffffff;
+            --text: #111111;
+            --text-muted: #555555;
+            --accent: #00875a;
+            --border: #cccccc;
+            --error: #d8000c;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-alt);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+        .home-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .header-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 1rem;
+        }
+        .theme-toggle:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        .pitch {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .share-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        .btn {
+            background-color: var(--bg-alt);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .btn:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .btn-primary {
+            background-color: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            color: var(--bg);
+            opacity: 0.9;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .panel {
+            background-color: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .panel-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        textarea {
+            width: 100%;
+            min-height: 350px;
+            background-color: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .status {
+            font-size: 0.8rem;
+            color: var(--error);
+            margin-top: 0.5rem;
+            min-height: 1.2rem;
+        }
+        .readout {
+            background-color: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+        }
+        .readout strong {
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+        .readout .assumption {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 0.3rem;
+        }
+        .info-section {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+        .info-section h2 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+        .info-section p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+        .import-box {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: var(--bg);
+            border: 1px dashed var(--border);
+            border-radius: 4px;
+        }
+        .import-box input[type="text"] {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            outline: none;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← Zero-Cost AI Coding</a>
+    </div>
+    <div style="display: flex; align-items: center;">
+        <span class="header-title">JSON → Schema</span>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark/light mode">🌙</button>
+    </div>
+</header>
+
+<main>
+    <h1>JSON to JSON Schema Generator</h1>
+    
+    <div class="pitch">
+        <div>
+            Generate strict JSON Schemas (Draft-07) from your JSON objects directly in your browser. 100% free, no API limits, no server calls. Optimized for AI function calling and structured outputs.
+        </div>
+        <div class="share-buttons">
+            <a href="#" class="btn" id="shareTwitter">Tweet</a>
+            <button class="btn" id="copyLink">Copy Link</button>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">JSON Input</span>
+                <button class="btn" id="clearInput" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Clear</button>
+            </div>
+            <textarea id="jsonInput" spellcheck="false" aria-label="JSON Input">{&#10;  "user": {&#10;    "id": 123,&#10;    "name": "Alice",&#10;    "isActive": true&#10;  },&#10;  "tags": ["dev", "ai"],&#10;  "metadata": null&#10;}</textarea>
+            <div class="status" id="inputStatus"></div>
+            
+            <div class="import-box">
+                <label for="importData" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">Import ZCAC JSON Data:</label>
+                <input type="text" id="importData" placeholder='Paste {"zcac": true, "kind": "json-data", "data": {...}}' aria-label="Import ZCAC JSON">
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Generated Schema</span>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn" id="copySchema" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Copy</button>
+                    <button class="btn" id="downloadSchema" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Download</button>
+                </div>
+            </div>
+            <textarea id="schemaOutput" spellcheck="false" aria-label="Generated Schema" readonly></textarea>
+            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center;">
+                <label for="strictMode" style="font-size: 0.8rem; color: var(--text-muted);">Strict Mode (additionalProperties: false)</label>
+                <input type="checkbox" id="strictMode" checked>
+            </div>
+        </div>
+    </div>
+
+    <div class="readout">
+        Estimated time saved: <strong id="timeSaved">0 minutes</strong>
+        <span class="assumption">Assumption: ~6 seconds per line to manually write and validate standard JSON Schema syntax.</span>
+    </div>
+
+    <div class="info-section">
+        <h2>What it replaces</h2>
+        <p>
+            This replaces freemium web tools like jsonschema.net (which gates batch processing and CLI features behind a $10/mo Pro tier) or manual schema writing. It runs entirely in your browser, so your data never leaves your machine.
+        </p>
+        
+        <h2>How to use it</h2>
+        <p>
+            1. Paste your JSON into the left textarea.<br>
+            2. The schema generates instantly on the right.<br>
+            3. Toggle "Strict Mode" if you need <span class="mono">additionalProperties: false</span> (required for OpenAI structured outputs).<br>
+            4. Copy the schema to your clipboard or download it as a <span class="mono">.json</span> file.
+        </p>
+
+        <h2>What breaks</h2>
+        <p>
+            Extremely large JSON files (>5MB) may cause the browser tab to freeze momentarily since processing happens synchronously on the main thread. Mixed-type arrays will infer the schema from the first element in the array.
+        </p>
+    </div>
+
+    <footer>
+        <p>Verified free-tier: Client-side compute, no external API. No limits. <br>Source: Runs natively in browser VM.</p>
+    </footer>
+</main>
+
+<script>
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        themeToggle.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        if (currentTheme === 'light') {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'dark');
+            themeToggle.textContent = '🌙';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
+            themeToggle.textContent = '☀️';
+        }
+    });
+
+    // Elements
+    const jsonInput = document.getElementById('jsonInput');
+    const schemaOutput = document.getElementById('schemaOutput');
+    const inputStatus = document.getElementById('inputStatus');
+    const strictMode = document.getElementById('strictMode');
+    const timeSaved = document.getElementById('timeSaved');
+    const importData = document.getElementById('importData');
+
+    // Schema Generation Logic
+    function getSchema(value, strict) {
+        if (value === null) return { type: "null" };
+        if (Array.isArray(value)) {
+            if (value.length === 0) return { type: "array", items: {} };
+            return { type: "array", items: getSchema(value[0], strict) };
+        }
+        const type = typeof value;
+        if (type === 'string') return { type: "string" };
+        if (type === 'number') return { type: "number" };
+        if (type === 'boolean') return { type: "boolean" };
+        if (type === 'object') {
+            const properties = {};
+            const required = [];
+            for (const key in value) {
+                properties[key] = getSchema(value[key], strict);
+                required.push(key);
+            }
+            const schema = {
+                type: "object",
+                properties: properties,
+                required: required
+            };
+            if (strict) {
+                schema.additionalProperties = false;
+            }
+            return schema;
+        }
+        return {};
+    }
+
+    function generate() {
+        const input = jsonInput.value.trim();
+        if (!input) {
+            schemaOutput.value = '';
+            inputStatus.textContent = '';
+            timeSaved.textContent = '0 minutes';
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(input);
+            const strict = strictMode.checked;
+            const schema = {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                ...getSchema(parsed, strict)
+            };
+            schemaOutput.value = JSON.stringify(schema, null, 2);
+            inputStatus.textContent = '';
+            
+            // Calculate saved time
+            const lines = input.split('\n').length;
+            const seconds = lines * 6;
+            const minutes = (seconds / 60).toFixed(1);
+            timeSaved.textContent = `${minutes} minutes`;
+        } catch (e) {
+            inputStatus.textContent = 'Invalid JSON: ' + e.message;
+            schemaOutput.value = '';
+            timeSaved.textContent = '0 minutes';
+        }
+    }
+
+    jsonInput.addEventListener('input', generate);
+    strictMode.addEventListener('change', generate);
+
+    // Clear input
+    document.getElementById('clearInput').addEventListener('click', () => {
+        jsonInput.value = '';
+        generate();
+    });
+
+    // Copy schema
+    document.getElementById('copySchema').addEventListener('click', () => {
+        navigator.clipboard.writeText(schemaOutput.value).then(() => {
+            const btn = document.getElementById('copySchema');
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = orig, 1500);
+        });
+    });
+
+    // Download schema
+    document.getElementById('downloadSchema').addEventListener('click', () => {
+        const blob = new Blob([schemaOutput.value], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'schema.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Export/Import Composability
+    // (Export is just copying the schema, but we also support standard JSON output)
+    // Import: Accepts {"zcac": true, "kind": "json-data", "data": {...}}
+    importData.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text');
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed.zcac === true && parsed.kind === 'json-data') {
+                jsonInput.value = JSON.stringify(parsed.data, null, 2);
+                generate();
+                importData.value = 'Imported successfully!';
+            } else {
+                jsonInput.value = text; // Fallback to just pasting the raw text if it's plain JSON
+                generate();
+                importData.value = 'Pasted raw JSON (ZCAC format not detected).';
+            }
+        } catch (err) {
+            importData.value = 'Error: Not valid JSON.';
+        }
+    });
+
+    // Share buttons
+    document.getElementById('copyLink').addEventListener('click', () => {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            const btn = document.getElementById('copyLink');
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = orig, 1500);
+        });
+    });
+
+    document.getElementById('shareTwitter').addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = encodeURIComponent(window.location.href);
+        const text = encodeURIComponent('Free in-browser JSON to JSON Schema generator for AI function calling.');
+        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+    });
+
+    // Initial run
+    generate();
+</script>
+
+</body>
+</html>
