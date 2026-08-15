@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT Crack — Instant JWT Decoder & Security Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a; --surface: #161616; --surface2: #1e1e1e; --border: #2a2a2a;
+      --text: #e0e0e0; --text-dim: #888; --accent: #00e676; --accent-dim: #00e67633;
+      --danger: #ff5252; --warn: #ffab40;
+      --j-key: #00e676; --j-str: #7dd3fc; --j-num: #fbbf24; --j-bool: #c084fc; --j-null: #666;
+      --tk-head: #7dd3fc; --tk-payload: #00e676; --tk-sig: #888;
+      --font-mono: 'JetBrains Mono', monospace; --font-body: 'Inter', system-ui, sans-serif;
+    }
+    [data-theme="light"] {
+      --bg: #f5f5f5; --surface: #ffffff; --surface2: #eee; --border: #d0d0d0;
+      --text: #1a1a1a; --text-dim: #666; --accent: #00c853; --accent-dim: #00c85322;
+      --danger: #d32f2f; --warn: #e65100;
+      --j-key: #00c853; --j-str: #0369a1; --j-num: #b45309; --j-bool: #7c3aed; --j-null: #999;
+      --tk-head: #0369a1; --tk-payload: #00c853; --tk-sig: #999;
+    }
+
+    body { font-family: var(--font-body); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 100; background: var(--surface);
+      border-bottom: 1px solid var(--border); padding: 0.5rem 1.25rem;
+      display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(8px);
+    }
+    .topbar-left, .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .home-link {
+      font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim);
+      text-decoration: none; padding: 0.25rem 0.5rem; border: 1px solid var(--border);
+      border-radius: 4px; transition: color 0.15s, border-color 0.15s;
+    }
+    .home-link:hover { color: var(--accent); border-color: var(--accent); }
+    .tool-title { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+    .theme-toggle {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.85rem; transition: color 0.15s, border-color 0.15s;
+    }
+    .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+    main { max-width: 740px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+    .pitch h1 { font-family: var(--font-mono); font-size: 1.65rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+    .pitch h1 span { color: var(--accent); }
+    .pitch p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 0.35rem; }
+    .pitch .replaces { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.25rem; }
+    .pitch .replaces strong { color: var(--text); }
+    .limit-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 0.72rem;
+      background: var(--accent-dim); color: var(--accent); padding: 0.15rem 0.5rem;
+      border-radius: 3px; margin-top: 0.5rem; margin-bottom: 0.75rem;
+    }
+    .share-row { display: flex; gap: 0.5rem; margin-bottom: 1.75rem; }
+    .share-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.78rem; font-family: var(--font-mono);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .share-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .section-label {
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 0.5rem;
+    }
+
+    .jwt-input {
+      width: 100%; min-height: 80px; max-height: 200px;
+      font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 0.65rem; border-radius: 4px; resize: vertical; outline: none;
+      transition: border-color 0.15s; word-break: break-all;
+    }
+    .jwt-input:focus { border-color: var(--accent); }
+    .jwt-input::placeholder { color: var(--text-dim); }
+
+    .error-msg { margin-top: 0.75rem; font-size: 0.82rem; color: var(--danger); display: none; }
+    .error-msg.visible { display: block; }
+
+    .results { margin-top: 1.25rem; display: none; }
+    .results.visible { display: block; }
+
+    /* Token structure bars */
+    .token-struct { display: flex; gap: 4px; margin-bottom: 1.25rem; border-radius: 4px; overflow: hidden; }
+    .tk-bar { padding: 0.3rem 0; text-align: center; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; min-width: 0; }
+    .tk-bar.head { background: var(--tk-head); color: #0a0a0a; }
+    .tk-bar.payload { background: var(--tk-payload); color: #0a0a0a; }
+    .tk-bar.sig { background: var(--tk-sig); color: #fff; }
+    [data-theme="light"] .tk-bar.sig { color: #333; }
+
+    /* Decoded panels */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      margin-bottom: 0.75rem; position: relative;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border);
+    }
+    .panel-title {
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim);
+    }
+    .panel-copy {
+      background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+      padding: 0.15rem 0.45rem; border-radius: 3px; font-family: var(--font-mono);
+      font-size: 0.66rem; transition: color 0.15s, border-color 0.15s;
+    }
+    .panel-copy:hover { color: var(--accent); border-color: var(--accent); }
+    .panel-copy.copied { color: var(--accent); border-color: var(--accent); }
+    .panel-body {
+      padding: 0.65rem; font-family: var(--font-mono); font-size: 0.78rem;
+      line-height: 1.55; white-space: pre-wrap; word-break: break-all; overflow-x: auto;
+    }
+
+    /* JSON syntax colors */
+    .json-key { color: var(--j-key); }
+    .json-string { color: var(--j-str); }
+    .json-number { color: var(--j-num); }
+    .json-bool { color: var(--j-bool); }
+    .json-null { color: var(--j-null); }
+
+    /* Analysis */
+    .analysis { margin-top: 0.75rem; }
+    .analysis-item {
+      display: flex; gap: 0.5rem; align-items: flex-start;
+      padding: 0.35rem 0; font-size: 0.82rem; line-height: 1.5;
+    }
+    .analysis-icon { flex-shrink: 0; font-weight: 700; width: 1.1rem; text-align: center; }
+    .analysis-icon.ok { color: var(--accent); }
+    .analysis-icon.warn { color: var(--warn); }
+    .analysis-icon.bad { color: var(--danger); }
+    .analysis-text { color: var(--text-dim); }
+    .analysis-text strong { color: var(--text); }
+    .analysis-text code {
+      font-family: var(--font-mono); font-size: 0.76rem;
+      background: var(--surface2); padding: 0.05rem 0.3rem; border-radius: 3px;
+    }
+
+    .claim-grid {
+      display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem;
+      margin-top: 0.5rem; font-size: 0.78rem;
+    }
+    .claim-key { font-family: var(--font-mono); font-weight: 700; color: var(--accent); }
+    .claim-val { color: var(--text-dim); font-family: var(--font-mono); font-size: 0.76rem; word-break: break-all; }
+
+    .info-section { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+    .info-section h2 { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; margin-bottom: 0.6rem; }
+    .info-section ol, .info-section ul { padding-left: 1.25rem; margin-bottom: 1rem; }
+    .info-section li { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.35rem; line-height: 1.55; }
+    .info-section li strong { color: var(--text); }
+    .info-section li code {
+      font-family: var(--font-mono); font-size: 0.78rem;
+      background: var(--surface2); padding: 0.1rem 0.35rem; border-radius: 3px;
+    }
+
+    footer {
+      max-width: 740px; margin: 0 auto; padding: 0 1.25rem 2rem;
+      font-size: 0.72rem; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 1rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← zero-cost</a>
+    </div>
+    <div class="topbar-right">
+      <span class="tool-title">jwt-crack</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">☀</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="pitch">
+      <h1>JWT <span>Crack</span></h1>
+      <p>Paste any JWT — instantly see decoded header, payload, and a security analysis: expiration status, algorithm warnings, claim breakdown. Runs entirely in your browser, zero network calls.</p>
+      <p class="replaces">Replaces: jwt.io (<strong>ad-heavy, sends tokens to their server</strong>), manual base64-atob in devtools</p>
+      <span class="limit-badge">100% browser-native — no API, no key, no calls</span>
+      <div class="share-row">
+        <button class="share-btn" onclick="shareX()">Share on X</button>
+        <button class="share-btn" onclick="copyLink()">Copy link</button>
+      </div>
+    </section>
+
+    <div class="section-label">JWT Token</div>
+    <textarea class="jwt-input" id="jwtInput" placeholder="Paste your JWT here — e.g., eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"></textarea>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="results" id="results">
+      <!-- Token structure -->
+      <div class="token-struct" id="tokenStruct"></div>
+
+      <!-- Header -->
+      <div class="panel" id="headerPanel">
+        <div class="panel-header">
+          <span class="panel-title">Header</span>
+          <button class="panel-copy" onclick="copySection('header')">Copy</button>
+        </div>
+        <div class="panel-body" id="headerBody"></div>
+      </div>
+
+      <!-- Payload -->
+      <div class="panel" id="payloadPanel">
+        <div class="panel-header">
+          <span class="panel-title">Payload</span>
+          <button class="panel-copy" onclick="copySection('payload')">Copy</button>
+        </div>
+        <div class="panel-body" id="payloadBody"></div>
+      </div>
+
+      <!-- Analysis -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Analysis</span>
+        </div>
+        <div class="panel-body">
+          <div class="analysis" id="analysisBody"></div>
+          <div id="claimGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="info-section">
+      <h2>How to use</h2>
+      <ol>
+        <li><strong>Paste your JWT</strong> in the text area. It decodes instantly — no button to click.</li>
+        <li><strong>Check the header</strong> for the algorithm and token type.</li>
+        <li><strong>Check the payload</strong> for claims — decoded, formatted, syntax-highlighted.</li>
+        <li><strong>Read the analysis</strong> — expiration status, security flags, claim explanations.</li>
+        <li><strong>Copy</strong> the decoded header or payload as clean JSON.</li>
+      </ol>
+
+      <h2>What breaks</h2>
+      <ul>
+        <li><strong>JWE tokens</strong> (5 parts, encrypted payload) can't be decoded here — only JWS tokens (3 parts) are supported. You'll see an error if you paste one.</li>
+        <li><strong>Non-JSON payloads</strong> — some exotic JWTs use non-JSON payloads. You'll get a parse error.</li>
+        <li><strong>Clock skew</strong> — expiration checks use your browser's clock. If your clock is off, the "expired" status will be wrong.</li>
+        <li><strong>No signature verification</strong> — this decodes and analyzes but does NOT verify the signature. Anyone can create a token with any claims. Never trust a decoded token without verifying its signature server-side.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Browser-native JWT decoding — no external services, no API keys, no data leaves your browser. Based on <a href="https://datatracker.ietf.org/doc/html/rfc7519" target="_blank" rel="noopener">RFC 7519</a>.
+  </footer>
+
+  <script>
+    /* Theme toggle */
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+    function setTheme(t) {
+      htmlEl.setAttribute('data-theme', t);
+      themeToggle.textContent = t === 'dark' ? '☀' : '☾';
+      localStorage.setItem('jc-theme', t);
+    }
+    const saved = localStorage.getItem('jc-theme');
+    if (saved) setTheme(saved);
+    else if (window.matchMedia('(prefers-color-scheme: light)').matches) setTheme('light');
+    themeToggle.addEventListener('click', () => setTheme(htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+    /* Share */
+    function shareX() {
+      const url = window.location.href;
+      window.open(`https://x.com/intent/tweet?text=${encodeURIComponent('JWT Crack — instant JWT decoder & security analyzer, 100% browser-native, zero network calls')}&url=${encodeURIComponent(url)}`, '_blank');
+    }
+    function copyLink() { navigator.clipboard.writeText(window.location.href); }
+
+    /* DOM refs */
+    const jwtInput = document.getElementById('jwtInput');
+    const errorMsg = document.getElementById('errorMsg');
+    const results = document.getElementById('results');
+    const tokenStruct = document.getElementById('tokenStruct');
+    const headerBody = document.getElementById('headerBody');
+    const payloadBody = document.getElementById('payloadBody');
+    const analysisBody = document.getElementById('analysisBody');
+    const claimGrid = document.getElementById('claimGrid');
+
+    let decodedHeader = null;
+    let decodedPayload = null;
+
+    /* Base64url decode */
+    function b64urlDecode(str) {
+      // Replace URL-safe chars, add padding
+      let s = str.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = s.length % 4;
+      if (pad === 2) s += '==';
+      else if (pad === 3) s += '=';
+      try {
+        return decodeURIComponent(atob(s).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      } catch {
+        return atob(s);
+      }
+    }
+
+    /* JSON syntax highlighting */
+    function syntaxHL(json) {
+      const esc = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return esc.replace(
+        /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+        function (match) {
+          let cls = 'json-number';
+          if (/^"/.test(match)) {
+            cls = /:$/.test(match) ? 'json-key' : 'json-string';
+          } else if (/true|false/.test(match)) {
+            cls = 'json-bool';
+          } else if (/null/.test(match)) {
+            cls = 'json-null';
+          }
+          return '<span class="' + cls + '">' + match + '</span>';
+        }
+      );
+    }
+
+    /* Format timestamp */
+    function fmtTime(epoch) {
+      if (typeof epoch !== 'number') return null;
+      try {
+        const d = new Date(epoch * 1000);
+        if (isNaN(d.getTime())) return null;
+        return d.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+      } catch { return null; }
+    }
+
+    /* Relative time */
+    function relTime(epoch) {
+      const diff = epoch - Math.floor(Date.now() / 1000);
+      const abs = Math.abs(diff);
+      const past = diff < 0;
+      if (abs < 60) return past ? 'just now' : 'in a few seconds';
+      if (abs < 3600) { const m = Math.floor(abs / 60); return past ? `${m}m ago` : `in ${m}m`; }
+      if (abs < 86400) { const h = Math.floor(abs / 3600); const m = Math.floor((abs % 3600) / 60); return past ? `${h}h ${m}m ago` : `in ${h}h ${m}m`; }
+      const d = Math.floor(abs / 86400); return past ? `${d}d ago` : `in ${d}d`;
+    }
+
+    /* Claim explanations */
+    const CLAIM_INFO = {
+      iss: 'Issuer — who created this token',
+      sub: 'Subject — who the token is about',
+      aud: 'Audience — who the token is intended for',
+      exp: 'Expiration — when the token expires (Unix timestamp)',
+      nbf: 'Not Before — when the token becomes valid',
+      iat: 'Issued At — when the token was created',
+      jti: 'JWT ID — unique identifier for this token',
+      azp: 'Authorized Party — the party the token was issued to',
+      scope: 'Scope — permissions granted (space-separated)',
+      scp: 'Scope — permissions granted (array)',
+      roles: 'Roles — assigned role claims',
+      name: 'Name — display name of the subject',
+      email: 'Email — email address of the subject',
+      preferred_username: 'Username — preferred username claim',
+      nonce: 'Nonce — replay-protection value',
+      at_hash: 'Access Token Hash — binds to an access token',
+      c_hash: 'Code Hash — binds to an authorization code',
+    };
+
+    /* Analysis icon helper */
+    function aIcon(type) {
+      const map = { ok: '✓', warn: '⚠', bad: '✗' };
+      return `<span class="analysis-icon ${type}">${map[type]}</span>`;
+    }
+
+    /* Main decode */
+    function decode() {
+      errorMsg.classList.remove('visible');
+      results.classList.remove('visible');
+      decodedHeader = null;
+      decodedPayload = null;
+
+      let raw = jwtInput.value.trim();
+      if (!raw) return;
+
+      // Strip "Bearer " prefix
+      if (raw.toLowerCase().startsWith('bearer ')) raw = raw.slice(7).trim();
+
+      // Split on dots
+      const parts = raw.split('.');
+      if (parts.length < 3) {
+        errorMsg.textContent = 'Not a valid JWT — expected 3 dot-separated parts (header.payload.signature).';
+        errorMsg.classList.add('visible');
+        return;
+      }
+      if (parts.length > 3) {
+        errorMsg.textContent = 'This looks like a JWE (5 parts, encrypted). JWT Crack only decodes JWS tokens (3 parts).';
+        errorMsg.classList.add('visible');
+        return;
+      }
+
+      const [headB64, payloadB64, sigB64] = parts;
+      let headerObj, payloadObj;
+
+      try {
+        headerObj = JSON.parse(b64urlDecode(headB64));
+        decodedHeader = headerObj;
+      } catch {
+        errorMsg.textContent = 'Header is not valid JSON after base64url decoding.';
+        errorMsg.classList.add('visible');
+        return;
+      }
+
+      try {
+        payloadObj = JSON.parse(b64urlDecode(payloadB64));
+        decodedPayload = payloadObj;
+      } catch {
+        errorMsg.textContent = 'Payload is not valid JSON after base64url decoding.';
+        errorMsg.classList.add('visible');
+        return;
+      }
+
+      // Render token structure bars
+      const total = headB64.length + payloadB64.length + sigB64.length;
+      const hp = Math.max(8, Math.round((headB64.length / total) * 100));
+      const pp = Math.max(8, Math.round((payloadB64.length / total) * 100));
+      const sp = 100 - hp - pp;
+      tokenStruct.innerHTML = `
+        <div class="tk-bar head" style="flex:${hp}">header · ${headB64.length} chars</div>
+        <div class="tk-bar payload" style="flex:${pp}">payload · ${payloadB64.length} chars</div>
+        <div class="tk-bar sig" style="flex:${Math.max(sp, 4)}">sig · ${sigB64.length} chars</div>
+      `;
+
+      // Render header
+      const headerJson = JSON.stringify(headerObj, null, 2);
+      headerBody.innerHTML = syntaxHL(headerJson);
+
+      // Render payload
+      const payloadJson = JSON.stringify(payloadObj, null, 2);
+      payloadBody.innerHTML = syntaxHL(payloadJson);
+
+      // Analysis
+      const items = [];
+      const now = Math.floor(Date.now() / 1000);
+
+      // Algorithm check
+      const alg = headerObj.alg;
+      if (!alg) {
+        items.push(`${aIcon('bad')} <span class="analysis-text">No <code>alg</code> claim in header — malformed token</span>`);
+      } else if (alg === 'none') {
+        items.push(`${aIcon('bad')} <span class="analysis-text">Algorithm is <code>none</code> — <strong>unsigned token, do not trust</strong></span>`);
+      } else if (alg.startsWith('HS')) {
+        items.push(`${aIcon('warn')} <span class="analysis-text">Algorithm <code>${esc(alg)}</code> — symmetric (HMAC). Verifier needs the shared secret.</span>`);
+      } else if (alg.startsWith('RS') || alg.startsWith('PS')) {
+        items.push(`${aIcon('ok')} <span class="analysis-text">Algorithm <code>${esc(alg)}</code> — asymmetric (RSA). Verify with the public key.</span>`);
+      } else if (alg.startsWith('ES')) {
+        items.push(`${aIcon('ok')} <span class="analysis-text">Algorithm <code>${esc(alg)}</code> — asymmetric (ECDSA). Verify with the public key.</span>`);
+      } else if (alg.startsWith('Ed')) {
+        items.push(`${aIcon('ok')} <span class="analysis-text">Algorithm <code>${esc(alg)}</code> — asymmetric (EdDSA). Verify with the public key.</span>`);
+      } else {
+        items.push(`${aIcon('warn')} <span class="analysis-text">Algorithm <code>${esc(alg)}</code> — unrecognized algorithm</span>`);
+      }
+
+      // Type check
+      if (headerObj.typ && headerObj.typ !== 'JWT') {
+        items.push(`${aIcon('warn')} <span class="analysis-text"><code>typ</code> is <code>${esc(headerObj.typ)}</code>, not <code>JWT</code></span>`);
+      }
+
+      // Expiration
+      if (typeof payloadObj.exp === 'number') {
+        if (payloadObj.exp < now) {
+          const when = fmtTime(payloadObj.exp);
+          items.push(`${aIcon('bad')} <span class="analysis-text"><strong>EXPIRED</strong> ${when ? '(' + when + ', ' + relTime(payloadObj.exp) + ')' : relTime(payloadObj.exp)}</span>`);
+        } else {
+          const when = fmtTime(payloadObj.exp);
+          items.push(`${aIcon('ok')} <span class="analysis-text">Not expired ${when ? '— expires ' + when + ' (' + relTime(payloadObj.exp) + ')' : '— ' + relTime(payloadObj.exp)}</span>`);
+        }
+      } else {
+        items.push(`${aIcon('warn')} <span class="analysis-text">No <code>exp</code> claim — <strong>token never expires</strong></span>`);
+      }
+
+      // Not Before
+      if (typeof payloadObj.nbf === 'number') {
+        if (payloadObj.nbf > now) {
+          items.push(`${aIcon('bad')} <span class="analysis-text">Not yet valid — <code>nbf</code> is ${fmtTime(payloadObj.nbf)} (${relTime(payloadObj.nbf)})</span>`);
+        } else {
+          items.push(`${aIcon('ok')} <span class="analysis-text"><code>nbf</code> satisfied since ${fmtTime(payloadObj.nbf)}</span>`);
+        }
+      }
+
+      // Issued At
+      if (typeof payloadObj.iat === 'number') {
+        items.push(`${aIcon('ok')} <span class="analysis-text">Issued ${fmtTime(payloadObj.iat)} (${relTime(payloadObj.iat)})</span>`);
+      }
+
+      // Audience
+      if (!payloadObj.aud) {
+        items.push(`${aIcon('warn')} <span class="analysis-text">No <code>aud</code> claim — token has no declared audience</span>`);
+      }
+
+      // Subject
+      if (!payloadObj.sub) {
+        items.push(`${aIcon('warn')} <span class="analysis-text">No <code>sub</code> claim — token doesn't identify a subject</span>`);
+      }
+
+      // Issuer
+      if (!payloadObj.iss) {
+        items.push(`${aIcon('warn')} <span class="analysis-text">No <code>iss</code> claim — token doesn't declare an issuer</span>`);
+      }
+
+      analysisBody.innerHTML = items.map(i => `<div class="analysis-item">${i}</div>`).join('');
+
+      // Claim reference
+      const claims = Object.keys(payloadObj);
+      if (claims.length > 0) {
+        let grid = '<div class="claim-grid">';
+        for (const c of claims) {
+          const info = CLAIM_INFO[c] || '';
+          const val = payloadObj[c];
+          const valStr = typeof val === 'object' ? JSON.stringify(val) : String(val);
+          const timeStr = (typeof val === 'number' && (c === 'exp' || c === 'iat' || c === 'nbf')) ? ` → ${fmtTime(val)}` : '';
+          grid += `<span class="claim-key">${esc(c)}</span>`;
+          grid += `<span class="claim-val">${esc(valStr)}${timeStr}${info ? ' — ' + esc(info) : ''}</span>`;
+        }
+        grid += '</div>';
+        claimGrid.innerHTML = grid;
+      } else {
+        claimGrid.innerHTML = '';
+      }
+
+      results.classList.add('visible');
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* Copy decoded sections */
+    function copySection(section) {
+      const obj = section === 'header' ? decodedHeader : decodedPayload;
+      if (!obj) return;
+      const json = JSON.stringify(obj, null, 2);
+      const btn = event.target;
+      navigator.clipboard.writeText(json).then(() => {
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      });
+    }
+
+    /* Auto-decode on input with debounce */
+    let debounceTimer = null;
+    jwtInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(decode, 150);
+    });
+
+    /* Also decode on paste immediately */
+    jwtInput.addEventListener('paste', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(decode, 50);
+    });
+  </script>
+</body>
+</html>
