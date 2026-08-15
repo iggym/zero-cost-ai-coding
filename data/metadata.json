@@ -20,4 +20,27 @@
   "reading_time_minutes": 3,
   "pinned": false,
   "verified": "2023-10-04"
-}]
+},{
+  "id": "1042",
+  "slug": "turn-dead-git-branches-into-snippet-library",
+  "title": "Turn Dead Git Commit Branches Into an Organized Snippet Library",
+  "hook": "Extracts intent and recurring patterns from abandoned git commit histories entirely in your browser at genuine $0 cost.",
+  "path": "tools/turn-dead-git-branches-into-snippet-library.html",
+  "date": "2025-11-18",
+  "status": "published",
+  "format": "tool",
+  "category": "code",
+  "solution_mode": "browser-native",
+  "waste_source": "Stale git log outputs and abandoned local branch histories sitting idle in your workspace.",
+  "free_ai_mechanism": "Client-side vanilla JavaScript heuristic regex parsing and local array grouping.",
+  "free_infra": ["GitHub Pages"],
+  "ladder_tier": "T0",
+  "stack_weakest_link": null,
+  "asymmetry_note": "Commercial code intelligence suites charge recurring subscription fees to parse internal repository metadata that is already fully stored on your local disk.",
+  "source_urls": ["https://developer.mozilla.org/en-US/docs/Web/API/File_API"],
+  "tags": ["git", "code-exhaust", "browser-native", "javascript", "zero-cost"],
+  "reading_time_minutes": 3,
+  "pinned": false,
+  "verified": "2025-11-18"
+}
+]
