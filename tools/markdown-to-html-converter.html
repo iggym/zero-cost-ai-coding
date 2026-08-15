@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown to HTML Converter — Zero Cost AI Coding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=JetBrains+Mono&display=swap" rel="stylesheet" />
+    <style>
+        /* ---- reset & base ---- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0d0d0d;
+            color: #e4e4e4;
+            line-height: 1.6;
+            padding: 1rem;
+            transition: background 0.2s, color 0.2s;
+        }
+        body.light {
+            background: #f5f5f5;
+            color: #1a1a1a;
+        }
+        a {
+            color: #50e3a0;
+            text-decoration: none;
+        }
+        body.light a {
+            color: #0f8b5c;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* ---- top bar ---- */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0 1rem 0;
+            border-bottom: 1px solid #2a2a2a;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        body.light .topbar {
+            border-bottom-color: #ccc;
+        }
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .topbar-left a {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #50e3a0;
+        }
+        body.light .topbar-left a {
+            color: #0f8b5c;
+        }
+        .topbar-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 400;
+            color: #bbb;
+        }
+        body.light .topbar-title {
+            color: #444;
+        }
+        .theme-toggle {
+            background: none;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.15s;
+        }
+        body.light .theme-toggle {
+            border-color: #aaa;
+            color: #222;
+        }
+        .theme-toggle:hover {
+            background: #2a2a2a;
+        }
+        body.light .theme-toggle:hover {
+            background: #ddd;
+        }
+        .theme-toggle:focus-visible {
+            outline: 2px solid #50e3a0;
+            outline-offset: 2px;
+        }
+
+        /* ---- container ---- */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* ---- pitch ---- */
+        .pitch {
+            margin-bottom: 1.5rem;
+        }
+        .pitch h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.6rem;
+            font-weight: 400;
+            color: #50e3a0;
+            margin-bottom: 0.25rem;
+        }
+        body.light .pitch h1 {
+            color: #0f8b5c;
+        }
+        .pitch .sub {
+            color: #aaa;
+            font-size: 0.95rem;
+        }
+        body.light .pitch .sub {
+            color: #555;
+        }
+        .pitch .sub a {
+            color: #50e3a0;
+        }
+        body.light .pitch .sub a {
+            color: #0f8b5c;
+        }
+        .badge {
+            display: inline-block;
+            background: #1e2a1e;
+            color: #50e3a0;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.6rem;
+            border-radius: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            border: 1px solid #2a4a2a;
+            margin-right: 0.4rem;
+        }
+        body.light .badge {
+            background: #e0f0e0;
+            border-color: #b0d0b0;
+            color: #0a5a3a;
+        }
+        .share-buttons {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .share-buttons button {
+            background: none;
+            border: 1px solid #444;
+            color: #ccc;
+            padding: 0.2rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.15s;
+        }
+        body.light .share-buttons button {
+            border-color: #aaa;
+            color: #222;
+        }
+        .share-buttons button:hover {
+            background: #2a2a2a;
+        }
+        body.light .share-buttons button:hover {
+            background: #ddd;
+        }
+        .share-buttons button:focus-visible {
+            outline: 2px solid #50e3a0;
+            outline-offset: 2px;
+        }
+
+        /* ---- tool layout ---- */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 700px) {
+            .tool-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .panel {
+            background: #171717;
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid #2a2a2a;
+        }
+        body.light .panel {
+            background: #fafafa;
+            border-color: #d0d0d0;
+        }
+        .panel label {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #aaa;
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+        body.light .panel label {
+            color: #555;
+        }
+        .panel textarea {
+            width: 100%;
+            min-height: 280px;
+            background: #0d0d0d;
+            color: #e4e4e4;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            transition: border 0.15s;
+        }
+        body.light .panel textarea {
+            background: #fff;
+            color: #1a1a1a;
+            border-color: #ccc;
+        }
+        .panel textarea:focus {
+            outline: none;
+            border-color: #50e3a0;
+        }
+        .panel .preview {
+            min-height: 280px;
+            background: #0d0d0d;
+            color: #e4e4e4;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 0.6rem;
+            font-size: 0.9rem;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+        body.light .panel .preview {
+            background: #fff;
+            color: #1a1a1a;
+            border-color: #ccc;
+        }
+        .panel .preview h1,
+        .panel .preview h2,
+        .panel .preview h3,
+        .panel .preview h4 {
+            margin-top: 0.5rem;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+        .panel .preview code {
+            background: #2a2a2a;
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+        body.light .panel .preview code {
+            background: #eee;
+        }
+        .panel .preview pre {
+            background: #1a1a1a;
+            padding: 0.6rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        body.light .panel .preview pre {
+            background: #f0f0f0;
+        }
+        .panel .preview blockquote {
+            border-left: 3px solid #50e3a0;
+            padding-left: 0.8rem;
+            color: #aaa;
+        }
+        body.light .panel .preview blockquote {
+            color: #555;
+        }
+        .panel .preview table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .panel .preview th,
+        .panel .preview td {
+            border: 1px solid #444;
+            padding: 0.3rem 0.6rem;
+            text-align: left;
+        }
+        body.light .panel .preview th,
+        body.light .panel .preview td {
+            border-color: #ccc;
+        }
+        .panel .preview img {
+            max-width: 100%;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+            align-items: center;
+        }
+        .action-row button {
+            background: #1e2a1e;
+            border: 1px solid #2a4a2a;
+            color: #50e3a0;
+            padding: 0.3rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            transition: background 0.15s;
+        }
+        body.light .action-row button {
+            background: #e0f0e0;
+            border-color: #b0d0b0;
+            color: #0a5a3a;
+        }
+        .action-row button:hover {
+            background: #2a3a2a;
+        }
+        body.light .action-row button:hover {
+            background: #d0e8d0;
+        }
+        .action-row button:focus-visible {
+            outline: 2px solid #50e3a0;
+            outline-offset: 2px;
+        }
+        .action-row .secondary {
+            background: none;
+            border-color: #444;
+            color: #ccc;
+        }
+        body.light .action-row .secondary {
+            border-color: #aaa;
+            color: #222;
+        }
+        .action-row .secondary:hover {
+            background: #2a2a2a;
+        }
+        body.light .action-row .secondary:hover {
+            background: #ddd;
+        }
+
+        /* ---- saved readout ---- */
+        .saved-readout {
+            background: #1a1a1a;
+            border: 1px solid #2a4a2a;
+            border-radius: 6px;
+            padding: 0.6rem 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        body.light .saved-readout {
+            background: #f0f8f0;
+            border-color: #b0d0b0;
+        }
+        .saved-readout .number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: #50e3a0;
+        }
+        body.light .saved-readout .number {
+            color: #0a7a4a;
+        }
+        .saved-readout .note {
+            font-size: 0.75rem;
+            color: #888;
+        }
+        body.light .saved-readout .note {
+            color: #666;
+        }
+
+        /* ---- footer ---- */
+        .footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #2a2a2a;
+            font-size: 0.75rem;
+            color: #666;
+        }
+        body.light .footer {
+            border-top-color: #ccc;
+            color: #888;
+        }
+        .footer a {
+            color: #50e3a0;
+        }
+        body.light .footer a {
+            color: #0f8b5c;
+        }
+
+        /* ---- import box ---- */
+        .import-box {
+            margin-top: 0.6rem;
+            padding: 0.5rem;
+            background: #121212;
+            border-radius: 4px;
+            border: 1px dashed #333;
+        }
+        body.light .import-box {
+            background: #f0f0f0;
+            border-color: #ccc;
+        }
+        .import-box textarea {
+            width: 100%;
+            min-height: 60px;
+            background: #0d0d0d;
+            color: #e4e4e4;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 0.4rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            resize: vertical;
+        }
+        body.light .import-box textarea {
+            background: #fff;
+            color: #1a1a1a;
+            border-color: #ccc;
+        }
+        .import-box textarea:focus {
+            outline: none;
+            border-color: #50e3a0;
+        }
+        .import-box .import-status {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 0.2rem;
+        }
+        body.light .import-box .import-status {
+            color: #666;
+        }
+
+        /* ---- prefers-reduced-motion ---- */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+            }
+        }
+
+        /* ---- keyboard focus ---- */
+        :focus-visible {
+            outline: 2px solid #50e3a0;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- top bar -->
+        <header class="topbar" role="banner">
+            <div class="topbar-left">
+                <a href="https://iggym.github.io/zero-cost-ai-coding/">← Home</a>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.8rem;">
+                <span class="topbar-title">Markdown → HTML</span>
+                <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode">Light</button>
+            </div>
+        </header>
+
+        <!-- pitch -->
+        <section class="pitch">
+            <h1>Markdown to HTML Converter</h1>
+            <div class="sub">
+                <span class="badge">Browser-Native</span>
+                Convert Markdown to clean HTML in real-time. No API keys, no limits, no card required — everything runs locally in your browser.
+            </div>
+            <div class="share-buttons">
+                <button id="shareX" aria-label="Share on X">Share on X</button>
+                <button id="copyLink" aria-label="Copy link to this tool">Copy link</button>
+            </div>
+        </section>
+
+        <!-- saved readout -->
+        <div class="saved-readout" id="savedReadout">
+            <span>⏱️ <span class="number" id="savedSeconds">0</span>s saved</span>
+            <span class="note">Assumption: ~2s to write &amp; format HTML by hand per ~50 chars of Markdown. Updates as you type.</span>
+        </div>
+
+        <!-- tool -->
+        <div class="tool-grid">
+            <div class="panel">
+                <label for="markdownInput">Markdown</label>
+                <textarea id="markdownInput" spellcheck="true" aria-describedby="mdHelp"># Hello, world!
+
+This is **bold** and *italic* text.
+
+- A list item
+- Another item
+
+```js
+const greet = () => console.log('hi!');
+```
+
+> A blockquote.
+
+| Header 1 | Header 2 |
+|----------|----------|
+| cell 1   | cell 2   |</textarea>
+                <div class="action-row">
+                    <button id="copyMarkdown" class="secondary">Copy Markdown</button>
+                    <button id="clearMarkdown" class="secondary">Clear</button>
+                    <button id="exportJson">Export JSON</button>
+                </div>
+                <!-- import box for composability -->
+                <div class="import-box">
+                    <label for="importJson" style="font-size:0.75rem;color:#888;">Import JSON (from another tool)</label>
+                    <textarea id="importJson" placeholder='Paste JSON with { "zcac": true, "kind": "markdown", "data": { "markdown": "..." } }'></textarea>
+                    <button id="doImport" style="margin-top:0.3rem;background:#1e2a1e;border:1px solid #2a4a2a;color:#50e3a0;padding:0.2rem 0.8rem;border-radius:4px;cursor:pointer;font-size:0.75rem;">Import</button>
+                    <div class="import-status" id="importStatus">Ready</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <label for="htmlOutput">HTML Preview</label>
+                <div class="preview" id="htmlPreview" role="document"></div>
+                <div class="action-row">
+                    <button id="copyHtml">Copy HTML</button>
+                    <button id="downloadHtml">Download .html</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- footer -->
+        <footer class="footer">
+            Free tier verified: marked.js MIT license, client-side only, no limits — <a href="https://marked.js.org/" target="_blank" rel="noopener noreferrer">marked.js docs</a>.
+            Built for <a href="https://iggym.github.io/zero-cost-ai-coding/">Zero Cost AI Coding</a>.
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js">
+    </script>
+    <script>
+        (function() {
+            'use strict';
+
+            // ---- DOM refs ----
+            const mdInput = document.getElementById('markdownInput');
+            const preview = document.getElementById('htmlPreview');
+            const savedSeconds = document.getElementById('savedSeconds');
+            const copyMdBtn = document.getElementById('copyMarkdown');
+            const clearMdBtn = document.getElementById('clearMarkdown');
+            const copyHtmlBtn = document.getElementById('copyHtml');
+            const downloadHtmlBtn = document.getElementById('downloadHtml');
+            const exportJsonBtn = document.getElementById('exportJson');
+            const importJsonArea = document.getElementById('importJson');
+            const doImportBtn = document.getElementById('doImport');
+            const importStatus = document.getElementById('importStatus');
+            const themeToggle = document.getElementById('themeToggle');
+            const shareXBtn = document.getElementById('shareX');
+            const copyLinkBtn = document.getElementById('copyLink');
+
+            // ---- state ----
+            let currentHtml = '';
+            let charCount = 0;
+
+            // ---- render ----
+            function render() {
+                const raw = mdInput.value;
+                charCount = raw.length;
+                let rendered;
+                try {
+                    rendered = marked.parse(raw);
+                } catch (_) {
+                    rendered = '<p style="color:#d55;">⚠️ Error parsing Markdown</p>';
+                }
+                const clean = DOMPurify.sanitize(rendered);
+                currentHtml = clean;
+                preview.innerHTML = clean;
+                updateSaved();
+            }
+
+            // ---- saved readout ----
+            function updateSaved() {
+                // assumption: ~2s per 50 chars of hand-written HTML
+                const seconds = Math.round((charCount / 50) * 2);
+                savedSeconds.textContent = seconds;
+            }
+
+            // ---- copy ----
+            function copyText(text, label) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        const status = document.getElementById('importStatus');
+                        if (status) status.textContent = '✅ ' + label + ' copied!';
+                    }).catch(() => {
+                        fallbackCopy(text, label);
+                    });
+                } else {
+                    fallbackCopy(text, label);
+                }
+            }
+
+            function fallbackCopy(text, label) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.top = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    const status = document.getElementById('importStatus');
+                    if (status) status.textContent = '✅ ' + label + ' copied!';
+                } catch (_) {
+                    const status = document.getElementById('importStatus');
+                    if (status) status.textContent = '❌ Could not copy.';
+                }
+                document.body.removeChild(ta);
+            }
+
+            // ---- export JSON (composability) ----
+            function exportJson() {
+                const obj = {
+                    zcac: true,
+                    kind: 'markdown',
+                    data: {
+                        markdown: mdInput.value,
+                        html: currentHtml
+                    }
+                };
+                const json = JSON.stringify(obj, null, 2);
+                copyText(json, 'JSON');
+                // also offer download
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'markdown-export.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // ---- import JSON (composability) ----
+            function doImport() {
+                const raw = importJsonArea.value.trim();
+                if (!raw) {
+                    importStatus.textContent = '⚠️ Paste JSON to import.';
+                    return;
+                }
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (!parsed.zcac || parsed.kind !== 'markdown') {
+                        importStatus.textContent = '❌ Not recognized: expected { "zcac": true, "kind": "markdown", ... }';
+                        return;
+                    }
+                    if (parsed.data && typeof parsed.data.markdown === 'string') {
+                        mdInput.value = parsed.data.markdown;
+                        render();
+                        importStatus.textContent = '✅ Imported successfully!';
+                    } else {
+                        importStatus.textContent = '❌ Missing data.markdown string.';
+                    }
+                } catch (e) {
+                    importStatus.textContent = '❌ Invalid JSON: ' + e.message;
+                }
+            }
+
+            // ---- download HTML ----
+            function downloadHtml() {
+                const full = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Converted HTML</title></head>\n<body>\n${currentHtml}\n</body>\n</html>`;
+                const blob = new Blob([full], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'converted.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // ---- theme ----
+            function toggleTheme() {
+                document.body.classList.toggle('light');
+                themeToggle.textContent = document.body.classList.contains('light') ? 'Dark' : 'Light';
+                localStorage.setItem('zcac-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+            }
+
+            function loadTheme() {
+                const saved = localStorage.getItem('zcac-theme');
+                if (saved === 'light') {
+                    document.body.classList.add('light');
+                    themeToggle.textContent = 'Dark';
+                } else {
+                    document.body.classList.remove('light');
+                    themeToggle.textContent = 'Light';
+                }
+            }
+
+            // ---- share ----
+            function shareOnX() {
+                const url = encodeURIComponent(window.location.href);
+                const text = encodeURIComponent('Markdown to HTML Converter — free, browser-native, no limits. Part of Zero Cost AI Coding.');
+                window.open('https://x.com/intent/tweet?text=' + text + '&url=' + url, '_blank');
+            }
+
+            function copyPageLink() {
+                copyText(window.location.href, 'Link');
+            }
+
+            // ---- events ----
+            mdInput.addEventListener('input', render);
+
+            copyMdBtn.addEventListener('click', function() { copyText(mdInput.value, 'Markdown'); });
+            clearMdBtn.addEventListener('click', function() { mdInput.value = '';
+                render(); });
+            copyHtmlBtn.addEventListener('click', function() { copyText(currentHtml, 'HTML'); });
+            downloadHtmlBtn.addEventListener('click', downloadHtml);
+            exportJsonBtn.addEventListener('click', exportJson);
+            doImportBtn.addEventListener('click', doImport);
+            themeToggle.addEventListener('click', toggleTheme);
+            shareXBtn.addEventListener('click', shareOnX);
+            copyLinkBtn.addEventListener('click', copyPageLink);
+
+            // ---- init ----
+            loadTheme();
+            render();
+
+            // handle import paste auto-detect? keep manual for clarity.
+
+            // ---- keyboard shortcuts: Ctrl+Enter to export ----
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    if (document.activeElement === mdInput) {
+                        e.preventDefault();
+                        exportJson();
+                    }
+                }
+            });
+
+        })();
+    </script>
+</body>
+</html>
