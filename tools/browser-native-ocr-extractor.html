@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser-Native OCR Extractor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root {
+    --bg-color: #0d1117;
+    --text-color: #c9d1d9;
+    --accent-color: #2ea043;
+    --border-color: #30363d;
+    --card-bg: #161b22;
+    --input-bg: #0d1117;
+  }
+  [data-theme="light"] {
+    --bg-color: #ffffff;
+    --text-color: #24292f;
+    --accent-color: #2da44e;
+    --border-color: #d0d7de;
+    --card-bg: #f6f8fa;
+    --input-bg: #ffffff;
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    z-index: 100;
+  }
+  .topbar a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .topbar a:hover {
+    color: var(--accent-color);
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  .topbar-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 14px;
+  }
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+  }
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  h1, h2 {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+  h2 {
+    font-size: 20px;
+    margin-top: 0;
+    margin-bottom: 15px;
+  }
+  .pitch {
+    font-size: 18px;
+    margin-bottom: 25px;
+  }
+  .pitch strong {
+    color: var(--accent-color);
+  }
+  .card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .share-links {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+  }
+  .dropzone {
+    display: block;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .dropzone:hover, .dropzone:focus-visible, .dropzone.dragover {
+    border-color: var(--accent-color);
+    outline: none;
+  }
+  input[type="file"] {
+    display: none;
+  }
+  .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--accent-color);
+    margin: 15px 0;
+    min-height: 20px;
+  }
+  .savings {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    background-color: var(--input-bg);
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+  }
+  .savings .assumption {
+    display: block;
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 150px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    box-sizing: border-box;
+    resize: vertical;
+  }
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  button {
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  button:hover {
+    border-color: var(--accent-color);
+  }
+  .btn-primary {
+    background-color: var(--accent-color);
+    color: #fff;
+    border-color: var(--accent-color);
+  }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    font-size: 12px;
+    opacity: 0.7;
+  }
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+  }
+  @media (max-width: 600px) {
+    .container { padding: 15px; }
+    .share-links { flex-direction: column; align-items: stretch; }
+    .btn-group { flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← Home</a>
+  <div class="topbar-right">
+    <button id="themeToggle" class="theme-toggle">🌙 Dark</button>
+    <span class="topbar-title">OCR Extractor</span>
+  </div>
+</header>
+
+<div class="container">
+  <h1>Browser-Native OCR</h1>
+  <p class="pitch">Extract text from images directly in your browser using Tesseract.js WASM. <strong>100% free, no API keys, no upload limits.</strong></p>
+  
+  <div class="share-links">
+    <a href="https://twitter.com/intent/tweet?text=Browser-Native%20OCR%20Extractor%20at%20Zero%20Cost%20AI%20Coding&url=https://iggym.github.io/zero-cost-ai-coding/" target="_blank" rel="noopener noreferrer" class="button">Share on X</a>
+    <button id="copyLinkBtn">Copy Link</button>
+  </div>
+
+  <div class="card">
+    <h2>What it replaces</h2>
+    <p>AWS Textract ($1.50 per 1,000 pages) or Google Cloud Vision API for simple OCR tasks. You don't need a backend or a credit card to pull text out of a screenshot.</p>
+  </div>
+
+  <div class="card">
+    <h2>How to use it</h2>
+    <ol>
+      <li>Drop an image, click to select, or paste directly from clipboard (Ctrl+V / Cmd+V).</li>
+      <li>Wait for the WASM engine to load and process (runs locally on your machine).</li>
+      <li>Copy the extracted text or download as structured JSON.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>What breaks</h2>
+    <p>Handwriting or heavily stylized fonts might not be recognized accurately. Large images are downscaled to 1000px max to prevent your browser tab from freezing during processing.</p>
+  </div>
+
+  <h2>Run it</h2>
+  <label for="fileInput" class="dropzone" id="dropzone" tabindex="0">
+    Drop an image here, click to select, or paste from clipboard
+  </label>
+  <input type="file" id="fileInput" accept="image/*">
+  
+  <div class="status" id="status"></div>
+  
+  <div class="savings" id="savings">
+    AWS Textract cost avoided: <span id="savingsAmount">$0.0000</span>
+    <span class="assumption">(Assumption: AWS Textract is $1.50 / 1,000 pages)</span>
+  </div>
+
+  <div>
+    <textarea id="outputText" placeholder="Extracted text will appear here..." aria-label="Extracted Text Output"></textarea>
+  </div>
+
+  <div class="btn-group">
+    <button id="copyBtn" class="btn-primary">Copy Text</button>
+    <button id="exportBtn">Download JSON</button>
+  </div>
+
+  <div class="footer">
+    <p>Verified free-tier claim: Tesseract.js is an open-source JS port of Tesseract that runs entirely in the browser via WebAssembly. No API keys required. AWS Textract pricing verified against current AWS pricing page.</p>
+  </div>
+</div>
+
+<script>
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const outputText = document.getElementById('outputText');
+  const statusEl = document.getElementById('status');
+  const savingsAmount = document.getElementById('savingsAmount');
+  let pageCount = 0;
+  let worker = null;
+
+  // Paste handler
+  window.addEventListener('paste', (e) => {
+    if (!e.clipboardData || !e.clipboardData.items) return;
+    for (let i = 0; i < e.clipboardData.items.length; i++) {
+      if (e.clipboardData.items[i].type.indexOf('image') !== -1) {
+        const file = e.clipboardData.items[i].getAsFile();
+        handleFile(file);
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  async function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+      statusEl.textContent = 'Error: Please provide an image file.';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const img = new Image();
+      img.onload = async () => {
+        statusEl.textContent = 'Preparing image...';
+        const canvas = document.createElement('canvas');
+        const maxDim = 1000;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = h * (maxDim / w); w = maxDim; }
+          else { w = w * (maxDim / h); h = maxDim; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(async (blob) => {
+          await runTesseract(blob);
+        }, 'image/png');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function getWorker() {
+    if (!worker) {
+      worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            statusEl.textContent = `Recognizing text: ${Math.round(m.progress * 100)}%`;
+          } else if (m.status) {
+            statusEl.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1) + '...';
+          }
+        }
+      });
+    }
+    return worker;
+  }
+
+  async function runTesseract(imageBlob) {
+    statusEl.textContent = 'Loading OCR engine (first run may take a few seconds)...';
+    try {
+      const w = await getWorker();
+      const { data } = await w.recognize(imageBlob);
+      outputText.value = data.text.trim();
+      statusEl.textContent = 'Done.';
+      
+      pageCount++;
+      const saved = (pageCount * 0.0015).toFixed(4);
+      savingsAmount.textContent = `$${saved}`;
+    } catch (err) {
+      statusEl.textContent = 'Error: ' + err.message;
+    }
+  }
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outputText.value);
+      const btn = document.getElementById('copyBtn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    } catch (err) {
+      alert('Failed to copy text.');
+    }
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const data = {
+      zcac: true,
+      kind: "extracted-text",
+      data: { text: outputText.value }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'extracted-text.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      const btn = document.getElementById('copyLinkBtn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    } catch (err) {
+      alert('Failed to copy link.');
+    }
+  });
+
+  const themeToggle = document.getElementById('themeToggle');
+  themeToggle.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (currentTheme === 'light') {
+      document.documentElement.removeAttribute('data-theme');
+      themeToggle.textContent = '🌙 Dark';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      themeToggle.textContent = '☀️ Light';
+    }
+  });
+</script>
+</body>
+</html>
