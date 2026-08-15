@@ -120,6 +120,22 @@
   "reading_time_minutes": 4,
   "pinned": false,
   "verified": "2026-08-15"
+},{
+  "id": "0003",
+  "slug": "jwt-crack",
+  "title": "JWT Crack",
+  "hook": "Paste any JWT and instantly see decoded header, payload, and security analysis — expiration, algorithm warnings, claim breakdown. 100% browser-native, zero network calls.",
+  "path": "tools/jwt-crack.html",
+  "date": "2025-07-09",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "No service needed — runs entirely in-browser via base64url decoding and JSON parsing. Zero cost, zero limits, zero API calls.",
+  "source_url": "https://datatracker.ietf.org/doc/html/rfc7519",
+  "tags": ["jwt", "auth", "security", "browser-native", "developer-tools"],
+  "reading_time_minutes": 1,
+  "pinned": false,
+  "verified": "2025-07-09"
 }
   ]
 }
