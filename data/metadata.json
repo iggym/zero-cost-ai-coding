@@ -64,6 +64,29 @@
   "reading_time_minutes": 3,
   "pinned": false,
   "verified": "2026-01-24"
+},{
+  "id": "1044",
+  "slug": "turn-scattered-markdown-notes-into-knowledge-base",
+  "title": "Turn Scattered Markdown Notes Into an Instant Searchable Knowledge Base",
+  "hook": "Index scattered meeting notes and transcripts entirely client-side in your browser, generating an instant searchable index at zero cost.",
+  "path": "tools/turn-scattered-markdown-notes-into-knowledge-base.html",
+  "date": "2026-02-10",
+  "status": "published",
+  "format": "tool",
+  "category": "content",
+  "solution_mode": "browser-native",
+  "waste_source": "Scattered markdown notes and abandoned meeting transcripts",
+  "free_ai_mechanism": "Client-side inverted index tokenization and frequency scoring engine",
+  "free_infra": ["GitHub Pages"],
+  "ladder_tier": "T0",
+  "stack_weakest_link": null,
+  "asymmetry_note": "Commercial wiki platforms charge per-seat subscription fees; client-side execution bypasses server infrastructure costs entirely.",
+  "source_urls": ["https://pages.github.com/"],
+  "tags": ["markdown", "knowledge-base", "browser-native", "search", "zero-cost"],
+  "reading_time_minutes": 3,
+  "pinned": false,
+  "verified": "2026-02-10"
 }
+
 
 ]
