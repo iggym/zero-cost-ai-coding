@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Error Explainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-color: #0d1117;
+    --text-color: #c9d1d9;
+    --accent-color: #2ea043;
+    --border-color: #30363d;
+    --card-bg: #161b22;
+    --input-bg: #0d1117;
+    --danger-color: #f85149;
+  }
+  [data-theme="light"] {
+    --bg-color: #ffffff;
+    --text-color: #24292f;
+    --accent-color: #2da44e;
+    --border-color: #d0d7de;
+    --card-bg: #f6f8fa;
+    --input-bg: #ffffff;
+    --danger-color: #cf222e;
+  }
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    z-index: 100;
+  }
+  .topbar a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .topbar a:hover { color: var(--accent-color); }
+  .topbar-right { display: flex; align-items: center; gap: 15px; }
+  .topbar-title { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 14px; }
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+  }
+  .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+  h1, h2 { font-family: 'JetBrains Mono', monospace; }
+  h1 { font-size: 28px; margin-bottom: 10px; }
+  h2 { font-size: 20px; margin-top: 0; margin-bottom: 15px; }
+  .pitch { font-size: 18px; margin-bottom: 25px; }
+  .pitch strong { color: var(--accent-color); }
+  .card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .share-links { display: flex; gap: 10px; margin-bottom: 30px; }
+  label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 14px; margin-bottom: 8px; }
+  input[type="password"], input[type="text"], textarea {
+    width: 100%;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  textarea { min-height: 150px; resize: vertical; }
+  .api-key-row { display: flex; gap: 10px; margin-bottom: 20px; }
+  .api-key-row input { flex-grow: 1; }
+  .status { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--accent-color); margin: 15px 0; min-height: 20px; }
+  .error { color: var(--danger-color); }
+  .savings {
+    font-size: 14px; font-family: 'JetBrains Mono', monospace;
+    background-color: var(--input-bg); padding: 10px 15px;
+    border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 20px;
+  }
+  .savings .assumption { display: block; font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+  button {
+    cursor: pointer; font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    border-radius: 6px; padding: 8px 16px; border: 1px solid var(--border-color);
+    background-color: var(--card-bg); color: var(--text-color);
+    text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  button:hover { border-color: var(--accent-color); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background-color: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+  .btn-primary:hover { opacity: 0.9; }
+  .output-container { position: relative; margin-top: 20px; }
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 12px; opacity: 0.7; }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent-color); outline-offset: 2px;
+  }
+  @media (max-width: 600px) {
+    .container { padding: 15px; }
+    .share-links, .btn-group { flex-direction: column; align-items: stretch; }
+    .api-key-row { flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← Home</a>
+  <div class="topbar-right">
+    <button id="themeToggle" class="theme-toggle">🌙 Dark</button>
+    <span class="topbar-title">AI Error Explainer</span>
+  </div>
+</header>
+
+<div class="container">
+  <h1>AI Error Explainer</h1>
+  <p class="pitch">Paste a stack trace or error message to get a plain-English explanation and suggested fixes using Gemini 1.5 Flash. <strong>Free up to 1,500 requests/day.</strong></p>
+  
+  <div class="share-links">
+    <a href="https://twitter.com/intent/tweet?text=AI%20Error%20Explainer%20at%20Zero%20Cost%20AI%20Coding&url=https://iggym.github.io/zero-cost-ai-coding/" target="_blank" rel="noopener noreferrer" class="button">Share on X</a>
+    <button id="copyLinkBtn">Copy Link</button>
+  </div>
+
+  <div class="card">
+    <h2>What it replaces</h2>
+    <p>Paid developer tools with built-in AI analysis, or copy-pasting errors into ChatGPT and losing context. Tools like Sentry offer AI autofix as part of their paid Team/Enterprise plans.</p>
+  </div>
+
+  <div class="card">
+    <h2>How to use it</h2>
+    <ol>
+      <li>Get a free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> (no credit card required).</li>
+      <li>Paste your key below. It is stored in <code>sessionStorage</code> only and is wiped when you close this tab.</li>
+      <li>Paste your error or stack trace and click "Explain Error".</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>What breaks</h2>
+    <p>If you send more than 15 requests in a minute, Google will rate-limit you for 60 seconds. Very long stack traces may be truncated by the model's context window.</p>
+  </div>
+
+  <h2>Run it</h2>
+  
+  <div class="api-key-row">
+    <input type="password" id="apiKeyInput" placeholder="Paste Google AI Studio API Key" aria-label="Google Gemini API Key">
+    <button id="saveKeyBtn">Save Key</button>
+  </div>
+
+  <div class="status" id="keyStatus" style="margin-top: 0; margin-bottom: 20px;"></div>
+
+  <label for="errorInput">Error / Stack Trace</label>
+  <textarea id="errorInput" placeholder="Paste your error message or stack trace here..."></textarea>
+  
+  <div class="btn-group">
+    <button id="explainBtn" class="btn-primary" disabled>Explain Error</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  
+  <div class="savings" id="savings" style="display: none;">
+    Est. debugging time saved: <span id="savingsAmount">0 mins</span>
+    <span class="assumption">(Assumption: ~10 mins saved per obscure stack trace Googled manually)</span>
+  </div>
+
+  <div class="output-container">
+    <label for="outputText">Explanation & Fixes</label>
+    <textarea id="outputText" placeholder="AI explanation will appear here..." aria-label="AI Explanation Output" readonly></textarea>
+  </div>
+
+  <div class="btn-group">
+    <button id="copyBtn" disabled>Copy Text</button>
+    <button id="exportBtn" disabled>Download JSON</button>
+  </div>
+
+  <div class="footer">
+    <p>Verified free-tier claim: Google AI Studio Gemini API free tier is 15 RPM / 1500 RPD for gemini-1.5-flash. CORS browser calls are officially supported. Source: ai.google.dev/pricing</p>
+  </div>
+</div>
+
+<script>
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveKeyBtn = document.getElementById('saveKeyBtn');
+  const keyStatus = document.getElementById('keyStatus');
+  const errorInput = document.getElementById('errorInput');
+  const explainBtn = document.getElementById('explainBtn');
+  const statusEl = document.getElementById('status');
+  const outputText = document.getElementById('outputText');
+  const copyBtn = document.getElementById('copyBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const savingsBox = document.getElementById('savings');
+  const savingsAmount = document.getElementById('savingsAmount');
+  
+  let sessionKey = sessionStorage.getItem('gemini_api_key');
+  let solvedCount = 0;
+
+  function updateKeyUI() {
+    if (sessionKey) {
+      apiKeyInput.value = sessionKey;
+      apiKeyInput.disabled = true;
+      saveKeyBtn.textContent = 'Clear Key';
+      keyStatus.textContent = 'Key saved for this session. Will clear when tab closes.';
+      keyStatus.classList.remove('error');
+      explainBtn.disabled = false;
+    } else {
+      apiKeyInput.value = '';
+      apiKeyInput.disabled = false;
+      saveKeyBtn.textContent = 'Save Key';
+      keyStatus.textContent = '';
+      explainBtn.disabled = true;
+    }
+  }
+
+  saveKeyBtn.addEventListener('click', () => {
+    if (sessionKey) {
+      sessionStorage.removeItem('gemini_api_key');
+      sessionKey = null;
+      updateKeyUI();
+    } else {
+      const val = apiKeyInput.value.trim();
+      if (val) {
+        sessionStorage.setItem('gemini_api_key', val);
+        sessionKey = val;
+        updateKeyUI();
+      }
+    }
+  });
+
+  explainBtn.addEventListener('click', async () => {
+    const errorText = errorInput.value.trim();
+    if (!errorText || !sessionKey) return;
+
+    explainBtn.disabled = true;
+    statusEl.textContent = 'Analyzing error...';
+    statusEl.classList.remove('error');
+    outputText.value = '';
+
+    const prompt = `You are an expert developer. Explain the following error message or stack trace. 
+    Provide: 
+    1. A plain-English summary of what went wrong.
+    2. The most likely root cause.
+    3. Concrete steps to fix it.
+    
+    Error:
+    ${errorText}`;
+
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${sessionKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData?.error?.message || `API Error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.candidates[0].content.parts[0].text;
+      
+      outputText.value = text.trim();
+      statusEl.textContent = 'Done.';
+      
+      solvedCount++;
+      savingsBox.style.display = 'block';
+      savingsAmount.textContent = `${solvedCount * 10} mins`;
+      
+      copyBtn.disabled = false;
+      exportBtn.disabled = false;
+    } catch (err) {
+      statusEl.textContent = 'Error: ' + err.message;
+      statusEl.classList.add('error');
+    } finally {
+      explainBtn.disabled = false;
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outputText.value);
+      const originalText = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = originalText, 2000);
+    } catch (err) {
+      alert('Failed to copy text.');
+    }
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const data = {
+      zcac: true,
+      kind: "error-explanation",
+      data: { 
+        original_error: errorInput.value, 
+        explanation: outputText.value 
+      }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'error-explanation.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      const btn = document.getElementById('copyLinkBtn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    } catch (err) {
+      alert('Failed to copy link.');
+    }
+  });
+
+  const themeToggle = document.getElementById('themeToggle');
+  themeToggle.addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (currentTheme === 'light') {
+      document.documentElement.removeAttribute('data-theme');
+      themeToggle.textContent = '🌙 Dark';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      themeToggle.textContent = '☀️ Light';
+    }
+  });
+
+  // Init
+  updateKeyUI();
+</script>
+</body>
+</html>
