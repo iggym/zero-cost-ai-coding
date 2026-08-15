@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regex from English — zero-cost-ai-coding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0d1117;--bg-s:#161b22;--bg-e:#1c2333;--bdr:#30363d;
+      --tx:#e6edf3;--tx-m:#8b949e;--ac:#3fb950;--ac-d:#238636;--dn:#f85149;
+      --fb:'Inter',system-ui,sans-serif;--fm:'JetBrains Mono',monospace;
+    }
+    [data-theme="light"]{
+      --bg:#f6f8fa;--bg-s:#fff;--bg-e:#f0f3f6;--bdr:#d0d7de;
+      --tx:#1f2328;--tx-m:#656d76;--ac:#1a7f37;--ac-d:#2da44e;--dn:#cf222e;
+    }
+    body{font-family:var(--fb);background:var(--bg);color:var(--tx);line-height:1.6;min-height:100vh}
+    a{color:var(--ac)}
+
+    /* topbar */
+    .tb{position:sticky;top:0;z-index:100;background:var(--bg-s);border-bottom:1px solid var(--bdr);padding:.5rem 1rem;display:flex;justify-content:space-between;align-items:center}
+    .tb-l{display:flex;align-items:center;gap:.75rem}
+    .tb a{font-family:var(--fm);font-size:.82rem;text-decoration:none}
+    .tb-t{font-family:var(--fm);font-size:.88rem;font-weight:500}
+
+    /* theme toggle */
+    .thm{background:none;border:1px solid var(--bdr);color:var(--tx);cursor:pointer;padding:.2rem .5rem;border-radius:4px;font-size:.78rem;font-family:var(--fm)}
+    .thm:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+    /* main */
+    main{max-width:800px;margin:0 auto;padding:1.5rem 1rem 4rem}
+
+    /* pitch */
+    .p h1{font-family:var(--fm);font-size:1.45rem;font-weight:700;margin-bottom:.4rem}
+    .p p{color:var(--tx-m);font-size:.92rem}
+    .badge{display:inline-block;background:var(--ac-d);color:#fff;padding:.12rem .5rem;border-radius:3px;font-family:var(--fm);font-size:.72rem;margin-top:.4rem}
+
+    /* share */
+    .shr{display:flex;gap:.5rem;margin-top:.6rem}
+    .sb{background:none;border:1px solid var(--bdr);color:var(--tx-m);cursor:pointer;padding:.22rem .55rem;border-radius:4px;font-size:.78rem;font-family:var(--fm)}
+    .sb:hover{border-color:var(--ac);color:var(--ac)}
+    .sb:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+    /* sections */
+    h2{font-family:var(--fm);font-size:1.05rem;font-weight:600;margin-bottom:.6rem}
+    h3{font-family:var(--fm);font-size:.92rem;font-weight:600;margin-bottom:.4rem}
+    section{margin-bottom:1.4rem}
+
+    /* form */
+    label{display:block;font-size:.82rem;font-weight:500;margin-bottom:.2rem;color:var(--tx-m)}
+    input[type="text"],textarea{width:100%;background:var(--bg-s);border:1px solid var(--bdr);color:var(--tx);font-family:var(--fm);font-size:.85rem;padding:.45rem .7rem;border-radius:6px;resize:vertical}
+    input[type="text"]:focus,textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 2px rgba(63,185,80,.15)}
+    textarea{min-height:72px}
+
+    /* key box */
+    .kb{background:var(--bg-s);border:1px solid var(--bdr);border-radius:8px;padding:.85rem;margin-bottom:1.4rem}
+    .kh{font-size:.76rem;color:var(--tx-m);margin-top:.2rem}
+
+    /* buttons */
+    .bp{background:var(--ac-d);color:#fff;border:none;padding:.48rem 1.1rem;border-radius:6px;font-family:var(--fm);font-size:.85rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem}
+    .bp:hover{background:var(--ac)}.bp:disabled{opacity:.5;cursor:not-allowed}
+    .bp:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+    .bs{background:none;border:1px solid var(--bdr);color:var(--tx);padding:.3rem .65rem;border-radius:6px;font-family:var(--fm);font-size:.78rem;cursor:pointer}
+    .bs:hover{border-color:var(--ac);color:var(--ac)}
+    .bs:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+    /* result */
+    .rb{background:var(--bg-s);border:1px solid var(--bdr);border-radius:8px;padding:1rem;margin-top:.8rem}
+    .rd{font-family:var(--fm);font-size:1.1rem;font-weight:700;color:var(--ac);word-break:break-all;margin-bottom:.4rem}
+    .ex{font-size:.88rem;color:var(--tx-m);margin-bottom:.65rem}
+    .ior{display:flex;gap:.45rem;margin-top:.65rem;flex-wrap:wrap}
+
+    /* match output */
+    .mo{background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:.65rem;font-family:var(--fm);font-size:.8rem;white-space:pre-wrap;word-break:break-word;line-height:1.55;max-height:200px;overflow-y:auto}
+    .mo mark{background:rgba(63,185,80,.22);color:var(--ac);border-radius:2px;padding:0 2px}
+    .mc{font-family:var(--fm);font-size:.78rem;color:var(--ac);margin-top:.4rem}
+    .em{color:var(--dn);font-size:.82rem;font-family:var(--fm)}
+
+    /* info grid */
+    .ig{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-top:1.4rem}
+    .ic{background:var(--bg-s);border:1px solid var(--bdr);border-radius:8px;padding:.85rem}
+    .ic h3{color:var(--ac)}.ic p,.ic ul{font-size:.82rem;color:var(--tx-m)}
+    .ic ul{padding-left:1.1rem;margin-top:.2rem}.ic li{margin-bottom:.2rem}
+
+    /* import area */
+    .ia textarea{min-height:56px}
+
+    /* footer */
+    footer{border-top:1px solid var(--bdr);padding:.85rem;text-align:center;font-size:.76rem;color:var(--tx-m)}
+
+    /* toast */
+    .toast{position:fixed;top:3.2rem;right:1rem;background:var(--bg-e);border:1px solid var(--ac);color:var(--tx);padding:.45rem .85rem;border-radius:6px;font-family:var(--fm);font-size:.78rem;z-index:200;opacity:0;transform:translateY(-8px);transition:opacity .2s,transform .2s;pointer-events:none}
+    .toast.show{opacity:1;transform:translateY(0)}
+
+    /* spinner */
+    .sp{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .55s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* live badge */
+    .lv{font-size:.7rem;color:var(--tx-m);font-family:var(--fm);margin-top:.15rem;font-style:italic}
+
+    /* mobile */
+    @media(max-width:600px){
+      .ig{grid-template-columns:1fr}
+      .p h1{font-size:1.2rem}
+      main{padding:1rem .75rem 4rem}
+    }
+
+    /* reduced motion */
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="tb" role="navigation" aria-label="Main navigation">
+    <div class="tb-l">
+      <a href="https://iggym.github.io/zero-cost-ai-coding/">&#8592; home</a>
+      <button class="thm" onclick="toggleTheme()" aria-label="Toggle light/dark mode">&#9682; theme</button>
+    </div>
+    <span class="tb-t">regex-from-english</span>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <main>
+    <section class="p">
+      <h1>Regex from English</h1>
+      <p>Describe a pattern in plain English, get a working regex you can copy &mdash; then test it live against your own text right here. Uses Gemini 1.5 Flash (free, no card).</p>
+      <span class="badge">Free: 1,500 req/day</span>
+      <div class="shr">
+        <button class="sb" onclick="shareX()" aria-label="Share on X">share &#8599; X</button>
+        <button class="sb" onclick="copyLink()" aria-label="Copy page link">copy link</button>
+      </div>
+    </section>
+
+    <div class="kb">
+      <label for="apiKey">Gemini API Key <span style="color:var(--dn)">*</span></label>
+      <input type="text" id="apiKey" placeholder="AIza..." autocomplete="off" spellcheck="false" aria-describedby="keyHint">
+      <p id="keyHint" class="kh">Free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> &mdash; session-only, clears when tab closes.</p>
+    </div>
+
+    <section>
+      <label for="desc">What should the regex match?</label>
+      <textarea id="desc" rows="3">match email addresses</textarea>
+
+      <div style="margin-top:1rem">
+        <label for="test">Test text <span style="font-weight:400;color:var(--tx-m)">(optional &mdash; validates matches live)</span></label>
+        <textarea id="test" rows="4">Contact us at hello@example.com or support@company.org.
+Not an email: user@.com or @missing-local.com
+Valid: name+tag@sub.domain.co.uk</textarea>
+        <p class="lv">matches update live as you type</p>
+      </div>
+
+      <div style="margin-top:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <button class="bp" id="genBtn" onclick="generate()">generate regex</button>
+        <span id="stMsg" style="font-size:.78rem;color:var(--tx-m)"></span>
+        <span style="font-size:.72rem;color:var(--tx-m);margin-left:auto">Ctrl+Enter</span>
+      </div>
+    </section>
+
+    <section id="resSec" style="display:none">
+      <div class="rb">
+        <h2>Generated regex</h2>
+        <div class="rd" id="rxDisp"></div>
+        <div class="ex" id="exDisp"></div>
+        <div class="ior">
+          <button class="bs" onclick="copyRegex()">copy regex</button>
+          <button class="bs" onclick="copyAsJS()">copy as JS</button>
+          <button class="bs" onclick="exportJSON()">export JSON</button>
+        </div>
+
+        <div id="matSec" style="margin-top:1rem">
+          <h3>Match highlights</h3>
+          <div class="mo" id="matOut"></div>
+          <div class="mc" id="matCnt"></div>
+        </div>
+
+        <div id="rxErr" class="em" style="display:none;margin-top:.4rem"></div>
+      </div>
+    </section>
+
+    <section class="ia">
+      <h2>Import</h2>
+      <label for="impBox">Paste exported JSON from this tool</label>
+      <textarea id="impBox" rows="2" placeholder='{"zcac":true,"kind":"regex-from-english",...}'></textarea>
+      <div style="margin-top:.45rem;display:flex;gap:.5rem;align-items:center">
+        <button class="bs" onclick="importJSON()">load</button>
+        <span id="impMsg" style="font-size:.78rem;color:var(--tx-m)"></span>
+      </div>
+    </section>
+
+    <div class="ig">
+      <div class="ic">
+        <h3>What it replaces</h3>
+        <p>no direct paid equivalent found &mdash; most regex generators live inside broader AI chatbots or IDE extensions, requiring context-switching to a separate tester</p>
+      </div>
+      <div class="ic">
+        <h3>How to use</h3>
+        <ul>
+          <li>Get a free Gemini key (no card)</li>
+          <li>Describe your pattern in English</li>
+          <li>Paste test text to validate</li>
+          <li>Click generate &rarr; copy the regex</li>
+        </ul>
+      </div>
+      <div class="ic">
+        <h3>What breaks</h3>
+        <ul>
+          <li>15 req/min rate limit &mdash; wait 60s if hit</li>
+          <li>AI can produce invalid regex &mdash; caught and reported</li>
+          <li>Complex patterns may need refinement</li>
+        </ul>
+      </div>
+      <div class="ic">
+        <h3>Time saved</h3>
+        <p id="savTxt">0 min saved (assumes ~7 min/regex by hand vs ~30 sec with this tool)</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Free tier verified at <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener">ai.google.dev/pricing</a>
+  </footer>
+
+  <script>
+    // --- State ---
+    let curRx=null, curFl='g', curEx='', genCount=0;
+
+    // --- Theme ---
+    function toggleTheme(){
+      const h=document.documentElement;
+      h.setAttribute('data-theme',h.getAttribute('data-theme')==='dark'?'light':'dark');
+    }
+    if(window.matchMedia('(prefers-color-scheme:light)').matches){
+      document.documentElement.setAttribute('data-theme','light');
+    }
+
+    // --- API Key (sessionStorage only) ---
+    const _sk=sessionStorage.getItem('gmk');
+    if(_sk) document.getElementById('apiKey').value=_sk;
+    document.getElementById('apiKey').addEventListener('input',e=>{
+      sessionStorage.setItem('gmk',e.target.value.trim());
+    });
+
+    // --- Toast ---
+    function toast(m){
+      const t=document.getElementById('toast');
+      t.textContent=m;t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'),2200);
+    }
+
+    // --- Clipboard ---
+    async function clip(s){
+      try{await navigator.clipboard.writeText(s);toast('Copied!')}
+      catch{toast('Copy failed')}
+    }
+
+    // --- Share ---
+    function shareX(){
+      const u=window.location.href;
+      window.open('https://x.com/intent/tweet?text='+encodeURIComponent('Regex from English — free AI regex generator')+'&url='+encodeURIComponent(u),'_blank');
+    }
+    function copyLink(){clip(window.location.href)}
+
+    // --- Escape HTML ---
+    function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+    // --- Test & highlight ---
+    function testHighlight(pat,fl,txt){
+      const ms=document.getElementById('matSec');
+      const mo=document.getElementById('matOut');
+      const mc=document.getElementById('matCnt');
+      const er=document.getElementById('rxErr');
+      er.style.display='none';
+
+      try{
+        // force 'g' for highlighting
+        const hfl=fl.includes('g')?fl:fl+'g';
+        const re=new RegExp(pat,hfl);
+
+        if(!txt.trim()){ms.style.display='none';return}
+        ms.style.display='block';
+
+        let cnt=0,last=0,html='',m;
+        re.lastIndex=0;
+        while((m=re.exec(txt))!==null){
+          cnt++;
+          html+=esc(txt.slice(last,m.index));
+          html+='<mark>'+esc(m[0])+'</mark>';
+          last=m.index+m[0].length;
+          if(m[0].length===0) re.lastIndex++;
+          if(cnt>5000) break;
+        }
+        html+=esc(txt.slice(last));
+        mo.innerHTML=html;
+        mc.textContent=cnt+' match'+(cnt!==1?'es':'')+' found';
+      }catch(e){
+        if(txt.trim()){
+          ms.style.display='block';
+          mo.innerHTML=esc(txt);
+          mc.textContent='';
+        }
+        er.style.display='block';
+        er.textContent='Invalid regex: '+e.message;
+      }
+    }
+
+    // --- Live test on text change ---
+    let _td;
+    document.getElementById('test').addEventListener('input',()=>{
+      clearTimeout(_td);
+      _td=setTimeout(()=>{
+        if(curRx) testHighlight(curRx,curFl,document.getElementById('test').value);
+      },250);
+    });
+
+    // --- Generate ---
+    async function generate(){
+      const key=document.getElementById('apiKey').value.trim();
+      const desc=document.getElementById('desc').value.trim();
+      const txt=document.getElementById('test').value;
+      const btn=document.getElementById('genBtn');
+      const st=document.getElementById('stMsg');
+
+      if(!key){st.textContent='Enter your Gemini API key first.';st.style.color='var(--dn)';return}
+      if(!desc){st.textContent='Describe a pattern first.';st.style.color='var(--dn)';return}
+
+      btn.disabled=true;
+      btn.innerHTML='<span class="sp"></span> generating\u2026';
+      st.textContent='';st.style.color='var(--tx-m)';
+
+      const prompt=`You are a regex expert. Given a plain English description, output a JavaScript-compatible regex.
+
+Return ONLY valid JSON (no markdown, no code fences, no extra text):
+{"regex": "pattern-string", "flags": "g", "explanation": "1-3 sentence explanation"}
+
+Rules:
+- regex: valid JS regex pattern string, no / delimiters
+- flags: appropriate flags (g=global, i=case-insensitive, m=multiline, s=dotAll)
+- explanation: brief, technical
+
+Examples:
+Input: "match email addresses"
+Output: {"regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}", "flags": "gi", "explanation": "Matches typical email format: local-part@domain.tld. Allows alphanumeric, dots, and common special chars in local part."}
+
+Input: "match US phone numbers"
+Output: {"regex": "(?:\\\\+?1[-.\\\\s]?)?\\\\(?([0-9]{3})\\\\)?[-.\\\\s]?([0-9]{3})[-.\\\\s]?([0-9]{4})", "flags": "g", "explanation": "Matches US phone numbers with optional country code +1, optional parens around area code, and dash/dot/space separators."}
+
+Now generate for: ${desc}`;
+
+      try{
+        const r=await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+key,
+          {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              contents:[{parts:[{text:prompt}]}],
+              generationConfig:{temperature:0.2,maxOutputTokens:1024}
+            })
+          }
+        );
+
+        if(!r.ok){
+          const err=await r.json().catch(()=>({}));
+          if(r.status===429) throw new Error('Rate limited \u2014 wait 60s and retry.');
+          if(r.status===400&&err.error?.message?.includes('API key')) throw new Error('Invalid API key \u2014 check at aistudio.google.com/apikey');
+          throw new Error('API error '+r.status+': '+(err.error?.message||'unknown'));
+        }
+
+        const data=await r.json();
+        const text=data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if(!text) throw new Error('Empty response from Gemini \u2014 try again.');
+
+        // Parse JSON from response
+        let js=text;
+        const cb=text.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if(cb) js=cb[1].trim();
+        const jm=js.match(/\{[\s\S]*\}/);
+        if(!jm) throw new Error('Could not parse AI response \u2014 try again.');
+
+        const p=JSON.parse(jm[0]);
+        if(!p.regex) throw new Error('AI response missing regex field \u2014 try again.');
+
+        curRx=p.regex; curFl=p.flags||'g'; curEx=p.explanation||'';
+
+        // Display
+        document.getElementById('resSec').style.display='block';
+        document.getElementById('rxDisp').textContent='/'+curRx+'/'+curFl;
+        document.getElementById('exDisp').textContent=curEx;
+
+        testHighlight(curRx,curFl,txt);
+
+        // Savings
+        genCount++;
+        const mins=genCount*6.5;
+        document.getElementById('savTxt').innerHTML='<strong>'+mins.toFixed(1)+' min</strong> saved (assumes ~7 min/regex by hand vs ~30 sec with this tool)';
+
+        st.textContent='Done.';st.style.color='var(--ac)';
+
+      }catch(e){
+        st.textContent=e.message;st.style.color='var(--dn)';
+      }finally{
+        btn.disabled=false;btn.textContent='generate regex';
+      }
+    }
+
+    // --- Copy helpers ---
+    function copyRegex(){if(curRx) clip(curRx)}
+    function copyAsJS(){if(curRx) clip('new RegExp('+JSON.stringify(curRx)+', '+JSON.stringify(curFl)+')')}
+
+    // --- Export ---
+    function exportJSON(){
+      if(!curRx) return;
+      const obj={
+        zcac:true,
+        kind:'regex-from-english',
+        data:{
+          description:document.getElementById('desc').value.trim(),
+          regex:curRx,
+          flags:curFl,
+          explanation:curEx,
+          testText:document.getElementById('test').value
+        }
+      };
+      clip(JSON.stringify(obj,null,2));
+    }
+
+    // --- Import ---
+    function importJSON(){
+      const box=document.getElementById('impBox');
+      const msg=document.getElementById('impMsg');
+      try{
+        const o=JSON.parse(box.value.trim());
+        if(!o.zcac||o.kind!=='regex-from-english'){
+          msg.textContent='Not recognized \u2014 wrong tool kind.';msg.style.color='var(--dn)';return;
+        }
+        if(o.data.description) document.getElementById('desc').value=o.data.description;
+        if(o.data.testText) document.getElementById('test').value=o.data.testText;
+        if(o.data.regex){
+          curRx=o.data.regex;curFl=o.data.flags||'g';curEx=o.data.explanation||'';
+          document.getElementById('resSec').style.display='block';
+          document.getElementById('rxDisp').textContent='/'+curRx+'/'+curFl;
+          document.getElementById('exDisp').textContent=curEx;
+          testHighlight(curRx,curFl,o.data.testText||document.getElementById('test').value);
+        }
+        msg.textContent='Loaded.';msg.style.color='var(--ac)';
+      }catch{
+        msg.textContent='Invalid JSON.';msg.style.color='var(--dn)';
+      }
+    }
+
+    // --- Keyboard shortcut ---
+    document.addEventListener('keydown',e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();generate()}
+    });
+  </script>
+</body>
+</html>
