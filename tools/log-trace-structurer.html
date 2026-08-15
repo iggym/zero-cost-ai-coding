@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log & Trace Structurer — Zero-Cost AI Coding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --heading: #f0f6fc;
+      --accent: #2ea44f;
+      --accent-hover: #3fb950;
+      --code-bg: #010409;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --card-bg: #f6f8fa;
+      --border: #d0d7de;
+      --text: #24292f;
+      --text-muted: #57606a;
+      --heading: #0f1419;
+      --accent: #1a7f37;
+      --accent-hover: #2da44e;
+      --code-bg: #eff1f3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      line-height: 1.5;
+      padding-top: 50px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 50px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1rem;
+      z-index: 1000;
+    }
+    .top-bar a {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .top-bar .title {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      flex: 1;
+      width: 100%;
+    }
+
+    header { margin-bottom: 2rem; }
+    h1 {
+      font-family: var(--font-mono);
+      color: var(--heading);
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+    .pitch { font-size: 1.05rem; color: var(--text); margin-bottom: 0.75rem; }
+    .meta-line {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* Main Tool UI */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      height: 500px;
+    }
+    .panel-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0,0,0,0.1);
+    }
+    .panel-title {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--heading);
+    }
+
+    textarea, pre {
+      flex: 1;
+      width: 100%;
+      background: var(--code-bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 1rem;
+      border: none;
+      resize: none;
+      outline: none;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Actions Bar */
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    button, .btn {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    button:hover, .btn:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.secondary:hover { background: var(--border); }
+
+    /* Saved Readout Box */
+    .readout {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 2rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+    }
+    .readout-value { font-size: 1.2rem; font-weight: 700; color: var(--heading); }
+
+    /* Explanation Section */
+    .info-section {
+      border-top: 1px solid var(--border);
+      padding-top: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    @media (max-width: 768px) {
+      .info-section { grid-template-columns: 1fr; }
+    }
+    .info-block h3 {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      color: var(--heading);
+      margin-bottom: 0.5rem;
+    }
+    .info-block p, .info-block ul {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .info-block ul { padding-left: 1.2rem; }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a>
+    <span class="title">log-trace-structurer</span>
+    <button class="theme-toggle" onclick="toggleTheme()">Theme</button>
+  </div>
+
+  <div class="container">
+    <header>
+      <h1>Log & Trace Structurer</h1>
+      <p class="pitch">Parses raw, unformatted console output and stack traces into structured JSON. Runs 100% client-side with unlimited usage and zero data latency.</p>
+      <div class="meta-line">
+        <span><strong>Replaces:</strong> Datadog Log Management / Papertrail ($0.10–$1.70/GB)</span>
+        <span><strong>Limit:</strong> Unlimited local browser memory</span>
+      </div>
+    </header>
+
+    <div class="controls">
+      <button onclick="processInput()">Structure Logs</button>
+      <button class="secondary" onclick="loadSample()">Load Sample</button>
+      <button class="secondary" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">RAW INPUT LOGS / JSON IMPORT</span>
+        </div>
+        <textarea id="input" placeholder="Paste unformatted console logs, stack traces, or zcac JSON here..."></textarea>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">STRUCTURED OUTPUT (JSON)</span>
+          <div>
+            <button class="secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="copyOutput()">Copy</button>
+            <button class="secondary" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="downloadJSON()">Download JSON</button>
+          </div>
+        </div>
+        <pre id="output">// Parsed structured JSON will appear here...</pre>
+      </div>
+    </div>
+
+    <div class="readout">
+      <span>Time Saved: </span>
+      <span class="readout-value" id="time-saved">0 seconds</span>
+      <span style="color: var(--text-muted); font-size: 0.8rem;">(Assumes ~15 sec manual formatting per log entry)</span>
+    </div>
+
+    <div style="margin-bottom: 2rem; display: flex; gap: 0.5rem;">
+      <a id="share-x" class="btn secondary" href="#" target="_blank">Share on X</a>
+      <button class="secondary" onclick="copyShareLink()">Copy Link</button>
+    </div>
+
+    <div class="info-section">
+      <div class="info-block">
+        <h3>How to use it</h3>
+        <ul>
+          <li>Paste raw console logs, multi-line stack traces, or previously exported JSON.</li>
+          <li>Click <strong>Structure Logs</strong> to auto-detect log levels, ISO timestamps, and stack traces.</li>
+          <li>Export or copy the normalized array using the standardized `zcac` schema.</li>
+        </ul>
+      </div>
+      <div class="info-block">
+        <h3>What breaks</h3>
+        <p>Extremely large log files (>100MB) may freeze your browser tab during regex operations. Process logs in smaller batches for optimal speed.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Verified free tier claim at <a href="https://developer.mozilla.org/en-US/docs/Web/API" style="color: var(--accent);">MDN Web APIs Specification</a>.
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const current = document.body.getAttribute('data-theme');
+      if (current === 'light') {
+        document.body.removeAttribute('data-theme');
+      } else {
+        document.body.setAttribute('data-theme', 'light');
+      }
+    }
+
+    const sampleLog = `2026-08-15T10:14:32.102Z [ERROR] Failed to fetch user profile: Connection timeout
+    at getUserProfile (auth.js:42:15)
+    at async handleRequest (server.js:108:4)
+2026-08-15T10:14:33.000Z [INFO] Retrying database query attempt 2
+{"timestamp":"2026-08-15T10:14:35.500Z","level":"WARN","message":"High memory usage detected","usage":"88%"}`;
+
+    function loadSample() {
+      document.getElementById('input').value = sampleLog;
+      processInput();
+    }
+
+    function clearAll() {
+      document.getElementById('input').value = '';
+      document.getElementById('output').textContent = '// Parsed structured JSON will appear here...';
+      document.getElementById('time-saved').textContent = '0 seconds';
+    }
+
+    function processInput() {
+      const raw = document.getElementById('input').value.trim();
+      if (!raw) return;
+
+      // Check for Composable JSON Import
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.zcac === true) {
+          if (parsed.kind === 'log_structurer_export' || parsed.kind === 'log_trace_export') {
+            document.getElementById('output').textContent = JSON.stringify(parsed, null, 2);
+            updateReadout(parsed.data ? parsed.data.length : 0);
+            return;
+          } else {
+            document.getElementById('output').textContent = JSON.stringify({
+              error: "Pasted ZCAC JSON kind not recognized by this tool."
+            }, null, 2);
+            return;
+          }
+        }
+      } catch (e) {
+        // Not JSON, fall back to raw text parsing
+      }
+
+      // Regex patterns
+      const lines = raw.split(/\r?\n/);
+      const entries = [];
+      let currentEntry = null;
+
+      const timeRegex = /\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/;
+      const levelRegex = /\[?(INFO|WARN|WARNING|ERROR|DEBUG|TRACE|FATAL)\]?/i;
+
+      lines.forEach(line => {
+        const timeMatch = line.match(timeRegex);
+        const levelMatch = line.match(levelRegex);
+
+        if (timeMatch || levelMatch) {
+          if (currentEntry) entries.push(currentEntry);
+          
+          // Attempt inline JSON parse
+          let inlineJSON = null;
+          const jsonStart = line.indexOf('{');
+          if (jsonStart !== -1) {
+            try {
+              inlineJSON = JSON.parse(line.substring(jsonStart));
+            } catch (err) {}
+          }
+
+          currentEntry = {
+            timestamp: timeMatch ? timeMatch[0] : new Date().toISOString(),
+            level: levelMatch ? levelMatch[1].toUpperCase() : 'INFO',
+            message: line.replace(timeRegex, '').replace(levelRegex, '').trim(),
+            details: inlineJSON || null,
+            trace: []
+          };
+        } else if (line.trim().startsWith('at ') || line.includes('Error:')) {
+          if (currentEntry) {
+            currentEntry.trace.push(line.trim());
+          } else {
+            currentEntry = {
+              timestamp: new Date().toISOString(),
+              level: 'ERROR',
+              message: 'Uncaught Stack Trace',
+              trace: [line.trim()]
+            };
+          }
+        } else if (currentEntry) {
+          currentEntry.message += ' ' + line.trim();
+        }
+      });
+
+      if (currentEntry) entries.push(currentEntry);
+
+      const structuredResult = {
+        zcac: true,
+        kind: "log_structurer_export",
+        data: entries
+      };
+
+      document.getElementById('output').textContent = JSON.stringify(structuredResult, null, 2);
+      updateReadout(entries.length);
+    }
+
+    function updateReadout(count) {
+      const secondsSaved = count * 15;
+      if (secondsSaved >= 60) {
+        const mins = (secondsSaved / 60).toFixed(1);
+        document.getElementById('time-saved').textContent = `${mins} minutes (${count} entries)`;
+      } else {
+        document.getElementById('time-saved').textContent = `${secondsSaved} seconds (${count} entries)`;
+      }
+    }
+
+    function copyOutput() {
+      const content = document.getElementById('output').textContent;
+      navigator.clipboard.writeText(content);
+    }
+
+    function downloadJSON() {
+      const content = document.getElementById('output').textContent;
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'structured-logs.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function copyShareLink() {
+      navigator.clipboard.writeText(window.location.href);
+    }
+
+    // Set Share Link
+    document.getElementById('share-x').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent('Structure raw dev logs into structured JSON instantly in browser: ' + window.location.href)}`;
+  </script>
+</body>
+</html>
