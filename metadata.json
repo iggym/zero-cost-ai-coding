@@ -1,0 +1,29 @@
+{
+  "site": {
+    "repo_name": "zero-cost-ai-coding",
+    "title": "Zero-Cost AI Coding",
+    "tagline": "Real tools. Genuinely free. No card, no trial.",
+    "base_url": "https://iggym.github.io/zero-cost-ai-coding/",
+    "audience": "Developers and indie builders who want real tools at genuine $0 cost — no card, no trial-that-converts",
+    "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
+  },
+  "articles": [
+    {
+  "id": "0001",
+  "slug": "error-triage",
+  "title": "Error Triage",
+  "hook": "Paste an error, stack trace, or log dump — get classification, root cause, concrete fix steps, and pitfalls, using Groq's free LLM API.",
+  "path": "tools/error-triage.html",
+  "date": "2025-07-18",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "connector",
+  "how_free": "Groq free tier: 30 req/min, 14,400 req/day, no card — verified at console.groq.com/docs/rate-limits",
+  "source_url": "https://console.groq.com/docs/rate-limits",
+  "tags": ["errors", "debugging", "llm", "groq", "triage"],
+  "reading_time_minutes": 1,
+  "pinned": false,
+  "verified": "2025-07-18"
+}
+  ]
+}
