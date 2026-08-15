@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Env Scanner — Extract Environment Variables from Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #e5e5e5;
+    --muted: #a3a3a3;
+    --border: #262626;
+    --accent: #22c55e;
+    --accent-dim: #166534;
+    --surface: #171717;
+    --danger: #ef4444;
+  }
+  [data-theme="light"] {
+    --bg: #fafafa;
+    --fg: #171717;
+    --muted: #525252;
+    --border: #e5e5e5;
+    --surface: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+  }
+  .topbar a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .topbar a:hover { text-decoration: underline; }
+  .topbar h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h2 { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; margin-bottom: 0.5rem; }
+  h3 { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; margin-bottom: 0.5rem; margin-top: 1.5rem; }
+  p { margin-bottom: 1rem; color: var(--muted); }
+  .pitch { font-size: 1.1rem; color: var(--fg); margin-bottom: 1.5rem; }
+  .badge {
+    display: inline-block;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 1rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 250px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875rem;
+    color: var(--fg);
+    resize: vertical;
+    line-height: 1.5;
+  }
+  textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-color: var(--accent);
+  }
+  .btn {
+    background: var(--accent);
+    color: #0a0a0a;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .btn:hover { background: #16a34a; }
+  .btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--surface); }
+  .output-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 1rem;
+  }
+  .stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .share-btns { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .share-btns button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+  .share-btns button:hover { background: var(--bg); }
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); }
+  .validation-ok { color: var(--accent); }
+  .validation-missing { color: var(--danger); }
+  @media (max-width: 640px) {
+    .container { padding: 1rem; }
+    h2 { font-size: 1.25rem; }
+    .stats { gap: 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← Home</a>
+  <h1>Env Scanner</h1>
+  <button id="theme-toggle" class="btn-secondary btn" style="padding: 0.5rem 0.75rem; font-size: 0.875rem;">Toggle Theme</button>
+</div>
+
+<div class="container">
+  <div class="badge">∞ runs — pure client-side regex, no external service</div>
+  
+  <h2>Extract Environment Variables from Your Code</h2>
+  <p class="pitch">Scan JavaScript/TypeScript code for <code>process.env</code> references and generate a <code>.env.example</code> template. No upload, no API, runs entirely in your browser tab.</p>
+  
+  <h3>What it replaces</h3>
+  <p>Doppler charges $21/user/month for teams and Infisical charges $18/identity/month for environment variable management. This tool does the scanning part for free — paste your code, get the variables.</p>
+  
+  <h3>How to use it</h3>
+  <p>Paste your JavaScript or TypeScript code below. The scanner finds all environment variable references (<code>process.env.VAR</code>, <code>import.meta.env.VAR</code>, framework prefixes like <code>NEXT_PUBLIC_</code>, <code>VITE_</code>, etc.) and generates a template you can commit as <code>.env.example</code>.</p>
+  
+  <textarea id="code-input" placeholder="Paste your JavaScript or TypeScript code here...&#10;&#10;Example:&#10;const apiUrl = process.env.API_URL;&#10;const key = process.env['API_KEY'];&#10;const secret = import.meta.env.VITE_SECRET;"></textarea>
+  
+  <div style="margin-top: 1rem;">
+    <button class="btn" id="scan-btn">Scan Code</button>
+    <button class="btn btn-secondary" id="clear-btn">Clear</button>
+  </div>
+  
+  <h3>Detected Variables</h3>
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value" id="var-count">0</span>
+      <span class="stat-label">Variables Found</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="time-saved">0s</span>
+      <span class="stat-label">Saved vs Manual (~30s/var)</span>
+    </div>
+  </div>
+  
+  <div class="output-box" id="env-output">No variables detected yet.</div>
+  
+  <div style="margin-top: 1rem;">
+    <button class="btn" id="copy-env-btn">Copy .env.example</button>
+    <button class="btn btn-secondary" id="copy-json-btn">Copy as JSON</button>
+    <button class="btn btn-secondary" id="download-json-btn">Download JSON</button>
+  </div>
+  
+  <h3>Validate Against Existing .env</h3>
+  <p>Paste your current <code>.env</code> file to see which variables are missing or unused.</p>
+  <textarea id="env-input" placeholder="Paste your .env file here...&#10;&#10;Example:&#10;API_URL=https://api.example.com&#10;API_KEY=sk_live_123"></textarea>
+  
+  <div style="margin-top: 1rem;">
+    <button class="btn" id="validate-btn">Validate</button>
+  </div>
+  
+  <div class="output-box" id="validation-output">Paste code and .env above, then click Validate.</div>
+  
+  <h3>Import from Another Tool</h3>
+  <p>Paste JSON from another tool in the shared format (<code>{"zcac": true, "kind": "...", "data": {...}}</code>).</p>
+  <textarea id="import-input" placeholder='Paste JSON here...'></textarea>
+  <div style="margin-top: 1rem;">
+    <button class="btn" id="import-btn">Import</button>
+  </div>
+  
+  <div class="share-btns">
+    <button id="share-x-btn">Share on X</button>
+    <button id="copy-link-btn">Copy Link</button>
+  </div>
+  
+  <footer>
+    <p>Free tier verified: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/process" target="_blank">MDN Web Docs</a> — client-side JavaScript has no execution limit. Paid alternatives: <a href="https://www.doppler.com/pricing" target="_blank">Doppler pricing</a>, <a href="https://infisical.com/pricing" target="_blank">Infisical pricing</a>.</p>
+  </footer>
+</div>
+
+<script>
+  // Theme toggle
+  const themeToggle = document.getElementById('theme-toggle');
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+  
+  themeToggle.addEventListener('click', () => {
+    const current = document.body.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    document.body.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
+  
+  // Scanner logic
+  const codeInput = document.getElementById('code-input');
+  const envInput = document.getElementById('env-input');
+  const importInput = document.getElementById('import-input');
+  const envOutput = document.getElementById('env-output');
+  const validationOutput = document.getElementById('validation-output');
+  const varCount = document.getElementById('var-count');
+  const timeSaved = document.getElementById('time-saved');
+  
+  function scanCode(code) {
+    const vars = new Set();
+    
+    // process.env.VAR_NAME or process.env["VAR_NAME"] or process.env['VAR_NAME']
+    const processEnvRegex = /process\.env\.([A-Z_][A-Z0-9_]*)|process\.env\[["']([A-Z_][A-Z0-9_]*)["']\]/g;
+    let match;
+    while ((match = processEnvRegex.exec(code)) !== null) {
+      vars.add(match[1] || match[2]);
+    }
+    
+    // import.meta.env.VAR_NAME (Vite)
+    const importMetaRegex = /import\.meta\.env\.([A-Z_][A-Z0-9_]*)/g;
+    while ((match = importMetaRegex.exec(code)) !== null) {
+      vars.add(match[1]);
+    }
+    
+    // Framework-specific prefixes (catch any that look like env vars)
+    const prefixRegex = /\b((?:NEXT_PUBLIC_|REACT_APP_|VITE_|VUE_APP_|NUXT_)[A-Z_][A-Z0-9_]*)\b/g;
+    while ((match = prefixRegex.exec(code)) !== null) {
+      vars.add(match[1]);
+    }
+    
+    return Array.from(vars).sort();
+  }
+  
+  function generateEnvExample(vars) {
+    if (vars.length === 0) return '# No environment variables detected';
+    return '# .env.example generated by Env Scanner\n' +
+           '# Copy this to .env and fill in your values\n\n' +
+           vars.map(v => `${v}=`).join('\n');
+  }
+  
+  function formatTime(seconds) {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}m ${secs}s`;
+  }
+  
+  function updateStats(vars) {
+    varCount.textContent = vars.length;
+    const seconds = vars.length * 30;
+    timeSaved.textContent = formatTime(seconds);
+  }
+  
+  document.getElementById('scan-btn').addEventListener('click', () => {
+    const code = codeInput.value;
+    const vars = scanCode(code);
+    const output = generateEnvExample(vars);
+    envOutput.textContent = output;
+    updateStats(vars);
+    
+    // Store for export
+    window.currentVars = vars;
+  });
+  
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    codeInput.value = '';
+    envOutput.textContent = 'No variables detected yet.';
+    varCount.textContent = '0';
+    timeSaved.textContent = '0s';
+  });
+  
+  document.getElementById('validate-btn').addEventListener('click', () => {
+    const code = codeInput.value;
+    const envContent = envInput.value;
+    const codeVars = new Set(scanCode(code));
+    
+    // Parse .env file
+    const envVars = new Set();
+    const envLines = envContent.split('\n');
+    for (const line of envLines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex > 0) {
+          const key = trimmed.substring(0, eqIndex).trim();
+          envVars.add(key);
+        }
+      }
+    }
+    
+    // Find missing and unused
+    const missing = Array.from(codeVars).filter(v => !envVars.has(v)).sort();
+    const unused = Array.from(envVars).filter(v => !codeVars.has(v)).sort();
+    
+    let output = '';
+    if (missing.length > 0) {
+      output += 'Missing from .env (used in code):\n';
+      missing.forEach(v => output += `  - ${v}\n`);
+      output += '\n';
+    }
+    if (unused.length > 0) {
+      output += 'Unused in code (in .env but not referenced):\n';
+      unused.forEach(v => output += `  - ${v}\n`);
+      output += '\n';
+    }
+    if (missing.length === 0 && unused.length === 0) {
+      output = '✓ All environment variables match between code and .env file.';
+    }
+    
+    validationOutput.textContent = output.trim();
+  });
+  
+  document.getElementById('copy-env-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(envOutput.textContent);
+    const btn = document.getElementById('copy-env-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = original, 2000);
+  });
+  
+  document.getElementById('copy-json-btn').addEventListener('click', () => {
+    if (!window.currentVars || window.currentVars.length === 0) {
+      alert('No variables detected. Scan code first.');
+      return;
+    }
+    const json = {
+      zcac: true,
+      kind: 'env-variables',
+      data: { variables: window.currentVars }
+    };
+    navigator.clipboard.writeText(JSON.stringify(json, null, 2));
+    const btn = document.getElementById('copy-json-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = original, 2000);
+  });
+  
+  document.getElementById('download-json-btn').addEventListener('click', () => {
+    if (!window.currentVars || window.currentVars.length === 0) {
+      alert('No variables detected. Scan code first.');
+      return;
+    }
+    const json = {
+      zcac: true,
+      kind: 'env-variables',
+      data: { variables: window.currentVars }
+    };
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'env-variables.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  
+  document.getElementById('import-btn').addEventListener('click', () => {
+    try {
+      const json = JSON.parse(importInput.value);
+      if (json.zcac && json.kind === 'env-variables' && Array.isArray(json.data?.variables)) {
+        window.currentVars = json.data.variables;
+        const output = generateEnvExample(window.currentVars);
+        envOutput.textContent = output;
+        updateStats(window.currentVars);
+        validationOutput.textContent = 'Imported ' + window.currentVars.length + ' variables.';
+      } else {
+        validationOutput.textContent = 'Not recognized: JSON must have zcac=true and kind="env-variables".';
+      }
+    } catch (e) {
+      validationOutput.textContent = 'Invalid JSON: ' + e.message;
+    }
+  });
+  
+  document.getElementById('share-x-btn').addEventListener('click', () => {
+    const text = 'Env Scanner — extract environment variables from your code, runs 100% in your browser';
+    const url = window.location.href;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+  });
+  
+  document.getElementById('copy-link-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(window.location.href);
+    const btn = document.getElementById('copy-link-btn');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = original, 2000);
+  });
+</script>
+</body>
+</html>
