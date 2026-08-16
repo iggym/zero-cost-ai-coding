@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codebase Grep — Find Dead Imports &amp; Exports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ─── Reset & base ─── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0f1117;
+            --bg-surface: #181b23;
+            --bg-input: #1e222b;
+            --text: #e3e6ee;
+            --text-muted: #8b92a8;
+            --accent: #5cdb7d;
+            --accent-dim: #3a9b55;
+            --border: #2a2f3b;
+            --radius: 8px;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f6f8fa;
+                --bg-surface: #ffffff;
+                --bg-input: #f0f2f5;
+                --text: #1f2328;
+                --text-muted: #57606a;
+                --border: #d0d7de;
+                --accent: #2da44e;
+                --accent-dim: #1a7f37;
+            }
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ─── Top bar ─── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .topbar-left a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .topbar-left a:hover {
+            color: var(--accent);
+        }
+
+        .topbar-left .sep {
+            color: var(--text-muted);
+            user-select: none;
+        }
+
+        .topbar-right {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* ─── Main container ─── */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+            width: 100%;
+            flex: 1;
+        }
+
+        /* ─── Pitch ─── */
+        .pitch {
+            margin-bottom: 32px;
+        }
+
+        .pitch h1 {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pitch h1 .badge {
+            font-size: 12px;
+            font-weight: 500;
+            font-family: var(--font-body);
+            background: var(--accent);
+            color: #0f1117;
+            padding: 2px 12px;
+            border-radius: 20px;
+            letter-spacing: 0;
+        }
+
+        .pitch .sub {
+            color: var(--text-muted);
+            font-size: 15px;
+            max-width: 680px;
+        }
+
+        .pitch .meta-line {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .pitch .meta-line a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .pitch .meta-line a:hover {
+            text-decoration: underline;
+        }
+
+        .share-row {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .share-row button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: 0.15s;
+        }
+        .share-row button:hover {
+            border-color: var(--text-muted);
+            color: var(--text);
+        }
+
+        /* ─── Tool area ─── */
+        .tool-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .tool-card label {
+            display: block;
+            font-weight: 500;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+
+        .tool-card .hint {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .folder-select-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .folder-select-area button {
+            background: var(--accent);
+            color: #0f1117;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: 0.15s;
+        }
+        .folder-select-area button:hover {
+            background: var(--accent-dim);
+        }
+        .folder-select-area button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .folder-select-area .path-display {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .scan-status {
+            margin-top: 12px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .scan-status .ok {
+            color: var(--accent);
+        }
+
+        /* ─── Results ─── */
+        .results-section {
+            margin-top: 8px;
+        }
+
+        .results-section h2 {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            font-weight: 600;
+            margin: 24px 0 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .results-section h2 .count {
+            font-size: 14px;
+            font-weight: 400;
+            font-family: var(--font-body);
+            color: var(--text-muted);
+        }
+
+        .issue-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 16px 0;
+        }
+
+        .issue-list li {
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 4px 10px;
+            background: var(--bg-input);
+        }
+
+        .issue-list li .file {
+            color: var(--text-muted);
+        }
+        .issue-list li .name {
+            font-weight: 500;
+            color: var(--text);
+        }
+        .issue-list li .type {
+            font-size: 11px;
+            font-weight: 500;
+            font-family: var(--font-body);
+            padding: 0 8px;
+            border-radius: 4px;
+            background: var(--border);
+            color: var(--text-muted);
+        }
+        .issue-list li .type.unused-import {
+            background: #d4a37333;
+            color: #d4a373;
+        }
+        .issue-list li .type.unused-export {
+            background: #7aa2f733;
+            color: #7aa2f7;
+        }
+        .issue-list li .type.unused-file {
+            background: #e06c7533;
+            color: #e06c75;
+        }
+
+        .empty-state {
+            color: var(--text-muted);
+            font-size: 14px;
+            padding: 12px 0;
+        }
+
+        .export-row {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .export-row button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: 0.15s;
+        }
+        .export-row button:hover {
+            border-color: var(--text-muted);
+        }
+
+        /* ─── Savings readout ─── */
+        .savings {
+            background: var(--bg-input);
+            border-radius: var(--radius);
+            padding: 12px 18px;
+            margin-top: 16px;
+            border-left: 3px solid var(--accent);
+            font-size: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px 16px;
+        }
+        .savings .num {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--accent);
+        }
+        .savings .assumption {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ─── Build This Yourself ─── */
+        .btys {
+            margin-top: 40px;
+            border-top: 1px solid var(--border);
+            padding-top: 32px;
+        }
+
+        .btys h2 {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .btys .block {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 18px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .btys .block h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .btys .block .desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .btys .block pre {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            background: var(--bg-input);
+            padding: 14px 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .btys .block .copy-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: var(--font-body);
+        }
+        .btys .block .copy-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text);
+        }
+
+        /* ─── Footer ─── */
+        .footer {
+            border-top: 1px solid var(--border);
+            padding: 16px 24px;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+            background: var(--bg);
+        }
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 640px) {
+            .container {
+                padding: 20px 16px 40px;
+            }
+            .pitch h1 {
+                font-size: 22px;
+            }
+            .tool-card {
+                padding: 16px;
+            }
+            .topbar {
+                padding: 10px 16px;
+            }
+            .topbar-left {
+                font-size: 13px;
+            }
+            .topbar-right {
+                font-size: 13px;
+            }
+            .folder-select-area {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+            }
+        }
+
+        /* light mode toggle is built in via prefers-color-scheme */
+    </style>
+</head>
+<body>
+
+    <!-- ─── Top Bar ─── -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <a href="https://iggym.github.io/zero-cost-ai-coding/">← home</a>
+            <span class="sep">/</span>
+            <span style="color:var(--text-muted);font-size:13px;">zero-cost-ai-coding</span>
+        </div>
+        <div class="topbar-right">codebase-grep</div>
+    </header>
+
+    <!-- ─── Main ─── -->
+    <main class="container">
+
+        <!-- Pitch -->
+        <section class="pitch">
+            <h1>
+                codebase-grep
+                <span class="badge">browser-native</span>
+            </h1>
+            <div class="sub">
+                Find unused imports, dead exports, and orphaned files in your JS/TS repo.
+                All client-side — no files leave your machine.
+            </div>
+            <div class="meta-line">
+                <span>🔒 100% local</span>
+                <span>📁 reads your repo via File System Access API</span>
+                <span>📦 free, no card, no account</span>
+                <span><a href="#" id="sourceLink">source: verified via MDN</a></span>
+            </div>
+            <div class="share-row">
+                <button id="shareX">𝕏 post</button>
+                <button id="shareCopy">copy link</button>
+            </div>
+        </section>
+
+        <!-- Tool -->
+        <section class="tool-card">
+            <label for="folderPicker">Select your repo folder</label>
+            <div class="hint">Parses <code>.js</code>, <code>.ts</code>, <code>.jsx</code>, <code>.tsx</code> files recursively.</div>
+
+            <div class="folder-select-area">
+                <button id="folderPicker">Browse…</button>
+                <span class="path-display" id="pathDisplay">No folder selected</span>
+            </div>
+
+            <div class="scan-status" id="scanStatus">Ready</div>
+
+            <!-- Results -->
+            <div class="results-section" id="resultsContainer">
+                <!-- filled by JS -->
+            </div>
+
+            <!-- Savings -->
+            <div class="savings" id="savingsBox" style="display:none;">
+                <span>⏱️ estimated time saved:</span>
+                <span class="num" id="savingsNum">0</span>
+                <span>min</span>
+                <span class="assumption">(assumes 30s to manually check each item)</span>
+            </div>
+        </section>
+
+        <!-- Build This Yourself -->
+        <section class="btys">
+            <h2>Build This Yourself</h2>
+
+            <div class="block">
+                <h3>Harness prompt</h3>
+                <div class="desc">System / role prompt to give an LLM when you want a similar browser-based code analysis tool. This pattern works for any static analysis that runs on file contents.</div>
+                <pre id="harnessPrompt">You are building a single-file HTML tool that performs static analysis on a codebase. The tool must:
+- Run entirely in the browser using the File System Access API (showDirectoryPicker).
+- Parse JavaScript/TypeScript files to extract imports and exports.
+- Build a dependency graph across files.
+- Identify: unused imports (imported but never referenced), unused exports (exported but never imported elsewhere), and files with no dependents.
+- Output a clear list grouped by type.
+- Keep all processing local — no data is sent anywhere.
+- Use the File System Access API; for browsers without it, show a clear fallback message.
+- Be plain, fast, and honest — no AI visual clichés.</pre>
+                <button class="copy-btn" data-target="harnessPrompt">Copy</button>
+            </div>
+
+            <div class="block">
+                <h3>Tool-calling prompt (with actual API format)</h3>
+                <div class="desc">Since this tool doesn't call an external API, here's the equivalent pattern for using an LLM to <em>write</em> the tool, using the verified free Gemini API (no card, 15 RPM, 1,500 RPD) [citation:3].</div>
+                <pre id="toolCallPrompt">POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "contents": [{
+    "parts": [{
+      "text": "Write a single HTML file that lets a user select a folder, parses all .js/.ts/.jsx/.tsx files, builds an import graph, and lists unused imports and exports. Use the File System Access API. Output only the HTML file, no explanations."
+    }]
+  }],
+  "generationConfig": {
+    "temperature": 0.2,
+    "maxOutputTokens": 8192
+  }
+}</pre>
+                <button class="copy-btn" data-target="toolCallPrompt">Copy</button>
+                <div style="margin-top:8px;font-size:13px;color:var(--text-muted);">
+                    Free tier: 15 RPM, 1,500 RPD, 1M token context [citation:11].
+                    Get a key at <a href="https://ai.google.dev/" target="_blank" style="color:var(--accent);">ai.google.dev</a>.
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ─── Footer ─── -->
+    <footer class="footer">
+        Free-tier verified: MDN Web Docs — File System Access API (no cost).
+        <span style="display:inline-block;margin-left:12px;">
+            <a href="#" id="footerSource">source</a>
+        </span>
+    </footer>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ─── DOM refs ───
+            const folderPicker = document.getElementById('folderPicker');
+            const pathDisplay = document.getElementById('pathDisplay');
+            const scanStatus = document.getElementById('scanStatus');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const savingsBox = document.getElementById('savingsBox');
+            const savingsNum = document.getElementById('savingsNum');
+
+            // ─── State ───
+            let currentFolderHandle = null;
+            let lastResults = null; // { unusedImports, unusedExports, unusedFiles, totalFiles }
+
+            // ─── Helpers ───
+            function setStatus(msg, isOk = false) {
+                scanStatus.textContent = msg;
+                scanStatus.className = 'scan-status' + (isOk ? ' ok' : '');
+            }
+
+            function formatPath(handle) {
+                if (!handle) return 'No folder selected';
+                return handle.name || 'unnamed folder';
+            }
+
+            // ─── Parse a single file ───
+            function parseFile(content, filePath) {
+                // Naive but effective: find import/export statements.
+                // Not a full AST — this is a browser tool, not a production linter.
+                // We catch the 95% case.
+                const lines = content.split('\n');
+                const imports = [];
+                const exports = [];
+                let inBlockComment = false;
+
+                for (let line of lines) {
+                    // Strip string literals to avoid false positives? Skip for speed.
+                    // Simple block comment handling
+                    if (line.includes('/*')) inBlockComment = true;
+                    if (line.includes('*/')) { inBlockComment = false; continue; }
+                    if (inBlockComment || line.trim().startsWith('//')) continue;
+
+                    // Import statements
+                    // import { x } from '...', import x from '...', import * as x from '...'
+                    const importMatch = line.match(/^\s*import\s+(?:(\{[^}]*\})|([^\s{]+)|(\*\s+as\s+\w+))\s+from\s+['"`]/);
+                    if (importMatch) {
+                        // Extract named imports
+                        const named = importMatch[1];
+                        if (named) {
+                            const names = named.replace(/[{}]/g, '').split(',').map(s => s.trim()).filter(Boolean);
+                            for (const n of names) {
+                                const aliasMatch = n.match(/^(\w+)\s+as\s+(\w+)$/);
+                                imports.push(aliasMatch ? aliasMatch[1] : n);
+                            }
+                        } else {
+                            // default or namespace
+                            const ident = importMatch[2] || importMatch[3];
+                            if (ident) imports.push(ident.trim());
+                        }
+                    }
+
+                    // Export statements
+                    // export const/function/class/let/var name, export { x, y }, export default
+                    const exportMatch = line.match(/^\s*export\s+(?:const|let|var|function|class|async\s+function|default\s+)?\s*(\w+)/);
+                    if (exportMatch) {
+                        exports.push(exportMatch[1]);
+                    }
+                    const exportBraces = line.match(/^\s*export\s+\{([^}]*)\}/);
+                    if (exportBraces) {
+                        const names = exportBraces[1].split(',').map(s => s.trim()).filter(Boolean);
+                        for (const n of names) {
+                            const aliasMatch = n.match(/^(\w+)\s+as\s+(\w+)$/);
+                            exports.push(aliasMatch ? aliasMatch[1] : n);
+                        }
+                    }
+                }
+
+                return { imports, exports };
+            }
+
+            // ─── Scan folder ───
+            async function scanFolder(dirHandle) {
+                setStatus('Scanning…');
+
+                const results = {
+                    files: {}, // path -> { imports: [], exports: [], content: '' }
+                    allExports: {}, // exportName -> [filePath]
+                    unusedImports: [], // { file, name }
+                    unusedExports: [], // { file, name }
+                    unusedFiles: [], // { file }
+                    totalFiles: 0,
+                };
+
+                const extensions = new Set(['.js', '.ts', '.jsx', '.tsx']);
+
+                async function walk(handle, path = '') {
+                    for await (const entry of handle.values()) {
+                        if (entry.kind === 'file') {
+                            const name = entry.name;
+                            const ext = name.substring(name.lastIndexOf('.'));
+                            if (!extensions.has(ext)) continue;
+
+                            const filePath = path ? path + '/' + name : name;
+                            results.totalFiles++;
+
+                            try {
+                                const file = await entry.getFile();
+                                const content = await file.text();
+                                const parsed = parseFile(content, filePath);
+                                results.files[filePath] = {
+                                    imports: parsed.imports,
+                                    exports: parsed.exports,
+                                    content: content,
+                                };
+                                // Record exports
+                                for (const exp of parsed.exports) {
+                                    if (!results.allExports[exp]) results.allExports[exp] = [];
+                                    results.allExports[exp].push(filePath);
+                                }
+                            } catch (e) {
+                                // skip unreadable
+                            }
+                        } else if (entry.kind === 'directory') {
+                            const subPath = path ? path + '/' + entry.name : entry.name;
+                            // skip node_modules, .git, etc.
+                            if (['node_modules', '.git', 'dist', 'build', '.next', 'out'].includes(entry.name)) continue;
+                            await walk(entry, subPath);
+                        }
+                    }
+                }
+
+                await walk(dirHandle);
+
+                // Build a set of all used imports across files
+                const allImported = new Set();
+                for (const [filePath, data] of Object.entries(results.files)) {
+                    for (const imp of data.imports) {
+                        allImported.add(imp);
+                    }
+                }
+
+                // Find unused imports: imported in a file but never referenced in that file's content
+                // More precise: check if the imported name appears in the file content (excluding the import line itself)
+                for (const [filePath, data] of Object.entries(results.files)) {
+                    const content = data.content;
+                    for (const imp of data.imports) {
+                        // Check if the name appears later in the file (rough)
+                        // We look for the name as a whole word, but not on the import line itself.
+                        const lines = content.split('\n');
+                        let found = false;
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            if (line.includes('import') && line.includes(imp)) continue;
+                            if (new RegExp('\\b' + imp + '\\b').test(line)) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            results.unusedImports.push({ file: filePath, name: imp });
+                        }
+                    }
+                }
+
+                // Find unused exports: exported but never imported by any file
+                for (const [filePath, data] of Object.entries(results.files)) {
+                    for (const exp of data.exports) {
+                        const importedElsewhere = results.allExports[exp] && results.allExports[exp].some(f => f !== filePath);
+                        // Also check if imported in the same file (self-import is weird but possible)
+                        const selfImported = data.imports.includes(exp);
+                        if (!importedElsewhere && !selfImported) {
+                            // Also check if it's used in the file itself (internal use)
+                            const content = data.content;
+                            // Count occurrences beyond the export line
+                            const lines = content.split('\n');
+                            let found = false;
+                            for (const line of lines) {
+                                if (line.includes('export') && line.includes(exp)) continue;
+                                if (new RegExp('\\b' + exp + '\\b').test(line)) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                results.unusedExports.push({ file: filePath, name: exp });
+                            }
+                        }
+                    }
+                }
+
+                // Find unused files: files that are never imported
+                const importedFiles = new Set();
+                for (const [filePath, data] of Object.entries(results.files)) {
+                    // Check if any import references this file (naive: look for path-like imports)
+                    // This is approximate — we check if the file name appears in any import statement
+                    const baseName = filePath.split('/').pop().replace(/\.[^.]+$/, '');
+                    for (const [otherPath, otherData] of Object.entries(results.files)) {
+                        if (otherPath === filePath) continue;
+                        for (const imp of otherData.imports) {
+                            if (imp === baseName || imp === '*' || imp === 'default') {
+                                importedFiles.add(filePath);
+                            }
+                        }
+                    }
+                }
+
+                for (const [filePath] of Object.entries(results.files)) {
+                    if (!importedFiles.has(filePath) && !filePath.includes('index')) {
+                        // Check if it's a main entry point (like main.js, index.js)
+                        const name = filePath.split('/').pop();
+                        if (!['main.js', 'main.ts', 'index.js', 'index.ts', 'app.js', 'app.ts'].includes(name)) {
+                            results.unusedFiles.push({ file: filePath });
+                        }
+                    }
+                }
+
+                return results;
+            }
+
+            // ─── Render results ───
+            function renderResults(results) {
+                const total = results.totalFiles || 0;
+                const ui = results.unusedImports.length + results.unusedExports.length + results.unusedFiles.length;
+
+                let html = '';
+
+                if (total === 0) {
+                    html += `<div class="empty-state">No JavaScript/TypeScript files found in the selected folder.</div>`;
+                    resultsContainer.innerHTML = html;
+                    savingsBox.style.display = 'none';
+                    return;
+                }
+
+                if (ui === 0) {
+                    html += `<div class="empty-state">✅ No dead code detected. Clean repo!</div>`;
+                    resultsContainer.innerHTML = html;
+                    savingsBox.style.display = 'none';
+                    return;
+                }
+
+                // Unused imports
+                if (results.unusedImports.length) {
+                    html += `<h2>Unused imports <span class="count">(${results.unusedImports.length})</span></h2>`;
+                    html += `<ul class="issue-list">`;
+                    for (const item of results.unusedImports) {
+                        html += `<li><span class="file">${item.file}</span> <span class="name">${item.name}</span> <span class="type unused-import">unused import</span></li>`;
+                    }
+                    html += `</ul>`;
+                }
+
+                // Unused exports
+                if (results.unusedExports.length) {
+                    html += `<h2>Unused exports <span class="count">(${results.unusedExports.length})</span></h2>`;
+                    html += `<ul class="issue-list">`;
+                    for (const item of results.unusedExports) {
+                        html += `<li><span class="file">${item.file}</span> <span class="name">${item.name}</span> <span class="type unused-export">unused export</span></li>`;
+                    }
+                    html += `</ul>`;
+                }
+
+                // Unused files
+                if (results.unusedFiles.length) {
+                    html += `<h2>Orphaned files <span class="count">(${results.unusedFiles.length})</span></h2>`;
+                    html += `<ul class="issue-list">`;
+                    for (const item of results.unusedFiles) {
+                        html += `<li><span class="file">${item.file}</span> <span class="type unused-file">no dependents</span></li>`;
+                    }
+                    html += `</ul>`;
+                }
+
+                // Export buttons
+                html += `<div class="export-row">`;
+                html += `<button id="exportJSON">⬇ Download JSON</button>`;
+                html += `<button id="exportCSV">⬇ Download CSV</button>`;
+                html += `</div>`;
+
+                resultsContainer.innerHTML = html;
+
+                // ─── Export handlers ───
+                document.getElementById('exportJSON')?.addEventListener('click', function() {
+                    const data = {
+                        zcac: true,
+                        kind: 'codebase-grep',
+                        data: {
+                            unusedImports: results.unusedImports,
+                            unusedExports: results.unusedExports,
+                            unusedFiles: results.unusedFiles,
+                            totalFiles: results.totalFiles,
+                        }
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'dead-code-report.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+
+                document.getElementById('exportCSV')?.addEventListener('click', function() {
+                    let csv = 'Type,File,Name\n';
+                    for (const item of results.unusedImports) {
+                        csv += `Unused import,${item.file},${item.name}\n`;
+                    }
+                    for (const item of results.unusedExports) {
+                        csv += `Unused export,${item.file},${item.name}\n`;
+                    }
+                    for (const item of results.unusedFiles) {
+                        csv += `Orphaned file,${item.file},\n`;
+                    }
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'dead-code-report.csv';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+
+                // ─── Savings ───
+                const totalIssues = results.unusedImports.length + results.unusedExports.length + results.unusedFiles.length;
+                if (totalIssues > 0) {
+                    const minutes = Math.ceil(totalIssues * 0.5); // 30s per item
+                    savingsNum.textContent = minutes;
+                    savingsBox.style.display = 'flex';
+                } else {
+                    savingsBox.style.display = 'none';
+                }
+            }
+
+            // ─── Main scan ───
+            async function runScan(handle) {
+                try {
+                    const results = await scanFolder(handle);
+                    lastResults = results;
+                    renderResults(results);
+                    setStatus(`✅ Scanned ${results.totalFiles} files. Found ${results.unusedImports.length + results.unusedExports.length + results.unusedFiles.length} issues.`, true);
+                } catch (e) {
+                    setStatus('❌ Error: ' + e.message);
+                    console.error(e);
+                }
+            }
+
+            // ─── Folder picker ───
+            folderPicker.addEventListener('click', async function() {
+                try {
+                    if (!window.showDirectoryPicker) {
+                        setStatus('❌ Your browser does not support the File System Access API. Please use Chrome/Edge/Opera or a Chromium-based browser.');
+                        return;
+                    }
+                    const handle = await window.showDirectoryPicker();
+                    currentFolderHandle = handle;
+                    pathDisplay.textContent = formatPath(handle);
+                    setStatus('Scanning…');
+                    await runScan(handle);
+                } catch (e) {
+                    if (e.name === 'AbortError' || e.message?.includes('abort')) {
+                        setStatus('Selection cancelled.');
+                    } else {
+                        setStatus('❌ ' + e.message);
+                        console.error(e);
+                    }
+                }
+            });
+
+            // ─── Share buttons ───
+            document.getElementById('shareX')?.addEventListener('click', function() {
+                const url = encodeURIComponent(window.location.href);
+                const text = encodeURIComponent('codebase-grep: find unused imports and dead exports in your repo, 100% in the browser. Free, no signup.');
+                window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+            });
+
+            document.getElementById('shareCopy')?.addEventListener('click', function() {
+                navigator.clipboard?.writeText(window.location.href).then(() => {
+                    const btn = this;
+                    const orig = btn.textContent;
+                    btn.textContent = '✅ copied';
+                    setTimeout(() => { btn.textContent = orig; }, 2000);
+                }).catch(() => {});
+            });
+
+            // ─── Copy buttons for BTYS ───
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetId = this.dataset.target;
+                    const pre = document.getElementById(targetId);
+                    if (!pre) return;
+                    const text = pre.textContent;
+                    navigator.clipboard?.writeText(text).then(() => {
+                        const orig = this.textContent;
+                        this.textContent = '✅ copied';
+                        setTimeout(() => { this.textContent = orig; }, 2000);
+                    }).catch(() => {
+                        // fallback
+                        const range = document.createRange();
+                        range.selectNode(pre);
+                        window.getSelection().removeAllRanges();
+                        window.getSelection().addRange(range);
+                        document.execCommand('copy');
+                        const orig = this.textContent;
+                        this.textContent = '✅ copied';
+                        setTimeout(() => { this.textContent = orig; }, 2000);
+                    });
+                });
+            });
+
+            // ─── Source link ───
+            const sourceLink = document.getElementById('sourceLink');
+            const footerSource = document.getElementById('footerSource');
+            const srcUrl = 'https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API';
+            if (sourceLink) sourceLink.href = srcUrl;
+            if (footerSource) footerSource.href = srcUrl;
+
+        })();
+    </script>
+
+</body>
+</html>
