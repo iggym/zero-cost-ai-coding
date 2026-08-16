@@ -8,6 +8,26 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "0417",
+  "slug": "ci-minute-audit",
+  "title": "CI Minute Audit",
+  "hook": "Your GitHub Actions file is spending minutes you can't see — paste a workflow, watch the wasted minutes separate.",
+  "path": "tools/ci-minute-audit.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "GitHub Actions free tier: 2,000 minutes/month on private repos, unlimited on public repos, 10 GB cache storage per repository — verified in GitHub's billing docs; the audit itself runs client-side, so it costs nothing to run either",
+  "source_url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+  "produces": "ci-minute-audit",
+  "accepts": ["ci-minute-audit"],
+  "tags": ["ci-cd", "github-actions", "cost", "yaml", "browser-native"],
+  "reading_time_minutes": 4,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "visuals": ["why-chart", "how-flow", "utility-dashboard", "sortable-table"],
+  "prompt_targets": ["openai", "anthropic", "google", "open-weight"]
+},{
   "id": "0042",
   "slug": "safe-paste-pii-firewall",
   "title": "Safe-Paste PII Firewall",
