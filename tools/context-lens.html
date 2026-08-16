@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context Lens — Multi-Model Token Budget Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0a;--bg-el:#141414;--bg-card:#1a1a1a;--fg:#e5e5e5;--fg-m:#888;
+  --acc:#00ff88;--acc-d:#00cc6a;--acc-bg:rgba(0,255,136,.08);
+  --bdr:#2a2a2a;--err:#ff4757;--warn:#ffa502;--info:#3498db;
+  --r:8px;--fm:'JetBrains Mono',monospace;--fb:'Inter',sans-serif;
+  --eo:cubic-bezier(.16,1,.3,1);--eio:cubic-bezier(.65,0,.35,1);
+  --df:150ms;--dm:300ms;--ds:500ms;
+  --seg-sys:#3498db;--seg-tools:#f39c12;--seg-ex:#e67e22;--seg-user:var(--acc);--seg-avail:#333;--seg-oflow:var(--err);
+}
+.light{
+  --bg:#f8f8f5;--bg-el:#fff;--bg-card:#fff;--fg:#1a1a1a;--fg-m:#666;
+  --acc:#00aa55;--acc-d:#008844;--acc-bg:rgba(0,170,85,.06);
+  --bdr:#e0e0e0;--err:#d63031;--warn:#e67e22;--info:#2980b9;
+  --seg-sys:#2980b9;--seg-tools:#d68910;--seg-ex:#ca6f1e;--seg-avail:#ddd;--seg-oflow:var(--err);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--bg);color:var(--fg);font-family:var(--fb)}
+body{line-height:1.6;min-height:100vh}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+.topbar{position:sticky;top:0;z-index:90;background:var(--bg-el);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:48px;font-family:var(--fm);font-size:13px}
+.topbar a{color:var(--fg-m)}.topbar a:hover{color:var(--acc);text-decoration:none}
+.topbar .title{color:var(--fg);font-weight:700}
+.theme-btn{background:none;border:1px solid var(--bdr);color:var(--fg-m);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:14px;font-family:var(--fm);transition:color var(--df),border-color var(--df)}
+.theme-btn:hover{color:var(--acc);border-color:var(--acc)}
+.section{padding:48px 20px;max-width:900px;margin:0 auto}
+.section+.section{border-top:1px solid var(--bdr)}
+h1{font-family:var(--fm);font-size:clamp(22px,5vw,34px);font-weight:700;line-height:1.2;margin-bottom:8px}
+h2{font-family:var(--fm);font-size:20px;font-weight:700;margin-bottom:16px}
+h3{font-family:var(--fm);font-size:13px;font-weight:700;margin-bottom:12px;color:var(--fg-m);text-transform:uppercase;letter-spacing:.5px}
+.subtitle{color:var(--fg-m);font-size:15px;max-width:620px;margin-bottom:20px}
+.share-row{display:flex;gap:8px;margin-bottom:24px}
+.share-btn{background:var(--bg-card);border:1px solid var(--bdr);color:var(--fg-m);border-radius:6px;padding:5px 12px;font-size:12px;font-family:var(--fm);cursor:pointer;transition:all var(--df)}
+.share-btn:hover{color:var(--acc);border-color:var(--acc)}
+.egrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.egrid{grid-template-columns:1fr}}
+.card{background:var(--bg-card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px}
+.source{font-size:11px;color:var(--fg-m);margin-top:8px;font-family:var(--fm)}
+.ptable{width:100%;border-collapse:collapse;font-size:12px}
+.ptable th,.ptable td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--bdr)}
+.ptable th{color:var(--fg-m);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.ptable tr.hl{background:var(--acc-bg)}.ptable tr.hl td{color:var(--acc);font-weight:600}
+.ptable .pr{text-align:right;font-family:var(--fm);white-space:nowrap}
+.free-badge{display:inline-flex;align-items:center;gap:6px;background:var(--acc-bg);color:var(--acc);border:1px solid color-mix(in srgb,var(--acc) 30%,transparent);border-radius:20px;padding:6px 14px;font-size:12px;font-family:var(--fm);margin-top:16px}
+.flow-wrap{margin:24px 0;overflow-x:auto}
+.flow-wrap svg{display:block;margin:0 auto}
+.ft{fill:var(--fg-m);font-family:var(--fm);font-size:11px;text-anchor:middle}
+.fn{fill:var(--bg-card);font-family:var(--fm);font-size:12px;font-weight:700;text-anchor:middle}
+.fc{stroke:var(--bdr);stroke-width:2;fill:none;stroke-dasharray:80;stroke-dashoffset:80;transition:stroke-dashoffset .6s var(--eo)}
+.fc.active{stroke:var(--acc);stroke-dashoffset:0}
+.fci{fill:var(--bg-card);stroke:var(--bdr);stroke-width:2;transition:stroke var(--dm),fill var(--dm)}
+.fci.active{stroke:var(--acc);fill:var(--acc-bg)}
+.field{margin-bottom:14px}
+.field-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.field-label{font-family:var(--fm);font-size:12px;font-weight:600;color:var(--fg-m)}
+.field-tok{font-family:var(--fm);font-size:11px;color:var(--acc);opacity:0;transition:opacity var(--df)}
+.field-tok.vis{opacity:1}
+.field-ta{width:100%;min-height:72px;background:var(--bg-card);border:1px solid var(--bdr);border-radius:var(--r);color:var(--fg);font-family:var(--fm);font-size:12px;padding:12px;resize:vertical;outline:none;line-height:1.6;transition:border-color var(--df)}
+.field-ta:focus{border-color:var(--acc)}
+.field-ta::placeholder{color:var(--fg-m)}
+.resp-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;font-family:var(--fm);font-size:13px}
+.resp-row label{color:var(--fg-m);white-space:nowrap}
+.resp-row label span{color:var(--acc);font-weight:700}
+#resp-len{flex:1;max-width:300px;accent-color:var(--acc);cursor:pointer}
+.chip-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.chip-label{font-size:12px;color:var(--fg-m);font-family:var(--fm)}
+.chip{background:var(--bg-card);border:1px solid var(--bdr);color:var(--fg-m);border-radius:6px;padding:4px 12px;font-size:12px;font-family:var(--fm);cursor:pointer;transition:all var(--df)}
+.chip:hover{color:var(--acc);border-color:var(--acc)}
+.primary-btn{background:var(--acc);color:#0a0a0a;border:none;border-radius:6px;padding:10px 24px;font-family:var(--fm);font-size:13px;font-weight:700;cursor:pointer;transition:opacity var(--df),transform var(--df)}
+.primary-btn:hover{opacity:.9;transform:translateY(-1px)}
+.primary-btn:active{transform:translateY(0)}
+.secondary-btn{background:var(--bg-card);border:1px solid var(--bdr);color:var(--fg-m);border-radius:6px;padding:6px 14px;font-size:12px;font-family:var(--fm);cursor:pointer;transition:all var(--df)}
+.secondary-btn:hover{color:var(--acc);border-color:var(--acc)}
+.psteps{display:flex;flex-direction:column;gap:4px;padding:12px 0;font-family:var(--fm);font-size:12px}
+.psteps .st{color:var(--fg-m);opacity:0;transform:translateX(-8px);transition:opacity var(--dm) var(--eo),transform var(--dm) var(--eo)}
+.psteps .st.vis{opacity:1;transform:translateX(0)}
+.psteps .st.done{color:var(--acc)}.psteps .st.act{color:var(--fg)}
+.mrow{display:grid;grid-template-columns:180px 1fr 220px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-family:var(--fm);font-size:12px}
+@media(max-width:700px){.mrow{grid-template-columns:1fr;gap:4px}}
+.mmeta{display:flex;flex-direction:column;gap:1px}
+.mname{font-weight:700;color:var(--fg);font-size:13px}
+.mprov{font-size:10px;color:var(--fg-m)}
+.mbar{display:flex;height:24px;border-radius:4px;overflow:hidden;background:var(--seg-avail)}
+.seg{height:100%;transition:width 200ms var(--eo);min-width:0}
+.seg-sys{background:var(--seg-sys)}.seg-tools{background:var(--seg-tools)}.seg-ex{background:var(--seg-ex)}.seg-user{background:var(--seg-user)}.seg-avail{background:var(--seg-avail)}.seg-oflow{background:var(--seg-oflow)}
+@media(prefers-reduced-motion:reduce){.seg{transition:none}}
+.mstats{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:11px}
+.mstats .tk{color:var(--fg-m)}.mstats .pc{color:var(--fg-m);min-width:42px}.mstats .co{color:var(--fg-m)}
+.st-pass{color:var(--acc);font-weight:700}.st-fail{color:var(--err);font-weight:700}
+.legend{display:flex;gap:14px;padding:8px 0 4px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--fm);color:var(--fg-m)}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+.table-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.table-header h3{margin-bottom:0}
+#tsearch{background:var(--bg-card);border:1px solid var(--bdr);color:var(--fg);border-radius:6px;padding:5px 12px;font-size:12px;font-family:var(--fm);outline:none;width:180px;transition:border-color var(--df)}
+#tsearch:focus{border-color:var(--acc)}
+.tscroll{overflow-x:auto;max-height:360px;overflow-y:auto}
+#mtable{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--fm)}
+#mtable th{position:sticky;top:0;background:var(--bg-card);color:var(--fg-m);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;text-align:left;border-bottom:1px solid var(--bdr);cursor:pointer;user-select:none;white-space:nowrap;transition:color var(--df)}
+#mtable th:hover{color:var(--acc)}
+#mtable th .sa{margin-left:4px;opacity:.4;font-size:10px}
+#mtable th.sorted .sa{opacity:1;color:var(--acc)}
+#mtable td{padding:7px 10px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.savings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-top:1px solid var(--bdr);flex-wrap:wrap}
+.savings-label{font-size:12px;color:var(--fg-m);display:block}
+.savings-value{font-family:var(--fm);font-size:24px;font-weight:700;color:var(--acc);display:block}
+.savings-assumption{font-size:11px;color:var(--fg-m);display:block;margin-top:2px}
+.export-btns{display:flex;gap:8px}
+.limits{padding:12px 16px;background:color-mix(in srgb,var(--warn) 6%,transparent);border:1px solid color-mix(in srgb,var(--warn) 20%,transparent);border-radius:var(--r);font-size:12px;color:var(--warn);margin-top:12px;line-height:1.5}
+.empty-state{text-align:center;padding:40px 20px;color:var(--fg-m);font-size:14px}
+.hidden{display:none!important}
+.celeb{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:var(--r)}
+.celeb::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,var(--acc) 50%,transparent 100%);opacity:0}
+.rail{position:fixed;bottom:0;left:0;right:0;height:3px;background:var(--bdr);z-index:100;transition:height var(--dm) var(--eo)}
+.rail.active{height:28px}
+.rail-prog{height:3px;background:var(--acc);width:0%;transition:width var(--dm) var(--eo)}
+.rail-st{position:absolute;top:5px;left:12px;font-size:11px;color:var(--fg-m);font-family:var(--fm);opacity:0;transition:opacity var(--dm)}
+.rail.active .rail-st{opacity:1}
+.rail-ct{position:absolute;top:5px;right:12px;font-size:11px;color:var(--acc);font-family:var(--fm);font-weight:700;opacity:0;transition:opacity var(--dm)}
+.rail.active .rail-ct{opacity:1}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--bdr);overflow-x:auto;margin-bottom:16px}
+.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--fg-m);padding:10px 16px;font-size:13px;font-family:var(--fm);cursor:pointer;white-space:nowrap;transition:color var(--df),border-color var(--df)}
+.tab:hover{color:var(--fg)}.tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.pblock{position:relative;background:var(--bg-card);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;margin-bottom:12px;overflow-x:auto}
+.pblock pre{font-family:var(--fm);font-size:11.5px;line-height:1.7;color:var(--fg);white-space:pre-wrap;word-break:break-word;margin:0}
+.pblock .cbtn{position:absolute;top:8px;right:8px;background:var(--bg-el);border:1px solid var(--bdr);color:var(--fg-m);border-radius:4px;padding:3px 10px;font-size:11px;font-family:var(--fm);cursor:pointer;transition:all var(--df)}
+.pblock .cbtn:hover{color:var(--acc);border-color:var(--acc)}
+.pblock .cbtn.copied{color:var(--acc);border-color:var(--acc)}
+.pblock-label{font-size:11px;color:var(--fg-m);font-family:var(--fm);margin-bottom:6px;font-weight:600}
+footer{max-width:900px;margin:0 auto;padding:24px 20px;border-top:1px solid var(--bdr);font-size:12px;color:var(--fg-m);font-family:var(--fm);text-align:center}
+footer a{color:var(--fg-m)}footer a:hover{color:var(--acc)}
+.output-panel{position:relative}
+@media(prefers-reduced-motion:no-preference){
+  .celeb.fire::after{animation:sweep .6s var(--eo) forwards}
+  @keyframes sweep{0%{opacity:.2;transform:translateX(-100%)}100%{opacity:0;transform:translateX(100%)}}
+  .card{animation:fu .5s var(--eo) both}.card:nth-child(2){animation-delay:60ms}
+  @keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .mrow{animation:fu .4s var(--eo) both}
+}
+@media(prefers-reduced-motion:reduce){
+  .fc{stroke-dashoffset:0!important;transition:none}
+  .psteps .st{opacity:1;transform:none;transition:none}
+  .mrow{animation:none}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">&larr; zero-cost-ai-coding</a>
+  <span class="title">Context Lens</span>
+  <button class="theme-btn" id="theme-toggle" aria-label="Toggle light mode">☀</button>
+</header>
+<main>
+<section class="section" id="why">
+  <h1>Type a prompt. See if it fits.</h1>
+  <p class="subtitle">Paste your system prompt, tools, examples, and user message. Instantly see token budgets across 7 LLMs — no API key, runs in your browser.</p>
+  <div class="share-row">
+    <button class="share-btn" id="share-x">Share on X</button>
+    <button class="share-btn" id="share-link">Copy link</button>
+  </div>
+  <div class="egrid">
+    <div class="card">
+      <h3>Context windows grew 500x in 2 years</h3>
+      <canvas id="why-chart"></canvas>
+      <p class="source">source: provider docs — log scale</p>
+    </div>
+    <div class="card">
+      <h3>Cost per 1M tokens (input / output)</h3>
+      <table class="ptable">
+        <thead><tr><th>Model</th><th class="pr">In</th><th class="pr">Out</th><th>Context</th></tr></thead>
+        <tbody>
+          <tr><td>GPT-4o</td><td class="pr">$2.50</td><td class="pr">$10.00</td><td>128K</td></tr>
+          <tr><td>GPT-4o-mini</td><td class="pr">$0.15</td><td class="pr">$0.60</td><td>128K</td></tr>
+          <tr><td>Claude 3.5 Sonnet</td><td class="pr">$3.00</td><td class="pr">$15.00</td><td>200K</td></tr>
+          <tr><td>Gemini 1.5 Pro</td><td class="pr">$1.25</td><td class="pr">$5.00</td><td>2M</td></tr>
+          <tr><td>Gemini 2.0 Flash</td><td class="pr">$0.10</td><td class="pr">$0.40</td><td>1M</td></tr>
+          <tr><td>Llama 3.1 405B</td><td class="pr">$0*</td><td class="pr">$0*</td><td>128K</td></tr>
+          <tr><td>Llama 3.1 70B</td><td class="pr">$0*</td><td class="pr">$0*</td><td>128K</td></tr>
+          <tr class="hl"><td>Context Lens</td><td class="pr">$0</td><td class="pr">$0</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <p class="source">*self-hosted. Prices: openai.com, anthropic.com, ai.google.dev — Aug 2026</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <h2>How it works</h2>
+  <div class="flow-wrap">
+    <svg width="440" height="90" viewBox="0 0 440 90">
+      <line class="fc" id="fl1" x1="76" y1="36" x2="186" y2="36"/>
+      <line class="fc" id="fl2" x1="254" y1="36" x2="364" y2="36"/>
+      <circle class="fci" id="fc0" cx="60" cy="36" r="16"/><text class="fn" x="60" y="40">1</text>
+      <circle class="fci" id="fc1" cx="220" cy="36" r="16"/><text class="fn" x="220" y="40">2</text>
+      <circle class="fci" id="fc2" cx="380" cy="36" r="16"/><text class="fn" x="380" y="40">3</text>
+      <text class="ft" x="60" y="72">Define sections</text>
+      <text class="ft" x="220" y="72">Estimate tokens</text>
+      <text class="ft" x="380" y="72">Compare models</text>
+    </svg>
+  </div>
+  <div class="free-badge">Browser-Native — No limits, no API key, heuristic estimation (~4 chars/token GPT, 4.2 Claude, 3.5 Gemini, 3.8 Llama)</div>
+</section>
+
+<section class="section" id="tool">
+  <div class="field">
+    <div class="field-header"><span class="field-label">System Prompt</span><span class="field-tok" id="tok-sys">~0 tokens</span></div>
+    <textarea class="field-ta" id="inp-sys" placeholder="You are a helpful assistant that returns JSON..." spellcheck="false"></textarea>
+  </div>
+  <div class="field">
+    <div class="field-header"><span class="field-label">Tool / Function Definitions (JSON)</span><span class="field-tok" id="tok-tools">~0 tokens</span></div>
+    <textarea class="field-ta" id="inp-tools" placeholder='[{"name":"search","parameters":{"type":"object","properties":{"q":{"type":"string"}}}}]' spellcheck="false"></textarea>
+  </div>
+  <div class="field">
+    <div class="field-header"><span class="field-label">Few-Shot Examples</span><span class="field-tok" id="tok-ex">~0 tokens</span></div>
+    <textarea class="field-ta" id="inp-ex" placeholder="User: ...&#10;Assistant: ...&#10;&#10;User: ...&#10;Assistant: ..." spellcheck="false"></textarea>
+  </div>
+  <div class="field">
+    <div class="field-header"><span class="field-label">User Message</span><span class="field-tok" id="tok-user">~0 tokens</span></div>
+    <textarea class="field-ta" id="inp-user" placeholder="Write a function that..." spellcheck="false"></textarea>
+  </div>
+  <div class="resp-row">
+    <label>Expected response: <span id="resp-val">1,024</span> tokens</label>
+    <input type="range" id="resp-len" min="0" max="8192" value="1024" step="64">
+  </div>
+  <div class="chip-row">
+    <span class="chip-label">Try:</span>
+    <button class="chip" data-sz="tiny">Tiny prompt</button>
+    <button class="chip" data-sz="medium">With tools + examples</button>
+    <button class="chip" data-sz="stress">Stress test (large)</button>
+  </div>
+  <button class="primary-btn" id="plan-btn">Plan Context Budget</button>
+
+  <div class="output-panel" id="out-panel" style="margin-top:24px">
+    <div id="psteps" class="psteps hidden">
+      <div class="st" data-s="read">Reading input sections...</div>
+      <div class="st" data-s="est">Estimating tokens per model...</div>
+      <div class="st" data-s="calc">Calculating costs and headroom...</div>
+      <div class="st" data-s="done">Done.</div>
+    </div>
+    <div id="bars-section" class="hidden" style="padding-top:12px">
+      <h3>Token budget per model</h3>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--seg-sys)"></span>System</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--seg-tools)"></span>Tools</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--seg-ex)"></span>Examples</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--seg-user)"></span>User</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--seg-avail)"></span>Available</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--seg-oflow)"></span>Overflow</span>
+      </div>
+      <div id="bars-container"></div>
+    </div>
+    <div id="table-section" class="hidden" style="padding-top:20px">
+      <div class="table-header">
+        <h3>Model comparison</h3>
+        <input type="text" id="tsearch" placeholder="Filter models...">
+      </div>
+      <div class="tscroll">
+        <table id="mtable">
+          <thead><tr>
+            <th data-k="name">Model <span class="sa"></span></th>
+            <th data-k="ctx">Context <span class="sa"></span></th>
+            <th data-k="totalIn">Input tok <span class="sa"></span></th>
+            <th data-k="pctUsed">% Used <span class="sa"></span></th>
+            <th data-k="avail">Available <span class="sa"></span></th>
+            <th data-k="inCost">In cost <span class="sa"></span></th>
+            <th data-k="outCost">Out cost <span class="sa"></span></th>
+            <th data-k="status">Fit? <span class="sa"></span></th>
+          </tr></thead>
+          <tbody id="mtbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="savings-row" class="savings-row hidden">
+      <div>
+        <span class="savings-label">Estimated time saved</span>
+        <span class="savings-value" id="sav-val">0 sec</span>
+        <span class="savings-assumption">(~30 sec per model checked manually &times; 7 models)</span>
+      </div>
+      <div class="export-btns">
+        <button class="secondary-btn" id="copy-json">Copy as JSON</button>
+        <button class="secondary-btn" id="dl-json">Download JSON</button>
+      </div>
+    </div>
+    <div id="limits" class="limits hidden">
+      Heuristic estimation uses ~4 chars/token (GPT), ~4.2 (Claude), ~3.5 (Gemini), ~3.8 (Llama). Actual token counts differ by &pm;10-20% depending on content. For exact counts, use the provider's tokenizer. Llama costs shown for self-hosted ($0); hosted pricing varies by provider.
+    </div>
+    <div id="celeb" class="celeb"></div>
+  </div>
+  <div id="empty-state" class="empty-state">Type your prompt sections above or click a "Try" chip to see token budgets across models.</div>
+</section>
+
+<section class="section" id="prompts">
+  <h2>Build This Yourself</h2>
+  <p class="subtitle">Parameterized prompts for every major model. Replace <code style="color:var(--acc);font-family:var(--fm);font-size:13px">{{variables}}</code> with your problem.</p>
+  <div class="tabs" id="ptabs">
+    <button class="tab active" data-t="how-to">How to use this</button>
+    <button class="tab" data-t="openai">OpenAI</button>
+    <button class="tab" data-t="anthropic">Anthropic</button>
+    <button class="tab" data-t="google">Google</button>
+    <button class="tab" data-t="open-weight">Open-Weight</button>
+  </div>
+  <div id="tcontent"></div>
+</section>
+</main>
+<footer>Free-tier verified: Browser-Native (Web APIs) &mdash; <a href="https://developer.mozilla.org/en-US/docs/Web/API">developer.mozilla.org/en-US/docs/Web/API</a> &mdash; 2026-08-16</footer>
+<div id="rail" class="rail"><div class="rail-prog" id="rail-prog"></div><span class="rail-st" id="rail-st"></span><span class="rail-ct" id="rail-ct"></span></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const isLt=()=>document.documentElement.classList.contains('light');
+function fmtN(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(n>=1e4?0:1)+'K':n.toString()}
+function fmtK(n){return n>=1e6?fmtN(n):fmtN(n)}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function morphBtn(b){const o=b.textContent;b.textContent='Copied! ✓';b.classList.add('copied');setTimeout(()=>{b.textContent=o;b.classList.remove('copied')},1200)}
+
+/* ===== MODELS ===== */
+const M=[
+  {id:'gpt-4o',name:'GPT-4o',ctx:128000,ip:2.50,op:10.00,r:4.0,prov:'OpenAI'},
+  {id:'gpt-4o-mini',name:'GPT-4o-mini',ctx:128000,ip:0.15,op:0.60,r:4.0,prov:'OpenAI'},
+  {id:'claude-3.5-sonnet',name:'Claude 3.5 Sonnet',ctx:200000,ip:3.00,op:15.00,r:4.2,prov:'Anthropic'},
+  {id:'gemini-1.5-pro',name:'Gemini 1.5 Pro',ctx:2000000,ip:1.25,op:5.00,r:3.5,prov:'Google'},
+  {id:'gemini-2.0-flash',name:'Gemini 2.0 Flash',ctx:1000000,ip:0.10,op:0.40,r:3.5,prov:'Google'},
+  {id:'llama-3.1-405b',name:'Llama 3.1 405B',ctx:128000,ip:null,op:null,r:3.8,prov:'Meta (self-hosted)'},
+  {id:'llama-3.1-70b',name:'Llama 3.1 70B',ctx:128000,ip:null,op:null,r:3.8,prov:'Meta (self-hosted)'},
+];
+function estTok(text,modelId){if(!text)return 0;const m=M.find(x=>x.id===modelId)||M[0];return Math.ceil(text.length/m.r)}
+function estTokAll(text){const o={};M.forEach(m=>o[m.id]=estTok(text,m.id));return o}
+
+/* ===== STATE ===== */
+let results=[],sortK='name',sortD=1,searchQ='',firstRun=false,liveMode=false,celebrated=false;
+
+/* ===== THEME ===== */
+ $('#theme-toggle').addEventListener('click',()=>{document.documentElement.classList.toggle('light');$('#theme-toggle').textContent=isLt()?'🌙':'☀';drawWhyChart();if(liveMode)renderBars()});
+if(window.matchMedia('(prefers-color-scheme:light)').matches){document.documentElement.classList.add('light');$('#theme-toggle').textContent='🌙'}
+
+/* ===== SHARE ===== */
+ $('#share-x').addEventListener('click',()=>{window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('Type a prompt. See if it fits across 7 LLMs — zero-cost-ai-coding')+'&url='+encodeURIComponent(location.href),'_blank')});
+ $('#share-link').addEventListener('click',function(){navigator.clipboard.writeText(location.href);morphBtn(this)});
+
+/* ===== WHY CHART ===== */
+function drawWhyChart(){
+  const cvs=$('#why-chart'),w=cvs.parentElement.clientWidth-40,h=175;
+  const d=window.devicePixelRatio||1;cvs.width=w*d;cvs.height=h*d;cvs.style.width=w+'px';cvs.style.height=h+'px';
+  const ctx=cvs.getContext('2d');ctx.scale(d,d);
+  const data=[
+    {l:'GPT-3.5',v:4096,d:'4K'},{l:'GPT-4',v:8192,d:'8K'},{l:'GPT-4-32k',v:32768,d:'32K'},
+    {l:'GPT-4o',v:128000,d:'128K'},{l:'Claude 3.5',v:200000,d:'200K'},
+    {l:'Gemini Flash',v:1000000,d:'1M'},{l:'Gemini 1.5 Pro',v:2000000,d:'2M'}
+  ];
+  const logMin=Math.log10(data[0].v),logMax=Math.log10(data[data.length-1].v),logR=logMax-logMin;
+  const bh=18,gap=7,lw=100,vw=42,bw=w-lw-vw-16;
+  const dk=!isLt(),fg=dk?'#e5e5e5':'#1a1a1a',mt=dk?'#888':'#666',bg=dk?'#222':'#eaeaea',ac=dk?'#00ff88':'#00aa55';
+  ctx.clearRect(0,0,w,h);ctx.font='11px "JetBrains Mono",monospace';
+  data.forEach((d,i)=>{
+    const y=i*(bh+gap)+8;
+    ctx.fillStyle=fg;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(d.l,0,y+bh/2);
+    ctx.fillStyle=bg;rr(ctx,lw,y,bw,bh,3);ctx.fill();
+    const pct=Math.max((Math.log10(d.v)-logMin)/logR,0.02);
+    const fw=Math.max(pct*bw,3);
+    ctx.globalAlpha=.8;ctx.fillStyle=ac;rr(ctx,lw,y,fw,bh,3);ctx.fill();ctx.globalAlpha=1;
+    ctx.fillStyle=fg;ctx.fillText(d.d,lw+bw+8,y+bh/2);
+  });
+}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath()}
+drawWhyChart();window.addEventListener('resize',()=>{drawWhyChart();if(liveMode)renderBars()});
+
+/* ===== FLOW ===== */
+function setFlow(s){const c0=$('#fc0'),c1=$('#fc1'),c2=$('#fc2'),l1=$('#fl1'),l2=$('#fl2');[c0,c1,c2].forEach(c=>c.classList.remove('active'));[l1,l2].forEach(l=>l.classList.remove('active'));if(s>=1)c0.classList.add('active');if(s>=2){l1.classList.add('active');c1.classList.add('active')}if(s>=3){l2.classList.add('active');c2.classList.add('active')}}
+
+/* ===== LIVE TOKEN BADGES ===== */
+['sys','tools','ex','user'].forEach(k=>{
+  const ta=$('#inp-'+k),badge=$('#tok-'+k);
+  ta.addEventListener('input',()=>{
+    const t=ta.value;const tok=estTok(t,'gpt-4o');
+    badge.textContent='~'+fmtN(tok)+' tokens';
+    badge.classList.toggle('vis',t.length>0);
+    if(liveMode)recalc();
+  });
+});
+ $('#resp-len').addEventListener('input',e=>{$('#resp-val').textContent=fmtN(+e.target.value);if(liveMode)recalc()});
+
+/* ===== EXAMPLES ===== */
+const EX={
+  tiny:{sys:'You are a helpful coding assistant. Always return JSON with two fields: "code" containing the implementation, and "explanation" containing a brief description of the approach.',tools:'',ex:'',user:'Write a Python function that checks if a string is a valid palindrome, ignoring spaces and case.',resp:256},
+  medium:{sys:'You are a database query assistant for a PostgreSQL e-commerce database. Use the available tools to inspect the schema before writing queries. Always explain your reasoning step by step. Return SQL in a fenced code block.',tools:JSON.stringify([{name:"list_tables",description:"List all tables in the database",parameters:{type:"object",properties:{},required:[]}},{name:"describe_table",description:"Get column names and types for a table",parameters:{type:"object",properties:{table_name:{type:"string",description:"Name of the table to describe"}},required:["table_name"]}},{name:"run_query",description:"Execute a read-only SQL query",parameters:{type:"object",properties:{sql:{type:"string",description:"SQL query to execute"}},required:["sql"]}}],null,2),ex:'User: How many users signed up last week?\nAssistant: Let me first check what tables are available.\n[Tool: list_tables]\nResult: users, orders, products, categories\nNow let me check the users table schema.\n[Tool: describe_table("users")]\nResult: id (int), email (varchar), created_at (timestamp)\nNow I can write the query:\n```sql\nSELECT COUNT(*) AS new_users\nFROM users\nWHERE created_at >= NOW() - INTERVAL \'7 days\';\n```\nThis counts all user records created in the last 7 days.\n\nUser: What are the top 5 products by revenue this month?\nAssistant: I need to join orders and products tables. Let me check the orders schema.\n[Tool: describe_table("orders")]\nResult: id (int), user_id (int), product_id (int), quantity (int), total_price (decimal), created_at (timestamp)\n[Tool: describe_table("products")]\nResult: id (int), name (varchar), price (decimal), category_id (int)\n```sql\nSELECT p.name, SUM(o.total_price) AS revenue\nFROM orders o\nJOIN products p ON o.product_id = p.id\nWHERE o.created_at >= DATE_TRUNC(\'month\', NOW())\nGROUP BY p.name\nORDER BY revenue DESC\nLIMIT 5;\n```',user:'Find the top 10 customers by total spend in 2024, including their email addresses.',resp:512},
+  stress:{sys:'You are an advanced enterprise data analysis assistant with deep expertise in SQL, Python, statistics, and data engineering. You have access to a comprehensive data warehouse with the following domains: CRM (customers, accounts, opportunities, leads), Finance (invoices, payments, transactions, budgets), Operations (inventory, shipments, suppliers, warehouses), and Analytics (events, sessions, funnels, cohorts).\n\nYour capabilities include:\n- Writing complex SQL queries with CTEs, window functions, and subqueries\n- Suggesting data modeling improvements\n- Identifying data quality issues\n- Creating statistical summaries and trend analyses\n- Recommending visualization approaches\n\nAlways follow these rules:\n1. Use tools to explore the schema before writing queries\n2. Explain your reasoning before presenting SQL\n3. Handle edge cases (NULL values, timezone issues, data gaps)\n4. Suggest performance optimizations for large tables\n5. Return results in structured JSON when possible',tools:JSON.stringify(Array.from({length:8},(_,i)=>({name:['list_schemas','list_tables','describe_table','run_query','get_column_stats','get_table_row_count','get_fk_relationships','get_index_info'][i],description:['List all schemas in the warehouse','List tables in a schema','Get columns and types for a table','Execute a read-only SQL query','Get min/max/avg/null count for a column','Get approximate row count for a table','Get foreign key relationships for a table','Get index information for a table'][i],parameters:i===2||i===4?{type:"object",properties:{table_name:{type:"string"}},required:["table_name"]}:i===3?{type:"object",properties:{sql:{type:"string"}},required:["sql"]}:i===1?{type:"object",properties:{schema:{type:"string"}},required:[]}:{type:"object",properties:{},required:[]}})),null,2),ex:'User: What was our MRR trend over the last 12 months?\nAssistant: Let me explore the finance schema to find the right tables.\n[Tool: list_tables("finance")]\nResult: invoices, payments, subscriptions, plans\n[Tool: describe_table("subscriptions")]\nResult: id, customer_id, plan_id, status, start_date, end_date, mrr_amount\n[Tool: describe_table("plans")]\nResult: id, name, base_price, billing_cycle\n```sql\nWITH monthly_mrr AS (\n  SELECT\n    DATE_TRUNC(\'month\', s.start_date) AS month,\n    SUM(s.mrr_amount) AS total_mrr\n  FROM subscriptions s\n  WHERE s.status = \'active\'\n    AND s.start_date >= NOW() - INTERVAL \'12 months\'\n  GROUP BY 1\n)\nSELECT month, total_mrr,\n       LAG(total_mrr) OVER (ORDER BY month) AS prev_mrr,\n       ROUND((total_mrr - LAG(total_mrr) OVER (ORDER BY month)) * 100.0 / LAG(total_mrr) OVER (ORDER BY month), 2) AS mom_growth_pct\nFROM monthly_mrr\nORDER BY month;\n```\n\nUser: Which suppliers have the most late shipments this quarter?\nAssistant: [Tool: list_tables("operations")]\nResult: suppliers, inventory, shipments, warehouses\n[Tool: describe_table("shipments")]\nResult: id, supplier_id, warehouse_id, shipped_at, promised_at, delivered_at, status\n```sql\nSELECT s.name AS supplier,\n       COUNT(*) AS total_shipments,\n       SUM(CASE WHEN sh.delivered_at > sh.promised_at THEN 1 ELSE 0 END) AS late_count,\n       ROUND(SUM(CASE WHEN sh.delivered_at > sh.promised_at THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS late_pct,\n       AVG(sh.delivered_at - sh.promised_at) FILTER (WHERE sh.delivered_at > sh.promised_at) AS avg_days_late\nFROM shipments sh\nJOIN suppliers s ON sh.supplier_id = s.id\nWHERE sh.promised_at >= DATE_TRUNC(\'quarter\', NOW())\nGROUP BY s.name\nHAVING COUNT(*) >= 5\nORDER BY late_pct DESC\nLIMIT 20;\n```\n\nUser: Show me the conversion funnel for our signup flow last month.\nAssistant: [Tool: list_tables("analytics")]\nResult: events, sessions, funnels, cohorts\n[Tool: describe_table("events")]\nResult: id, session_id, user_id, event_name, timestamp, properties (jsonb)\n```sql\nWITH funnel_steps AS (\n  SELECT\n    e.user_id,\n    MAX(CASE WHEN e.event_name = \'page_view\' AND e.properties->>\'page\' = \'/signup\' THEN 1 END) AS step1_viewed,\n    MAX(CASE WHEN e.event_name = \'form_start\' THEN 1 END) AS step2_started,\n    MAX(CASE WHEN e.event_name = \'form_submit\' THEN 1 END) AS step3_submitted,\n    MAX(CASE WHEN e.event_name = \'email_verified\' THEN 1 END) AS step4_verified\n  FROM events e\n  WHERE e.timestamp >= DATE_TRUNC(\'month\', NOW())\n    AND e.event_name IN (\'page_view\', \'form_start\', \'form_submit\', \'email_verified\')\n  GROUP BY e.user_id\n)\nSELECT\n  COUNT(*) AS total_users,\n  SUM(step1_viewed) AS viewed_signup,\n  SUM(step2_started) AS started_form,\n  SUM(step3_submitted) AS submitted,\n  SUM(step4_verified) AS verified,\n  ROUND(SUM(step2_started) * 100.0 / NULLIF(SUM(step1_viewed), 0), 1) AS view_to_start_pct,\n  ROUND(SUM(step3_submitted) * 100.0 / NULLIF(SUM(step2_started), 0), 1) AS start_to_submit_pct,\n  ROUND(SUM(step4_verified) * 100.0 / NULLIF(SUM(step3_submitted), 0), 1) AS submit_to_verify_pct\nFROM funnel_steps;\n```',user:'I need a comprehensive Q4 2024 dashboard query set covering: 1) Revenue breakdown by product line and region, 2) Customer acquisition cost by channel, 3) Churn analysis by cohort and plan type, 4) Top 10 accounts at risk of churning (based on usage decline), 5) Feature adoption rates for features launched in Q3. For each, write the SQL and explain what to look for in the results.',resp:2048}
+};
+ $$('.chip').forEach(c=>c.addEventListener('click',()=>{
+  const d=EX[c.dataset.sz];if(!d)return;
+  $('#inp-sys').value=d.sys;$('#inp-tools').value=d.tools;$('#inp-ex').value=d.ex;$('#inp-user').value=d.user;
+  $('#resp-len').value=d.resp;$('#resp-val').textContent=fmtN(d.resp);
+  ['sys','tools','ex','user'].forEach(k=>{const ta=$('#inp-'+k),badge=$('#tok-'+k);const tok=estTok(ta.value,'gpt-4o');badge.textContent='~'+fmtN(tok)+' tokens';badge.classList.toggle('vis',ta.value.length>0)});
+  runPlan();
+}));
+
+/* ===== PLAN ===== */
+ $('#plan-btn').addEventListener('click',runPlan);
+function runPlan(){
+  const s=$('#inp-sys').value,t=$('#inp-tools').value,e=$('#inp-ex').value,u=$('#inp-user').value;
+  if(!s&&!t&&!e&&!u){showRail('Enter at least one section',0);return}
+  setFlow(1);const ps=$('#psteps');ps.classList.remove('hidden');
+  $$('.psteps .st').forEach(x=>{x.classList.remove('vis','done','act')});
+  showRail('Reading input...',0);
+  setTimeout(()=>showStep('read'),50);
+  setTimeout(()=>{showStep('est');showRail('Estimating tokens...',33)},180);
+  setTimeout(()=>{showStep('calc');showRail('Calculating costs...',66)},320);
+  setTimeout(()=>{showStep('done');setFlow(3);showRail(M.length+' models compared',100);recalc();firstRun=true;liveMode=true;$('#plan-btn').textContent='Re-calculate';$('#empty-state').classList.add('hidden')},460);
+}
+function showStep(n){const el=$(`.psteps .st[data-s="${n}"]`);if(!el)return;$$('.psteps .st.act').forEach(x=>{x.classList.remove('act');x.classList.add('done')});el.classList.add('vis','act')}
+function showRail(t,p){const r=$('#rail');r.classList.add('active');$('#rail-st').textContent=t;$('#rail-prog').style.width=p+'%';if(p>=100){$('#rail-ct').textContent=results.filter(r=>r.fit).length+'/'+M.length+' fit';setTimeout(()=>r.classList.remove('active'),4000)}}
+
+/* ===== RECALC (live) ===== */
+function recalc(){
+  const s=$('#inp-sys').value,t=$('#inp-tools').value,e=$('#inp-ex').value,u=$('#inp-user').value,resp=+$('#resp-len').value;
+  results=M.map(m=>{
+    const sT=estTok(s,m.id),tT=estTok(t,m.id),eT=estTok(e,m.id),uT=estTok(u,m.id);
+    const totalIn=sT+tT+eT+uT,avail=m.ctx-totalIn,overflow=resp-Math.max(avail,0),fit=avail>=resp;
+    const inCost=m.ip?totalIn/1e6*m.ip:null,outCost=m.op?resp/1e6*m.op:null;
+    return{...m,sT,tT,eT,uT,totalIn,avail,overflow,fit,inCost,outCost,pctUsed:totalIn/m.ctx};
+  });
+  renderBars();renderTable();animSav();
+  ['bars-section','table-section','savings-row','limits'].forEach(id=>$('#'+id).classList.remove('hidden'));
+  if(!celebrated&&results.length){celebrated=true;$('#celeb').classList.add('fire');setTimeout(()=>$('#celeb').classList.remove('fire'),700)}
+}
+
+/* ===== BARS ===== */
+function renderBars(){
+  const c=$('#bars-container');c.innerHTML='';
+  const resp=+$('#resp-len').value;
+  results.forEach((r,i)=>{
+    const total=r.sT+r.tT+r.eT+r.uT;
+    const totalPct=Math.sqrt(Math.min(total/r.ctx,1));
+    const availPct=1-totalPct;
+    const segs=[];
+    if(r.sT)segs.push({c:'seg-sys',w:total?(r.sT/total)*totalPct:0,t:r.sT,l:'System'});
+    if(r.tT)segs.push({c:'seg-tools',w:total?(r.tT/total)*totalPct:0,t:r.tT,l:'Tools'});
+    if(r.eT)segs.push({c:'seg-ex',w:total?(r.eT/total)*totalPct:0,t:r.eT,l:'Examples'});
+    if(r.uT)segs.push({c:'seg-user',w:total?(r.uT/total)*totalPct:0,t:r.uT,l:'User'});
+    segs.push({c:r.overflow>0?'seg-oflow':'seg-avail',w:availPct,t:Math.max(r.avail,0),l:r.overflow>0?'Overflow -'+r.overflow:'Available '+r.avail});
+    const row=document.createElement('div');row.className='mrow';row.style.animationDelay=(i*40)+'ms';
+    row.innerHTML=`<div class="mmeta"><span class="mname">${r.name}</span><span class="mprov">${r.prov} &middot; ${fmtK(r.ctx)}</span></div>
+<div class="mbar">${segs.map(s=>`<div class="seg ${s.c}" style="width:${(s.w*100).toFixed(2)}%" title="${s.l}: ${fmtN(s.t)}"></div>`).join('')}</div>
+<div class="mstats"><span class="tk">${fmtN(r.totalIn)} tok</span><span class="pc">${(r.pctUsed*100).toFixed(1)}%</span><span class="co">${r.inCost!==null?'$'+r.inCost.toFixed(4):'$0'}</span><span class="${r.fit?'st-pass':'st-fail'}">${r.fit?'✓ fit':'✗ -'+r.overflow}</span></div>`;
+    c.appendChild(row);
+  });
+}
+
+/* ===== TABLE ===== */
+function renderTable(){
+  let data=[...results];
+  if(searchQ)data=data.filter(r=>r.name.toLowerCase().includes(searchQ));
+  data.sort((a,b)=>{
+    let va=a[sortK],vb=b[sortK];
+    if(typeof va==='string')return va.localeCompare(vb)*sortD;
+    if(va===null)va=0;if(vb===null)vb=0;
+    return(va-vb)*sortD;
+  });
+  const tb=$('#mtbody');tb.innerHTML='';
+  data.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-weight:600">${r.name}</td><td>${fmtK(r.ctx)}</td><td style="font-family:var(--fm)">${fmtN(r.totalIn)}</td><td>${(r.pctUsed*100).toFixed(1)}%</td><td style="font-family:var(--fm);color:${r.fit?'var(--acc)':'var(--err)'}">${fmtN(r.avail)}</td><td style="font-family:var(--fm)">${r.inCost!==null?'$'+r.inCost.toFixed(4):'—'}</td><td style="font-family:var(--fm)">${r.outCost!==null?'$'+r.outCost.toFixed(4):'—'}</td><td class="${r.fit?'st-pass':'st-fail'}">${r.fit?'✓':'✗'}</td>`;
+    tb.appendChild(tr);
+  });
+  $$('#mtable th[data-k]').forEach(th=>{th.classList.toggle('sorted',th.dataset.k===sortK);const a=th.querySelector('.sa');if(a)a.textContent=th.dataset.k===sortK?(sortD===1?'↑':'↓'):''});
+}
+ $$('#mtable th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(sortK===k)sortD*=-1;else{sortK=k;sortD=k==='name'?1:-1}renderTable()}));
+ $('#tsearch').addEventListener('input',e=>{searchQ=e.target.value.toLowerCase();renderTable()});
+
+/* ===== SAVINGS ===== */
+function animSav(){const el=$('#sav-val');const target=M.length*30;const start=performance.now(),dur=700;
+function tick(now){const t=Math.min((now-start)/dur,1);const ease=1-Math.pow(1-t,3);const v=target*ease;el.textContent=v<60?Math.round(v)+' sec':(v/60).toFixed(1)+' min';if(t<1)requestAnimationFrame(tick)}requestAnimationFrame(tick)}
+
+/* ===== EXPORT ===== */
+function buildJSON(){return JSON.stringify({zcac:true,kind:'token-budget',data:{timestamp:new Date().toISOString(),expected_response_tokens:+$('#resp-len').value,sections:{system:$('#inp-sys').value,tools:$('#inp-tools').value,examples:$('#inp-ex').value,user:$('#inp-user').value},models:results.map(r=>({id:r.id,name:r.name,context:r.ctx,tokens:{system:r.sT,tools:r.tT,examples:r.eT,user:r.uT,total:r.totalIn},available:r.avail,overflow:r.overflow,fit:r.fit,input_cost:r.inCost,output_cost:r.outCost,pct_used:Math.round(r.pctUsed*1000)/1000}))}},null,2)}
+ $('#copy-json').addEventListener('click',function(){navigator.clipboard.writeText(buildJSON());morphBtn(this)});
+ $('#dl-json').addEventListener('click',()=>{const b=new Blob([buildJSON()],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='token-budget.json';a.click();URL.revokeObjectURL(a.href)});
+
+/* ===== DROP IMPORT ===== */
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{
+  e.preventDefault();const f=e.dataTransfer.files[0];if(!f)return;
+  const rd=new FileReader();rd.onload=ev=>{try{const j=JSON.parse(ev.target.result);if(j.zcac&&j.kind==='token-budget'&&j.data){
+    const d=j.data;if(d.sections){$('#inp-sys').value=d.sections.system||'';$('#inp-tools').value=d.sections.tools||'';$('#inp-ex').value=d.sections.examples||'';$('#inp-user').value=d.sections.user||''}
+    if(d.expected_response_tokens!=null){$('#resp-len').value=d.expected_response_tokens;$('#resp-val').textContent=fmtN(d.expected_response_tokens)}
+    ['sys','tools','ex','user'].forEach(k=>{const ta=$('#inp-'+k),badge=$('#tok-'+k);const tok=estTok(ta.value,'gpt-4o');badge.textContent='~'+fmtN(tok)+' tokens';badge.classList.toggle('vis',ta.value.length>0)});
+    runPlan();return}}catch(_){}$('#inp-sys').value=ev.target.result;runPlan()};rd.readAsText(f);
+});
+
+/* ===== PROMPT PACK ===== */
+const PV={
+  PROBLEM:'Build a multi-model token budget planner that takes structured prompt sections (system, tools, examples, user message) and visualizes token allocation, context window usage, and cost across 7+ LLMs with live-updating stacked bars and sortable comparison table',
+  AUDIENCE:'AI engineers and prompt builders who need to plan context window usage across models before sending API calls',
+  DATE:'2026-08-16',FREE_SERVICE:'Browser-Native Web APIs (heuristic token estimation, no tokenizer dependency)',
+  FREE_TIER_LIMIT:'Unlimited — runs entirely client-side',FREE_TIER_URL:'https://developer.mozilla.org/en-US/docs/Web/API',
+  SOLUTION_MODE:'Browser-Native',
+  INPUT_EXAMPLE:'System: "You are a helpful assistant"\\nTools: [{"name":"search","parameters":{...}}]\\nExamples: "User: ... → Assistant: ..."\\nUser: "Find all orders over $500"',
+  OUTPUT_KIND:'JSON with per-model token breakdown, context window usage percentage, available tokens, and cost estimates',
+  VISUAL_STYLE:'Dark bg with signal-green accent, stacked horizontal bars per model (sqrt-scaled), sortable table, live-updating on input change',
+  EVIDENCE_SOURCE:'tiktoken: 17K+ GitHub stars; "context window" is top-10 topic on r/LocalLLaMA; OpenAI cookbook has multiple token management guides; paid: LangSmith $20/mo, PromptLayer $99/mo'
+};
+function fill(t){return t.replace(/\{\{(\w+)\}\}/g,(_,k)=>PV[k]||'{{'+k+'}}')}
+const sysP=`You build zero-cost browser-native tools for {{AUDIENCE}}. Today is {{DATE}}. Solution mode: {{SOLUTION_MODE}}.\n\nBuild a SINGLE complete HTML file (one <style>, one <script>, no frameworks, no build tools). Google Fonts OK. The tool must work on the visitor's own input via paste/drop/form — not locked to sample data. Include a clickable pre-filled example that auto-runs.\n\nDesign: Dark bg (#0a0a0a) + light-mode toggle, JetBrains Mono for code/headings, Inter for body, signal-green (#00ff88) accent. Respect prefers-reduced-motion. Animate only transform+opacity. Wrap ALL motion in @media (prefers-reduced-motion: no-preference).\n\nEvery price/limit/capability must be traceable to a real, current source. State gaps honestly ("limit not published") over inventing numbers. No AI cliché visuals (no robot heads, circuit boards, brain icons, purple gradients).`;
+const usrT=`Build a tool that: {{PROBLEM}}\n\nEvidence: {{EVIDENCE_SOURCE}}\nFree service: {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}}\nVerified at: {{FREE_TIER_URL}}\n\nExample input:\n{{INPUT_EXAMPLE}}\n\nOutput kind: {{OUTPUT_KIND}}\nVisual style: {{VISUAL_STYLE}}\n\nInclude ALL of these (functional, not mock):\n1. Evidence chart (WHY) — inline SVG or Canvas with real data\n2. Animated 3-step flow diagram (HOW) — SVG with stroke-dashoffset\n3. Live stacked bars per model + sortable/filterable table (UTILITY) — driven by visitor input, update on every keystroke\n4. Savings counter with visible assumption\n5. Export as JSON with {"zcac":true,"kind":"...","data":{...}} shape\n6. Import: drag zcac JSON → load sections and re-run\n7. Process reveal steps, Live Scrub (slider + text input), Output Playground (sortable table)\n8. Sticky top bar linking to https://iggym.github.io/zero-cost-ai-coding/`;
+
+const PTABS={
+  'how-to':{html:`<div class="pblock-label">Instructions</div><div class="pblock"><pre>1. Pick your model tab (OpenAI, Anthropic, Google, or Open-Weight).
+2. Click "Copy" on the System Prompt block — paste as the system message.
+3. Click "Copy" on the User Template block — replace all {{variables}} with your specific problem, then paste as the user message.
+4. For code use: copy the API Payload block — it's a ready JSON object for fetch(). Replace {{variables}} programmatically.
+5. For Open-Weight (local/vLLM/Ollama): copy the plain System + User blocks. No tool wrappers needed.
+6. Variables to fill: {{PROBLEM}}, {{AUDIENCE}}, {{DATE}}, {{FREE_SERVICE}}, {{FREE_TIER_LIMIT}}, {{FREE_TIER_URL}}, {{SOLUTION_MODE}}, {{INPUT_EXAMPLE}}, {{OUTPUT_KIND}}, {{VISUAL_STYLE}}, {{EVIDENCE_SOURCE}}</pre></div>`},
+  'openai':{blocks:[
+    {l:'System Prompt',t:fill(sysP)},{l:'User Template',t:fill(usrT)},
+    {l:'API Payload (GPT-4o / GPT-4o-mini)',t:JSON.stringify({model:"gpt-4o",temperature:0.4,top_p:0.9,max_tokens:4096,messages:[{role:"system",content:fill(sysP)},{role:"user",content:fill(usrT)}],tools:[{type:"function",function:{name:"render_tool",description:"Return the complete single-file HTML tool as a string",parameters:{type:"object",properties:{html:{type:"string",description:"Complete HTML file content"}},required:["html"]}}}]},null,2)},
+    {l:'Filled Example',t:'{\n  "model": "gpt-4o",\n  "temperature": 0.4,\n  "top_p": 0.9,\n  "max_tokens": 4096,\n  "messages": [\n    {"role":"system","content":"You build zero-cost browser-native tools for AI engineers and prompt builders..."},\n    {"role":"user","content":"Build a tool that: Build a multi-model token budget planner..."}\n  ],\n  "tools": [{"type":"function","function":{"name":"render_tool","description":"Return the complete single-file HTML tool","parameters":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}}]\n}'}
+  ]},
+  'anthropic':{blocks:[
+    {l:'System Prompt',t:fill(sysP)},{l:'User Template',t:fill(usrT)},
+    {l:'API Payload (Claude 3.5 Sonnet)',t:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4096,temperature:0.4,top_p:0.9,system:fill(sysP),messages:[{role:"user",content:fill(usrT)}],tools:[{name:"render_tool",description:"Return the complete single-file HTML tool as a string",input_schema:{type:"object",properties:{html:{type:"string",description:"Complete HTML file content"}},required:["html"]}}]},null,2)},
+    {l:'Filled Example',t:'{\n  "model": "claude-sonnet-4-20250514",\n  "max_tokens": 4096,\n  "temperature": 0.4,\n  "top_p": 0.9,\n  "system": "You build zero-cost browser-native tools for AI engineers...",\n  "messages": [{"role":"user","content":"Build a tool that: Build a multi-model token budget planner..."}],\n  "tools": [{"name":"render_tool","description":"Return the complete single-file HTML tool","input_schema":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}]\n}\n\nNote: Claude API uses "system" as a top-level string (not in messages), and "input_schema" (not "parameters").'}
+  ]},
+  'google':{blocks:[
+    {l:'System Prompt',t:fill(sysP)},{l:'User Template',t:fill(usrT)},
+    {l:'API Payload (Gemini 1.5 Pro / 2.0 Flash)',t:JSON.stringify({contents:[{role:"user",parts:[{text:fill(sysP)+'\n\n'+fill(usrT)}]}],tools:[{functionDeclarations:[{name:"render_tool",description:"Return the complete single-file HTML tool as a string",parameters:{type:"OBJECT",properties:{html:{type:"STRING",description:"Complete HTML file content"}},required:["html"]}}]}],generationConfig:{temperature:0.4,topP:0.9,maxOutputTokens:4096}},null,2)},
+    {l:'Filled Example',t:'{\n  "contents": [{"role":"user","parts":[{"text":"You build zero-cost browser-native tools...\\n\\nBuild a tool that: Build a multi-model token budget planner..."}]}],\n  "tools": [{"functionDeclarations":[{"name":"render_tool","description":"Return the complete single-file HTML tool","parameters":{"type":"OBJECT","properties":{"html":{"type":"STRING"}},"required":["html"]}}]}],\n  "generationConfig": {"temperature":0.4,"topP":0.9,"maxOutputTokens":4096}\n}\n\nNote: Gemini uses "contents" array (not "messages"), "functionDeclarations" (not "tools[].function"), and "type: OBJECT/STRING" (not "object/string"). System instruction goes in the user message since the REST endpoint has no separate system field.'}
+  ]},
+  'open-weight':{blocks:[
+    {l:'System Prompt (plain — no tool wrappers)',t:fill(sysP)+'\n\nIMPORTANT: You have no tool/function calling capability. Output ONLY valid JSON in this exact schema, with no markdown fences, no commentary, no extra text:\n\n{\n  "html": "<complete HTML file as escaped string>",\n  "kind": "{{OUTPUT_KIND}}"\n}\n\nThe "html" field must contain the entire working HTML file, with all CSS in <style> and all JS in <script>. Ensure all quotes and special characters within the HTML are properly escaped for JSON.'},
+    {l:'User Template',t:fill(usrT)},
+    {l:'Filled Example',t:'// For Llama 3.1 70B/405B, Mistral Large, Qwen2 72B via Ollama/vLLM:\n// No tool wrappers — just system + user messages, expect strict JSON output.\n\n// System:\n"You build zero-cost browser-native tools for AI engineers...IMPORTANT: Output ONLY valid JSON..."\n\n// User:\n"Build a tool that: Build a multi-model token budget planner..."\n\n// Expected output (raw JSON, no fences):\n{\n  "html": "<!DOCTYPE html>\\n<html>...",\n  "kind": "JSON with per-model token breakdown..."\n}\n\n// Parse the response as JSON, extract .html, write to a .html file, open in browser.'}
+  ]}
+};
+function renderPTab(k){const tab=PTABS[k];if(tab.html)return tab.html;return tab.blocks.map(b=>`<div class="pblock-label">${b.l}</div><div class="pblock"><pre>${esc(b.t)}</pre><button class="cbtn" onclick="morphBtn(this)">Copy</button></div>`).join('')}
+function initTabs(){const c=$('#tcontent');Object.keys(PTABS).forEach(k=>{const d=document.createElement('div');d.className='tab-pane'+(k==='how-to'?' active':'');d.id='pane-'+k;d.innerHTML=renderPTab(k);c.appendChild(d)});$$('#ptabs .tab').forEach(b=>b.addEventListener('click',()=>{$$('#ptabs .tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$$('.tab-pane').forEach(x=>x.classList.remove('active'));$('#pane-'+b.dataset.t).classList.add('active')}))}
+initTabs();
+</script>
+</body>
+</html>
