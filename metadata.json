@@ -8,6 +8,26 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "0429",
+  "slug": "promptmatrix-zero",
+  "title": "PromptMatrix Zero — Prompts break silently. Test like code.",
+  "hook": "Prompts break silently. Test like code. Drop prompts. See diffs. Catch regressions.",
+  "path": "tools/promptmatrix-zero.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "generator",
+  "how_free": "Browser Web APIs unlimited + GitHub Actions 2000 min/mo free — eval workflow generator, no key",
+  "source_url": "https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-actions",
+  "produces": "prompt-matrix",
+  "accepts": ["prompt-matrix"],
+  "tags": ["ai-engineering", "prompt-engineering", "regression-testing", "evals", "generator"],
+  "reading_time_minutes": 3,
+  "pinned": true,
+  "verified": "2026-08-16",
+  "visuals": ["why-chart","how-flow","utility-dashboard","sortable-table","heatmap"],
+  "prompt_targets": ["openai","anthropic","google","open-weight"]
+},{
   "id": "0143",
   "slug": "ft-inspector",
   "title": "Fine-tune Inspector",
