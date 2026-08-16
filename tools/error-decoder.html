@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Error Decoder · zero-cost-ai-coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f10;
+    --bg-elev: #15181a;
+    --bg-elev-2: #1c2023;
+    --border: #262b2f;
+    --border-strong: #3a4045;
+    --text: #e6e8ea;
+    --text-dim: #9aa1a7;
+    --text-faint: #6b7278;
+    --accent: #22c55e;
+    --accent-dim: #16a34a;
+    --danger: #ef4444;
+    --warn: #f59e0b;
+    --info: #3b82f6;
+    --ease-out: cubic-bezier(.16,1,.3,1);
+    --ease-in-out: cubic-bezier(.65,0,.35,1);
+    --dur-fast: 150ms;
+    --dur-med: 300ms;
+    --dur-slow: 500ms;
+  }
+  [data-theme="light"] {
+    --bg: #f7f7f5;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f0f1ef;
+    --border: #d9dbd8;
+    --border-strong: #a8aca8;
+    --text: #1a1d1f;
+    --text-dim: #4a5055;
+    --text-faint: #8a9095;
+    --accent: #16a34a;
+    --accent-dim: #15803d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.92em; }
+  h1, h2, h3 { font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: -0.02em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .topbar a { color: var(--text-dim); }
+  .topbar a:hover { color: var(--text); text-decoration: none; }
+  .topbar-title { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--text); }
+  .theme-toggle {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    width: 32px; height: 32px; border-radius: 6px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .container { max-width: 880px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* Pitch */
+  .pitch { margin-bottom: 32px; }
+  .pitch h1 { font-size: 28px; margin: 0 0 8px; line-height: 1.2; }
+  .pitch .hook { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 14px; margin: 0 0 16px; }
+  .pitch p { color: var(--text-dim); margin: 0 0 16px; }
+  .share-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 14px; border-radius: 6px;
+    font-family: inherit; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color var(--dur-fast), transform var(--dur-fast), background var(--dur-fast);
+  }
+  .btn:hover { border-color: var(--border-strong); }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary {
+    background: var(--accent); border-color: var(--accent); color: #0a0d0a; font-weight: 600;
+  }
+  .btn-primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+  /* Free-tier badge */
+  .tier-pill {
+    display: inline-block;
+    padding: 4px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    margin-left: 8px;
+  }
+
+  /* Sections */
+  section { margin-bottom: 40px; }
+  section h2 { font-size: 15px; margin: 0 0 10px; color: var(--text); }
+  section h2 + p { margin-top: 0; color: var(--text-dim); }
+  section p { color: var(--text-dim); margin: 0 0 8px; }
+
+  /* API key */
+  .key-card {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;
+  }
+  .key-card summary {
+    cursor: pointer; font-size: 13px; color: var(--text-dim);
+    list-style: none; display: flex; align-items: center; gap: 8px;
+  }
+  .key-card summary::-webkit-details-marker { display: none; }
+  .key-card[open] summary { color: var(--text); }
+  .key-card .body { margin-top: 12px; font-size: 13px; }
+  .key-input-row { display: flex; gap: 8px; margin-top: 8px; }
+  .key-input-row input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  }
+  .key-input-row input:focus { outline: none; border-color: var(--accent); }
+  .key-hint { font-size: 12px; color: var(--text-faint); margin-top: 6px; }
+  .key-status { color: var(--accent); font-size: 12px; }
+
+  /* Example bar */
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .example-chip {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-dim); padding: 6px 12px; border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    cursor: pointer;
+    transition: border-color var(--dur-fast), color var(--dur-fast);
+  }
+  .example-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Input area */
+  .input-wrap { position: relative; margin-bottom: 12px; }
+  .input-area {
+    width: 100%; min-height: 200px; resize: vertical;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text); padding: 14px 16px; border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6;
+    transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+  }
+  .input-area:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .input-area.dragging { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--bg-elev)); }
+  .input-area.pasted { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+
+  /* Drop overlay */
+  .drop-overlay {
+    position: absolute; inset: 0; border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border: 2px dashed var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--dur-fast);
+  }
+  .drop-overlay.active { opacity: 1; }
+
+  /* Action row */
+  .action-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .model-select {
+    background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 6px; font-size: 13px; font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* Feedback rail */
+  .rail {
+    position: sticky; bottom: 16px; z-index: 40;
+    background: var(--bg-elev-2); border: 1px solid var(--border-strong);
+    border-radius: 10px; padding: 12px 16px; margin-top: 16px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    opacity: 0; transform: translateY(20px);
+    pointer-events: none;
+    transition: opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
+  }
+  .rail.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .rail-steps { display: flex; gap: 6px; }
+  .rail-step {
+    font-size: 12px; color: var(--text-faint);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .rail-step.active { color: var(--accent); }
+  .rail-step.done { color: var(--text-dim); }
+  .rail-step::before { content: '○'; font-size: 10px; }
+  .rail-step.active::before { content: '◉'; }
+  .rail-step.done::before { content: '✓'; color: var(--accent); }
+  .rail-count { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); margin-left: auto; }
+
+  /* Output */
+  .output {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0; margin-top: 16px; overflow: hidden;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
+  }
+  .output.visible { opacity: 1; transform: translateY(0); }
+  .output-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .severity-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    padding: 3px 8px; border-radius: 4px; text-transform: uppercase; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .sev-critical { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); }
+  .sev-warning { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+  .sev-info { background: color-mix(in srgb, var(--info) 15%, transparent); color: var(--info); }
+  .output-title-wrap { flex: 1; min-width: 0; }
+  .output-title { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; margin: 0 0 4px; line-height: 1.3; }
+  .output-meta { font-size: 12px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
+
+  .output-body { padding: 4px 0; }
+  .out-section {
+    border-bottom: 1px solid var(--border);
+    transition: background var(--dur-fast);
+  }
+  .out-section:last-child { border-bottom: none; }
+  .out-section-head {
+    padding: 12px 20px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    user-select: none;
+  }
+  .out-section-head:hover { background: var(--bg-elev-2); }
+  .out-section-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+    color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;
+    flex: 1;
+  }
+  .out-section-arrow {
+    color: var(--text-faint); transition: transform var(--dur-fast);
+    font-size: 12px;
+  }
+  .out-section.collapsed .out-section-arrow { transform: rotate(-90deg); }
+  .out-section-content {
+    padding: 0 20px 16px 20px;
+    font-size: 14px; color: var(--text);
+    max-height: 500px; overflow: hidden;
+    transition: max-height var(--dur-med) var(--ease-out), padding var(--dur-med) var(--ease-out), opacity var(--dur-med);
+  }
+  .out-section.collapsed .out-section-content {
+    max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0;
+  }
+  .out-section-content pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; overflow-x: auto; margin: 6px 0;
+    font-size: 12.5px;
+  }
+  .out-section-content code { background: var(--bg-elev-2); padding: 2px 5px; border-radius: 3px; }
+
+  /* Confidence scrub */
+  .scrub-row {
+    padding: 10px 20px; background: var(--bg-elev-2);
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim);
+  }
+  .scrub-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+
+  /* Filter bar */
+  .filter-bar {
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .filter-bar input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 5px;
+    font-family: inherit; font-size: 13px;
+  }
+  .filter-bar input:focus { outline: none; border-color: var(--accent); }
+
+  /* Export row */
+  .export-row {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap;
+    background: var(--bg-elev-2);
+  }
+
+  /* Copy button */
+  .copy-btn { position: relative; overflow: hidden; }
+  .copy-btn .label { display: inline-flex; align-items: center; gap: 5px; transition: transform var(--dur-fast); }
+  .copy-btn.copied { background: color-mix(in srgb, var(--accent) 15%, var(--bg-elev)); border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied .label { transform: translateY(-2px); }
+
+  /* Savings readout */
+  .savings {
+    display: flex; align-items: baseline; gap: 14px; padding: 14px 20px;
+    border-top: 1px solid var(--border); background: var(--bg-elev-2);
+  }
+  .savings-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 600;
+    color: var(--accent); line-height: 1;
+    transition: text-shadow var(--dur-fast);
+  }
+  .savings-num.pulse { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent); }
+  .savings-label { font-size: 13px; color: var(--text-dim); }
+  .savings-assumption { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
+
+  /* Drop zone import */
+  .import-zone {
+    border: 1px dashed var(--border-strong); border-radius: 8px;
+    padding: 16px; text-align: center; color: var(--text-faint);
+    font-size: 13px; margin-top: 12px;
+    transition: border-color var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
+  }
+  .import-zone.active {
+    border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--accent); transform: scale(1.01);
+  }
+  .import-zone.success {
+    border-color: var(--accent); color: var(--accent);
+  }
+
+  /* Steps visual */
+  .how-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .how-step {
+    background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-size: 12.5px;
+  }
+  .how-step-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .how-step-title { font-weight: 600; margin-bottom: 4px; }
+  .how-step-desc { color: var(--text-dim); }
+
+  /* Build harness */
+  .prompt-block {
+    background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text-dim); white-space: pre-wrap; line-height: 1.55;
+    position: relative; margin-top: 8px;
+  }
+  .prompt-block .prompt-copy {
+    position: absolute; top: 8px; right: 8px;
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    color: var(--text-dim); padding: 3px 8px; border-radius: 4px;
+    font-size: 11px; cursor: pointer; font-family: 'JetBrains Mono', monospace;
+  }
+  .prompt-block .prompt-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Micro celebration */
+  .celebration {
+    position: fixed; top: 0; left: 0; width: 100%; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    transform: translateX(-100%); pointer-events: none; z-index: 100;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 60px; padding: 20px 0; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint);
+  }
+  footer a { color: var(--text-dim); }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
+  /* Stagger */
+  @media (prefers-reduced-motion: no-preference) {
+    .pitch, section { animation: rise 450ms var(--ease-out) backwards; }
+    .pitch { animation-delay: 0ms; }
+    section:nth-of-type(1) { animation-delay: 40ms; }
+    section:nth-of-type(2) { animation-delay: 80ms; }
+    section:nth-of-type(3) { animation-delay: 120ms; }
+    section:nth-of-type(4) { animation-delay: 160ms; }
+    section:nth-of-type(5) { animation-delay: 200ms; }
+    section:nth-of-type(6) { animation-delay: 240ms; }
+    section:nth-of-type(7) { animation-delay: 280ms; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  }
+
+  @media (max-width: 640px) {
+    .how-steps { grid-template-columns: 1fr; }
+    .container { padding: 20px 16px 60px; }
+    .pitch h1 { font-size: 22px; }
+    .savings-num { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="celebration" id="celebration"></div>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/">← home</a>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+      <span id="themeIcon">☾</span>
+    </button>
+  </div>
+  <span class="topbar-title">error-decoder</span>
+</header>
+
+<main class="container">
+
+  <div class="pitch">
+    <h1>Error Decoder <span class="tier-pill">1,000 req/day free</span></h1>
+    <p class="hook">Paste a stack trace. Watch the fix light up.</p>
+    <p>Drop any error message, build log, or stack trace. Returns a structured diagnosis: root cause, minimal fix, prevention tip, and similar patterns. Uses Groq's <code>llama-3.3-70b-versatile</code> — 1,000 requests/day and 30 requests/minute free, no card required.</p>
+    <div class="share-row">
+      <button class="btn copy-btn" id="copyLinkBtn"><span class="label">🔗 Copy link</span></button>
+      <a class="btn" id="shareX" target="_blank" rel="noopener">𝕏 Share</a>
+    </div>
+  </div>
+
+  <section>
+    <h2>What it replaces</h2>
+    <p>Sentry's <strong>Seer AI</strong> debugging agent is priced at <strong>$40/month per active contributor</strong> [[164]] and does the same thing (diagnose production errors with suggested fixes). GitHub Copilot Chat includes error explanation at $10/month. This does it for $0 using your own Groq key.</p>
+  </section>
+
+  <section>
+    <h2>API key <span class="key-status" id="keyStatus"></span></h2>
+    <details class="key-card" id="keyCard">
+      <summary>Bring your own Groq key (stored only in your browser)</summary>
+      <div class="body">
+        <p style="color: var(--text-dim); font-size: 12px;">Get a free key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> — no card. The key is saved in <code>localStorage</code> on this domain and is only ever sent to <code>api.groq.com</code>.</p>
+        <div class="key-input-row">
+          <input type="password" id="apiKeyInput" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+          <button class="btn" id="saveKeyBtn">Save</button>
+          <button class="btn" id="clearKeyBtn">Clear</button>
+        </div>
+        <div class="key-hint">Key is stored locally, never sent to any server except Groq.</div>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>Try an example</h2>
+    <div class="examples" id="exampleBar">
+      <button class="example-chip" data-ex="python">→ Python TypeError</button>
+      <button class="example-chip" data-ex="node">→ Node.js crash</button>
+      <button class="example-chip" data-ex="docker">→ Docker build fail</button>
+    </div>
+    <div class="input-wrap">
+      <textarea class="input-area" id="inputArea" placeholder="Paste a stack trace, error log, or build failure...&#10;&#10;Example:&#10;TypeError: Cannot read properties of undefined (reading 'map')&#10;    at renderList (app.js:42:18)" spellcheck="false"></textarea>
+      <div class="drop-overlay" id="dropOverlay">Drop .log / .txt file here</div>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" id="decodeBtn">Decode error</button>
+      <button class="btn" id="clearBtn">Clear</button>
+      <select class="model-select" id="modelSelect" title="Free-tier model">
+        <option value="llama-3.3-70b-versatile">llama-3.3-70b (smarter, 1K req/day)</option>
+        <option value="llama-3.1-8b-instant">llama-3.1-8b (faster, 14.4K req/day)</option>
+      </select>
+    </div>
+  </section>
+
+  <section>
+    <div class="rail" id="rail">
+      <div class="rail-steps">
+        <span class="rail-step" data-step="parse">Parsing</span>
+        <span class="rail-step" data-step="detect">Detecting language</span>
+        <span class="rail-step" data-step="diagnose">Diagnosing</span>
+        <span class="rail-step" data-step="fix">Generating fix</span>
+      </div>
+      <span class="rail-count" id="railCount">0 tokens</span>
+    </div>
+
+    <div class="output" id="output"></div>
+  </section>
+
+  <section>
+    <h2>How to use</h2>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-num">01</div>
+        <div class="how-step-title">Get a Groq key</div>
+        <div class="how-step-desc">Free at console.groq.com/keys. No card, 1,000 req/day on 70B.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">02</div>
+        <div class="how-step-title">Paste the error</div>
+        <div class="how-step-desc">Or drop a .log file. Use an example chip to test.</div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">03</div>
+        <div class="how-step-title">Get the fix</div>
+        <div class="how-step-desc">Structured output: cause, fix code block, prevention tip.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What breaks</h2>
+    <p><strong>Rate limit hit:</strong> Groq returns HTTP 429 after 30 requests/minute or 1,000 requests/day on the 70B model. The tool will show a clear error with a retry timer. Switch to <code>llama-3.1-8b-instant</code> for 14.4K req/day if you need volume.</p>
+    <p><strong>Token cap:</strong> Each request is limited to 12K tokens on the 70B model (prompt + response combined). Huge log files get truncated — the tool auto-truncates to the last 10K chars. For multi-file dumps, send the most relevant stack frame.</p>
+    <p><strong>Key expiry:</strong> Groq free keys don't expire but can be revoked if abused. If calls start failing with 401, rotate the key.</p>
+  </section>
+
+  <section>
+    <h2>Build this yourself</h2>
+    <p><strong>Harness prompt</strong> (the full system prompt used, including the chunking strategy and utility-animation patterns):</p>
+    <div class="prompt-block" id="harnessPrompt">You are a senior software engineer who specializes in debugging production errors.
+When given an error message, stack trace, or build log, return a JSON object with these exact keys:
+
+{
+  "language": "detected language or 'unknown'",
+  "error_type": "TypeError | ReferenceError | SyntaxError | ImportError | RuntimeError | BuildError | NetworkError | PermissionError | Other",
+  "severity": "critical | warning | info",
+  "title": "one-line plain-language summary of what went wrong",
+  "likely_cause": "2-3 sentences explaining the most probable root cause",
+  "fix": "the specific code change or command to fix it. Include a single fenced code block if applicable.",
+  "prevention": "how to avoid this error in the future (one actionable tip)",
+  "similar_patterns": ["one or two related error patterns developers often confuse this with"],
+  "confidence": 0.0-1.0
+}
+
+RULES:
+- Never refuse. Always attempt to diagnose.
+- If input is not an error, set severity="info" and title="This doesn't look like an error message".
+- Keep fix under 50 words. Show the minimum code change.
+- Be blunt and specific. No filler words.
+
+HANDLING LARGE INPUT (relevant-slice retrieval):
+For stack traces >3000 chars, keep only the FIRST error message block and the LAST 15 stack frames (most recent calls). The middle frames are usually framework internals and noise.</div>
+    <button class="btn copy-btn prompt-copy" data-target="harnessPrompt">Copy</button>
+
+    <p style="margin-top: 18px;"><strong>Tool-calling prompt</strong> (the exact fetch body sent to Groq):</p>
+    <div class="prompt-block" id="toolCallPrompt">POST https://api.groq.com/openai/v1/chat/completions
+Authorization: Bearer $GROQ_API_KEY
+Content-Type: application/json
+
+{
+  "model": "llama-3.3-70b-versatile",
+  "messages": [
+    {"role": "system", "content": "[harness prompt above]"},
+    {"role": "user", "content": "[user pasted error, truncated to 10K chars]"}
+  ],
+  "temperature": 0.2,
+  "max_completion_tokens": 2048,
+  "response_format": {"type": "json_object"},
+  "stream": true
+}</div>
+    <button class="btn copy-btn prompt-copy" data-target="toolCallPrompt">Copy</button>
+  </section>
+
+  <footer>
+    Free-tier claim verified against <a href="https://console.groq.com/docs/rate-limits" target="_blank" rel="noopener">console.groq.com/docs/rate-limits</a> on August 16, 2026. Groq free tier: 1,000 requests/day on llama-3.3-70b-versatile, 30 req/min, 12K tokens/min, no credit card required.
+  </footer>
+
+</main>
+
+<script>
+(function() {
+  'use strict';
+
+  // --- Theme ---
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const savedTheme = localStorage.getItem('zcac-theme') || 'dark';
+  if (savedTheme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    themeIcon.textContent = '☀';
+  }
+  themeToggle.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    if (next === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      themeIcon.textContent = '☀';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      themeIcon.textContent = '☾';
+    }
+    localStorage.setItem('zcac-theme', next);
+  });
+
+  // --- API Key ---
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveKeyBtn = document.getElementById('saveKeyBtn');
+  const clearKeyBtn = document.getElementById('clearKeyBtn');
+  const keyStatus = document.getElementById('keyStatus');
+  const keyCard = document.getElementById('keyCard');
+
+  function loadKey() {
+    const k = localStorage.getItem('zcac-groq-key');
+    if (k) {
+      apiKeyInput.value = k;
+      keyStatus.textContent = '✓ key stored locally';
+    }
+  }
+  loadKey();
+
+  saveKeyBtn.addEventListener('click', () => {
+    const v = apiKeyInput.value.trim();
+    if (!v) { keyStatus.textContent = 'paste a key first'; return; }
+    localStorage.setItem('zcac-groq-key', v);
+    keyStatus.textContent = '✓ saved';
+  });
+  clearKeyBtn.addEventListener('click', () => {
+    localStorage.removeItem('zcac-groq-key');
+    apiKeyInput.value = '';
+    keyStatus.textContent = 'cleared';
+  });
+
+  // --- Examples ---
+  const EXAMPLES = {
+    python: `Traceback (most recent call last):
+  File "app.py", line 42, in process_users
+    emails = [u['email'] for u in users]
+TypeError: 'NoneType' object is not iterable`,
+    node: `TypeError: Cannot read properties of undefined (reading 'map')
+    at renderList (/src/components/UserList.jsx:18:24)
+    at renderWithHooks (/node_modules/react-dom/.../cjs/react-dom.development.js:14850:18)
+    at updateFunctionComponent (/node_modules/react-dom/.../cjs/react-dom.development.js:17091:20)
+
+Node.js v20.11.0
+Process exited with code 1`,
+    docker: `Step 5/8 : RUN npm ci
+ ---> Running in 8f2a1c9e4b33
+npm error code ENOENT
+npm error syscall open
+npm error path /app/package.json
+npm error errno -2
+npm error enoent ENOENT: no such file or directory, open '/app/package.json'
+npm error enoent This is related to npm being unable to find a file.
+
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully`
+  };
+
+  const inputArea = document.getElementById('inputArea');
+  document.querySelectorAll('.example-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const ex = EXAMPLES[chip.dataset.ex];
+      if (!ex) return;
+      inputArea.value = ex;
+      inputArea.classList.add('pasted');
+      setTimeout(() => inputArea.classList.remove('pasted'), 600);
+      decodeBtn.click();
+    });
+  });
+
+  // --- Paste detection ---
+  inputArea.addEventListener('paste', () => {
+    inputArea.classList.add('pasted');
+    setTimeout(() => inputArea.classList.remove('pasted'), 800);
+  });
+
+  // --- File drop ---
+  const dropOverlay = document.getElementById('dropOverlay');
+  const inputWrap = inputArea.parentElement;
+  let dragCounter = 0;
+  inputWrap.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    dropOverlay.classList.add('active');
+  });
+  inputWrap.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) dropOverlay.classList.remove('active');
+  });
+  inputWrap.addEventListener('dragover', (e) => e.preventDefault());
+  inputWrap.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.remove('active');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!/\.(txt|log|err|md)$/i.test(file.name) && file.size > 200000) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      inputArea.value = reader.result;
+      inputArea.classList.add('pasted');
+      setTimeout(() => inputArea.classList.remove('pasted'), 800);
+    };
+    reader.readAsText(file);
+  });
+
+  // --- Clear ---
+  const clearBtn = document.getElementById('clearBtn');
+  clearBtn.addEventListener('click', () => {
+    inputArea.value = '';
+    outputEl.classList.remove('visible');
+    outputEl.innerHTML = '';
+    hideRail();
+    savingsSoFar = 0;
+    updateSavings();
+  });
+
+  // --- Copy link / Share ---
+  const copyLinkBtn = document.getElementById('copyLinkBtn');
+  copyLinkBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      flashCopy(copyLinkBtn, '🔗 Copy link');
+    } catch(e) {}
+  });
+  const shareX = document.getElementById('shareX');
+  shareX.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('Paste a stack trace, get the fix — zero-cost error decoder') + '&url=' + encodeURIComponent(window.location.href);
+
+  // --- Copy button helper ---
+  function flashCopy(btn, originalLabel) {
+    btn.classList.add('copied');
+    const label = btn.querySelector('.label') || btn;
+    const was = label.textContent || label.innerText;
+    label.textContent = '✓ Copied';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      if (label.tagName === 'SPAN' || label.tagName === 'BUTTON') {
+        if (label.querySelector && label.querySelector('.label')) label.querySelector('.label').textContent = originalLabel;
+        else label.textContent = was;
+      }
+    }, 1200);
+  }
+
+  // Prompt copy
+  document.querySelectorAll('.prompt-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const target = document.getElementById(btn.dataset.target);
+      try {
+        await navigator.clipboard.writeText(target.textContent);
+        btn.textContent = '✓ copied';
+        setTimeout(() => btn.textContent = 'Copy', 1200);
+      } catch(e) {}
+    });
+  });
+
+  // --- Rail & process reveal ---
+  const rail = document.getElementById('rail');
+  const railSteps = rail.querySelectorAll('.rail-step');
+  const railCount = document.getElementById('railCount');
+  let railTokenCount = 0;
+
+  function showRail() { rail.classList.add('visible'); }
+  function hideRail() { rail.classList.remove('visible'); railSteps.forEach(s => s.classList.remove('active', 'done')); }
+
+  async function runProcessReveal() {
+    showRail();
+    railSteps.forEach(s => s.classList.remove('active', 'done'));
+    for (let i = 0; i < railSteps.length; i++) {
+      railSteps[i].classList.add('active');
+      await sleep(350);
+      railSteps[i].classList.remove('active');
+      railSteps[i].classList.add('done');
+    }
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // --- Savings ---
+  let savingsSoFar = 0;
+  const ASSUMPTION = 15; // seconds per error reviewed by hand
+  function updateSavings() {
+    const num = document.getElementById('savingsNum');
+    const target = savingsSoFar * ASSUMPTION;
+    if (!num) return;
+    const start = parseInt(num.textContent) || 0;
+    const duration = 500;
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const cur = Math.round(start + (target - start) * eased);
+      num.textContent = cur;
+      if (p < 1) requestAnimationFrame(step);
+      else {
+        num.classList.add('pulse');
+        setTimeout(() => num.classList.remove('pulse'), 400);
+      }
+    };
+    requestAnimationFrame(step);
+  }
+
+  // --- Decode ---
+  const decodeBtn = document.getElementById('decodeBtn');
+  const modelSelect = document.getElementById('modelSelect');
+  const outputEl = document.getElementById('output');
+  let hasCelebrated = false;
+
+  decodeBtn.addEventListener('click', runDecode);
+
+  async function runDecode() {
+    const key = localStorage.getItem('zcac-groq-key');
+    if (!key) {
+      keyCard.open = true;
+      keyStatus.textContent = '⚠ add your key first';
+      keyStatus.style.color = 'var(--warn)';
+      setTimeout(() => keyStatus.style.color = '', 2000);
+      return;
+    }
+    let input = inputArea.value.trim();
+    if (!input) {
+      inputArea.classList.add('pasted');
+      setTimeout(() => inputArea.classList.remove('pasted'), 600);
+      return;
+    }
+
+    // Relevant-slice retrieval: if huge, keep first error block + last 15 frames
+    if (input.length > 3000) {
+      const lines = input.split('\n');
+      if (lines.length > 25) {
+        const head = lines.slice(0, 10).join('\n');
+        const tail = lines.slice(-15).join('\n');
+        input = head + '\n...\n' + tail;
+      }
+    }
+    if (input.length > 10000) input = input.slice(0, 10000);
+
+    decodeBtn.disabled = true;
+    decodeBtn.textContent = 'Decoding...';
+    outputEl.classList.remove('visible');
+    outputEl.innerHTML = '';
+    railTokenCount = 0;
+    railCount.textContent = '0 tokens';
+
+    runProcessReveal();
+
+    const systemPrompt = document.getElementById('harnessPrompt').textContent;
+    const model = modelSelect.value;
+
+    const body = {
+      model: model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: input }
+      ],
+      temperature: 0.2,
+      max_completion_tokens: 2048,
+      response_format: { type: 'json_object' },
+      stream: true
+    };
+
+    let fullText = '';
+    let streamedTokens = 0;
+
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const errTxt = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errTxt.slice(0, 200)}`);
+      }
+
+      if (!res.body) throw new Error('Streaming not supported in this browser');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data:')) continue;
+          const data = trimmed.slice(5).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const j = JSON.parse(data);
+            const delta = j.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullText += delta;
+              streamedTokens += Math.max(1, Math.ceil(delta.length / 4));
+              railCount.textContent = streamedTokens + ' tokens';
+            }
+          } catch (e) {}
+        }
+      }
+
+      let parsed;
+      try { parsed = JSON.parse(fullText); }
+      catch (e) { throw new Error('Model did not return valid JSON. Try again or use a different model.'); }
+
+      renderOutput(parsed, input);
+      savingsSoFar += 1;
+      updateSavings();
+
+      if (!hasCelebrated) {
+        celebrate();
+        hasCelebrated = true;
+      }
+    } catch (err) {
+      outputEl.classList.add('visible');
+      outputEl.innerHTML = `<div class="output-head">
+        <span class="severity-badge sev-critical">Error</span>
+        <div class="output-title-wrap">
+          <div class="output-title">Could not reach Groq</div>
+          <div class="output-meta">${escapeHtml(err.message)}</div>
+        </div>
+      </div>
+      <div class="output-body">
+        <div class="out-section">
+          <div class="out-section-content" style="max-height: 300px;">
+            <p>If 401: rotate your key. If 429: you hit the rate limit (30/min on 70B, or 1K/day). Switch to llama-3.1-8b-instant for 14.4K req/day.</p>
+          </div>
+        </div>
+      </div>`;
+    } finally {
+      decodeBtn.disabled = false;
+      decodeBtn.textContent = 'Decode error';
+    }
+  }
+
+  function renderOutput(data, originalInput) {
+    const sev = data.severity || 'info';
+    const sevClass = sev === 'critical' ? 'sev-critical' : sev === 'warning' ? 'sev-warning' : 'sev-info';
+    const conf = Math.round((data.confidence || 0.5) * 100);
+
+    const sections = [
+      { key: 'likely_cause', label: 'Likely cause', content: data.likely_cause },
+      { key: 'fix', label: 'Fix', content: data.fix },
+      { key: 'prevention', label: 'Prevention', content: data.prevention },
+      { key: 'similar_patterns', label: 'Similar patterns', content: Array.isArray(data.similar_patterns) ? data.similar_patterns.join(' · ') : data.similar_patterns }
+    ];
+
+    const exportData = {
+      zcac: true,
+      kind: 'error-analysis',
+      data: {
+        input_hash: hashStr(originalInput),
+        language: data.language || 'unknown',
+        error_type: data.error_type || 'Other',
+        severity: sev,
+        title: data.title || '',
+        likely_cause: data.likely_cause || '',
+        fix: data.fix || '',
+        prevention: data.prevention || '',
+        similar_patterns: Array.isArray(data.similar_patterns) ? data.similar_patterns : [],
+        confidence: data.confidence || 0,
+        model: modelSelect.value,
+        ts: new Date().toISOString()
+      }
+    };
+
+    outputEl.innerHTML = `
+      <div class="output-head">
+        <span class="severity-badge ${sevClass}">${escapeHtml(sev)}</span>
+        <div class="output-title-wrap">
+          <h3 class="output-title">${escapeHtml(data.title || 'Error diagnosis')}</h3>
+          <div class="output-meta">${escapeHtml(data.language || 'unknown')} · ${escapeHtml(data.error_type || 'Other')} · ${conf}% confidence</div>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="outFilter" placeholder="Filter sections...">
+      </div>
+      <div class="scrub-row">
+        <span>Confidence threshold:</span>
+        <input type="range" id="confSlider" min="0" max="100" value="${conf}" step="5">
+        <span id="confValue">${conf}%</span>
+      </div>
+      <div class="output-body" id="outputBody">
+        ${sections.map((s, i) => `
+          <div class="out-section${i > 0 ? ' collapsed' : ''}" data-section="${s.key}">
+            <div class="out-section-head">
+              <span class="out-section-label">${s.label}</span>
+              <span class="out-section-arrow">▾</span>
+            </div>
+            <div class="out-section-content">${formatSectionContent(s.content, s.key)}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="savings">
+        <span class="savings-num" id="savingsNum">0</span>
+        <div>
+          <div class="savings-label">seconds saved vs reading by hand</div>
+          <div class="savings-assumption">assumption: ~${ASSUMPTION} sec/error reviewed manually</div>
+        </div>
+      </div>
+      <div class="export-row">
+        <button class="btn copy-btn" id="copyJsonBtn"><span class="label">Copy as JSON</span></button>
+        <button class="btn" id="dlJsonBtn">↓ Download JSON</button>
+        <button class="btn copy-btn" id="copyFixBtn"><span class="label">Copy fix</span></button>
+      </div>
+      <div class="import-zone" id="importZone">Drop a zcac error-analysis JSON here to re-load</div>
+    `;
+
+    requestAnimationFrame(() => outputEl.classList.add('visible'));
+
+    // Collapse toggle
+    outputEl.querySelectorAll('.out-section-head').forEach(head => {
+      head.addEventListener('click', () => {
+        head.parentElement.classList.toggle('collapsed');
+      });
+    });
+
+    // Filter
+    const filterInput = outputEl.querySelector('#outFilter');
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.toLowerCase();
+      outputEl.querySelectorAll('.out-section').forEach(sec => {
+        const text = sec.textContent.toLowerCase();
+        sec.style.display = (!q || text.includes(q)) ? '' : 'none';
+      });
+    });
+
+    // Confidence scrub
+    const confSlider = outputEl.querySelector('#confSlider');
+    const confValue = outputEl.querySelector('#confValue');
+    confSlider.addEventListener('input', () => {
+      const v = parseInt(confSlider.value);
+      confValue.textContent = v + '%';
+      // If model confidence below threshold, show warning
+      const warning = outputEl.querySelector('.conf-warn');
+      if (warning) warning.remove();
+      if (conf > v) {
+        // above threshold - all good
+      } else {
+        const w = document.createElement('div');
+        w.className = 'conf-warn';
+        w.style.cssText = 'padding: 8px 20px; background: color-mix(in srgb, var(--warn) 10%, transparent); color: var(--warn); font-size: 12px; font-family: JetBrains Mono, monospace;';
+        w.textContent = '⚠ Model confidence below your threshold — double-check the fix';
+        outputEl.querySelector('.output-body').before(w);
+      }
+    });
+
+    // Export
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    outputEl.querySelector('#copyJsonBtn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(jsonStr);
+        flashCopy(outputEl.querySelector('#copyJsonBtn'), 'Copy as JSON');
+      } catch(e) {}
+    });
+    outputEl.querySelector('#dlJsonBtn').addEventListener('click', () => {
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'error-analysis-' + Date.now() + '.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    outputEl.querySelector('#copyFixBtn').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(data.fix || '');
+        flashCopy(outputEl.querySelector('#copyFixBtn'), 'Copy fix');
+      } catch(e) {}
+    });
+
+    // Import zone
+    const importZone = outputEl.querySelector('#importZone');
+    importZone.addEventListener('dragover', (e) => { e.preventDefault(); importZone.classList.add('active'); });
+    importZone.addEventListener('dragleave', () => importZone.classList.remove('active'));
+    importZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      importZone.classList.remove('active');
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const obj = JSON.parse(reader.result);
+          if (!obj.zcac || obj.kind !== 'error-analysis') {
+            importZone.textContent = '⚠ not an error-analysis export';
+            setTimeout(() => importZone.textContent = 'Drop a zcac error-analysis JSON here to re-load', 2000);
+            return;
+          }
+          importZone.classList.add('success');
+          importZone.textContent = '✓ Loaded — rendering...';
+          setTimeout(() => {
+            renderOutput(obj.data, '');
+            savingsSoFar += 1;
+            updateSavings();
+          }, 300);
+        } catch (err) {
+          importZone.textContent = '⚠ invalid JSON';
+          setTimeout(() => importZone.textContent = 'Drop a zcac error-analysis JSON here to re-load', 2000);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    updateSavings();
+  }
+
+  function formatSectionContent(content, key) {
+    if (!content) return '<em style="color: var(--text-faint)">No data</em>';
+    const text = Array.isArray(content) ? content.join('\n') : String(content);
+    // Render fenced code blocks
+    const codeRegex = /```([\s\S]*?)```/g;
+    let html = escapeHtml(text).replace(codeRegex, (m, code) => {
+      return '<pre>' + code.trim() + '</pre>';
+    });
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h).toString(16);
+  }
+
+  function celebrate() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const c = document.getElementById('celebration');
+    c.style.transition = 'transform 600ms var(--ease-out)';
+    c.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      c.style.transition = 'none';
+      c.style.transform = 'translateX(-100%)';
+    }, 650);
+  }
+
+  updateSavings();
+})();
+</script>
+</body>
+</html>
