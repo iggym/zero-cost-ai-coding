@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Engineering: Offline Agent Eval & Assertion Harness</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d;
+      --text: #c9d1d9; --accent: #58a6ff; --green: #3fb950;
+      --red: #f85149; --yellow: #d29922; --font: system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); padding: 1rem; line-height: 1.5; }
+    header { margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    h1 { font-size: 1.2rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem; }
+    .badge { background: #1f6feb22; color: var(--accent); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #1f6feb44; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    @media (min-width: 800px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; }
+    .card h2 { font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; }
+    textarea { width: 100%; height: 120px; background: #0d1117; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: monospace; padding: 0.5rem; font-size: 0.8rem; resize: vertical; }
+    textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+    .btn-group { display: flex; gap: 0.5rem; margin: 0.75rem 0; flex-wrap: wrap; }
+    button { background: #21262d; border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500; }
+    button:hover { background: #30363d; border-color: #8b949e; }
+    button.primary { background: #238636; border-color: #2ea043; color: #fff; }
+    button.primary:hover { background: #2ea043; }
+    .result-box { background: #0d1117; border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem; font-size: 0.8rem; font-family: monospace; }
+    .pass-text { color: var(--green); font-weight: bold; }
+    .fail-text { color: var(--red); font-weight: bold; }
+    .metric-row { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 0.3rem 0; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Agent Eval & Assertion Engine <span class="badge">Vanilla Stack</span></h1>
+    <p style="font-size:0.8rem; color:#8b949e; margin-top:0.25rem;">Deterministic Client-Side Regression Testing & Tool Assertion Benchmark</p>
+  </header>
+
+  <main class="grid">
+    <!-- Panel 1: Assertion Test Setup -->
+    <section class="card">
+      <h2>1. Agent Output & Assertions</h2>
+      <p style="font-size:0.75rem; color:#8b949e; margin-bottom:0.5rem;">Input raw LLM agent response payload and define exact assertion rules.</p>
+
+      <label style="font-size:0.7rem; color:#8b949e;">Agent Output Payload (JSON or Text):</label>
+      <textarea id="agentOutput" placeholder='{"tool": "search_db", "args": {"query": "metrics"}, "status": "complete"}'></textarea>
+
+      <label style="font-size:0.7rem; color:#8b949e; margin-top:0.5rem; display:block;">Assertion Rules (JSON Array):</label>
+      <textarea id="evalRules" placeholder='[{"type": "contains", "value": "search_db"}, {"type": "json_key_exists", "value": "args.query"}]'></textarea>
+
+      <div class="btn-group">
+        <button class="primary" onclick="runEvaluations()">Run Assertions</button>
+        <button onclick="loadEvalSample()">Load Benchmark Suite</button>
+      </div>
+    </section>
+
+    <!-- Panel 2: Test Results & Scoreboard -->
+    <section class="card">
+      <h2>2. Evaluation Scorecard</h2>
+      <p style="font-size:0.75rem; color:#8b949e; margin-bottom:0.5rem;">Client-side assertions breakdown and deterministic pass/fail rate.</p>
+
+      <div id="evalScoreboard" class="result-box">
+        <p style="color:#8b949e;">No eval suite executed yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function runEvaluations() {
+      const outputText = document.getElementById('agentOutput').value;
+      const rulesText = document.getElementById('evalRules').value;
+      const scoreboard = document.getElementById('evalScoreboard');
+
+      try {
+        const rules = JSON.parse(rulesText);
+        let passed = 0;
+        let logs = [];
+
+        rules.forEach((rule, idx) => {
+          let isPass = false;
+          let detail = "";
+
+          if (rule.type === "contains") {
+            isPass = outputText.includes(rule.value);
+            detail = `Output contains substring "${rule.value}"`;
+          } else if (rule.type === "not_contains") {
+            isPass = !outputText.includes(rule.value);
+            detail = `Output excludes substring "${rule.value}"`;
+          } else if (rule.type === "json_key_exists") {
+            try {
+              const parsed = JSON.parse(outputText);
+              const keys = rule.value.split('.');
+              let curr = parsed;
+              isPass = true;
+              for (const k of keys) {
+                if (curr && k in curr) { curr = curr[k]; }
+                else { isPass = false; break; }
+              }
+              detail = `JSON key path "${rule.value}" exists`;
+            } catch (e) {
+              isPass = false;
+              detail = `JSON key path check failed (invalid JSON output)`;
+            }
+          }
+
+          if (isPass) passed++;
+          logs.push({ idx: idx + 1, isPass, detail });
+        });
+
+        const total = rules.length;
+        const scorePct = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+        let html = `<div class="metric-row"><strong>Passed / Total:</strong> <span>${passed} / ${total} (${scorePct}%)</span></div>`;
+        html += `<div style="margin-top:0.5rem;">`;
+        logs.forEach(log => {
+          const statusTag = log.isPass ? `<span class="pass-text">[PASS]</span>` : `<span class="fail-text">[FAIL]</span>`;
+          html += `<div class="metric-row"><span>#${log.idx} ${log.detail}</span> ${statusTag}</div>`;
+        });
+        html += `</div>`;
+
+        scoreboard.innerHTML = html;
+      } catch (e) {
+        scoreboard.innerHTML = `<span class="fail-text">Eval Error: Invalid Rules JSON format (${e.message})</span>`;
+      }
+    }
+
+    function loadEvalSample() {
+      document.getElementById('agentOutput').value = JSON.stringify({
+        agent_id: "retrieval_agent_01",
+        tool_call: "query_vector_db",
+        parameters: { top_k: 5, collection: "docs" },
+        response_status: "ok"
+      }, null, 2);
+
+      document.getElementById('evalRules').value = JSON.stringify([
+        { type: "contains", value: "query_vector_db" },
+        { type: "json_key_exists", value: "parameters.top_k" },
+        { type: "not_contains", value: "INTERNAL_SERVER_ERROR" }
+      ], null, 2);
+    }
+  </script>
+</body>
+</html>
