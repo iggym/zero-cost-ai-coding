@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Triage — Error Pattern Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET & BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0f; --bg2:#151518; --bg3:#1c1c21; --bg4:#24242b;
+  --text:#e8e8ed; --text2:#9898a3; --text3:#6b6b78;
+  --accent:#22c55e; --accent-dim:#16a34a; --accent-glow:rgba(34,197,94,0.2);
+  --red:#ef4444; --orange:#f59e0b; --blue:#3b82f6; --yellow:#eab308;
+  --ease-out:cubic-bezier(.16,1,.3,1); --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --dur-fast:150ms; --dur-med:300ms; --dur-slow:500ms;
+  --radius:8px; --radius-lg:12px;
+  --font-mono:'JetBrains Mono',monospace; --font-sans:'Inter',sans-serif;
+}
+[data-theme="light"]{
+  --bg:#f8f8fa; --bg2:#efeff1; --bg3:#e4e4e7; --bg4:#d4d4d8;
+  --text:#18181b; --text2:#52525b; --text3:#a1a1aa;
+  --accent:#16a34a; --accent-dim:#15803d; --accent-glow:rgba(22,163,74,0.15);
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+::selection{background:var(--accent);color:#000}
+/* ===== UTILITY ===== */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+/* ===== STICKY TOP BAR ===== */
+.topbar{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--bg3);padding:0 24px;height:48px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.topbar-left{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:13px}
+.topbar-left a{color:var(--text2);transition:color var(--dur-fast) var(--ease-out)}
+.topbar-left a:hover{color:var(--accent)}
+.topbar-right{font-family:var(--font-mono);font-size:13px;color:var(--text2)}
+/* ===== CONTAINER ===== */
+.container{max-width:1120px;margin:0 auto;padding:0 24px}
+section{padding:64px 0}
+.section-label{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+h2{font-family:var(--font-mono);font-size:28px;font-weight:600;margin-bottom:16px;line-height:1.2}
+/* ===== PITCH ===== */
+.pitch{padding:80px 0 40px;text-align:center}
+.pitch h1{font-family:var(--font-mono);font-size:40px;font-weight:700;line-height:1.15;margin-bottom:12px}
+.pitch h1 span{color:var(--accent)}
+.pitch .sub{font-size:18px;color:var(--text2);margin-bottom:24px;font-weight:400}
+.pitch-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{padding:10px 20px;border-radius:var(--radius);border:1px solid var(--bg4);background:var(--bg3);color:var(--text);font-family:var(--font-sans);font-size:14px;font-weight:500;cursor:pointer;transition:all var(--dur-fast) var(--ease-out);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--bg4);border-color:var(--text3)}
+.btn-primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.btn-primary:hover{background:var(--accent-dim);border-color:var(--accent-dim);box-shadow:0 0 20px var(--accent-glow)}
+.btn-icon{width:36px;height:36px;padding:0;justify-content:center;border-radius:var(--radius)}
+/* ===== WHY SECTION ===== */
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:32px}
+@media(max-width:768px){.why-grid{grid-template-columns:1fr}}
+.evidence-card{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius-lg);padding:24px}
+.evidence-card h3{font-family:var(--font-mono);font-size:14px;font-weight:600;margin-bottom:16px;color:var(--text)}
+.chart-container{position:relative;width:100%;height:220px}
+.chart-container svg{width:100%;height:100%}
+.source-label{font-size:11px;color:var(--text3);margin-top:8px;text-align:right;font-family:var(--font-mono)}
+.pricing-table{width:100%;border-collapse:collapse;font-size:13px}
+.pricing-table th{text-align:left;padding:8px 12px;border-bottom:2px solid var(--bg3);font-family:var(--font-mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.pricing-table td{padding:8px 12px;border-bottom:1px solid var(--bg3)}
+.pricing-table tr:hover td{background:var(--bg3)}
+.pricing-table .free{color:var(--accent);font-weight:600}
+.pricing-table .paid{color:var(--text2)}
+/* ===== HOW SECTION ===== */
+.how-flow{display:flex;align-items:center;justify-content:center;gap:0;margin:48px 0;padding:0 20px}
+.flow-step{display:flex;flex-direction:column;align-items:center;gap:12px;flex:1;max-width:200px}
+.flow-icon{width:64px;height:64px;border-radius:50%;background:var(--bg3);border:2px solid var(--bg4);display:flex;align-items:center;justify-content:center;font-size:24px;transition:all var(--dur-slow) var(--ease-out);position:relative}
+.flow-step.active .flow-icon{background:var(--accent-glow);border-color:var(--accent);box-shadow:0 0 24px var(--accent-glow)}
+.flow-step.done .flow-icon{background:var(--accent);border-color:var(--accent)}
+.flow-label{font-size:13px;color:var(--text2);text-align:center;font-weight:500}
+.flow-step.active .flow-label{color:var(--text)}
+.flow-connector{flex:1;height:2px;background:var(--bg4);position:relative;max-width:80px;overflow:hidden}
+.flow-connector::after{content:'';position:absolute;top:0;left:0;height:100%;width:0;background:var(--accent);transition:width var(--dur-slow) var(--ease-out)}
+.flow-connector.fill::after{width:100%}
+@media(max-width:600px){
+  .how-flow{flex-direction:column;gap:16px}
+  .flow-connector{width:2px;height:40px;max-width:none}
+  .flow-connector::after{width:2px;height:0;top:0;left:0}
+  .flow-connector.fill::after{height:100%;width:2px}
+}
+/* ===== TOOL SECTION ===== */
+.tool-area{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius-lg);overflow:hidden}
+.tool-header{padding:16px 20px;border-bottom:1px solid var(--bg3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.tool-header h3{font-family:var(--font-mono);font-size:14px;font-weight:600}
+.tool-badge{font-size:11px;padding:4px 10px;border-radius:20px;background:var(--accent-glow);color:var(--accent);font-family:var(--font-mono);font-weight:500;border:1px solid rgba(34,197,94,0.2)}
+.tool-body{padding:20px}
+/* Input */
+.input-area{position:relative;margin-bottom:16px}
+.input-area textarea{width:100%;min-height:200px;padding:16px;background:var(--bg);border:1px solid var(--bg4);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);font-size:13px;line-height:1.6;resize:vertical;transition:border-color var(--dur-fast) var(--ease-out)}
+.input-area textarea:focus{outline:none;border-color:var(--accent)}
+.input-area textarea::placeholder{color:var(--text3)}
+.drop-zone{position:absolute;inset:0;border:2px dashed var(--bg4);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;background:var(--bg);opacity:0;transition:all var(--dur-med) var(--ease-out);pointer-events:none;z-index:5}
+.drop-zone.show{opacity:1;pointer-events:auto;border-color:var(--accent);background:var(--accent-glow)}
+.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-glow);transform:scale(1.01)}
+.drop-zone span{font-size:14px;color:var(--text2)}
+.examples{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.example-chip{padding:6px 14px;background:var(--bg3);border:1px solid var(--bg4);border-radius:20px;font-family:var(--font-mono);font-size:12px;cursor:pointer;transition:all var(--dur-fast) var(--ease-out);color:var(--text2)}
+.example-chip:hover{background:var(--bg4);border-color:var(--accent);color:var(--text)}
+.example-chip.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+.tool-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+/* Live Feedback Rail */
+.feedback-rail{height:4px;background:var(--bg4);border-radius:2px;margin-bottom:16px;overflow:hidden;opacity:0;transition:opacity var(--dur-med) var(--ease-out)}
+.feedback-rail.show{opacity:1}
+.feedback-rail .bar{height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .4s var(--ease-out)}
+.feedback-rail .bar.pulse{animation:pulse-bar 1s ease-in-out infinite}
+@keyframes pulse-bar{0%,100%{opacity:1}50%{opacity:.5}}
+.feedback-status{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:13px;color:var(--text2);font-family:var(--font-mono)}
+.feedback-step{margin-bottom:12px}
+.step-dots{display:flex;gap:8px;align-items:center}
+.step-dot{width:8px;height:8px;border-radius:50%;background:var(--bg4);transition:all var(--dur-med) var(--ease-out)}
+.step-dot.active{background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+.step-dot.done{background:var(--accent-dim)}
+/* Results */
+.results-area{display:none}
+.results-area.show{display:block}
+.results-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.results-header h4{font-family:var(--font-mono);font-size:14px;font-weight:600}
+.results-stats{display:flex;gap:16px;flex-wrap:wrap}
+.stat-chip{padding:4px 12px;background:var(--bg3);border-radius:16px;font-size:12px;font-family:var(--font-mono);color:var(--text2)}
+.stat-chip strong{color:var(--text)}
+/* Chart row */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+@media(max-width:640px){.chart-row{grid-template-columns:1fr}}
+.chart-box{background:var(--bg);border:1px solid var(--bg4);border-radius:var(--radius);padding:16px}
+.chart-box h5{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+.chart-canvas{position:relative;width:100%;height:180px}
+.chart-canvas svg{width:100%;height:100%}
+/* Sortable Table */
+.table-wrap{overflow-x:auto;border:1px solid var(--bg4);border-radius:var(--radius);background:var(--bg)}
+.results-table{width:100%;border-collapse:collapse;font-size:13px}
+.results-table th{text-align:left;padding:10px 14px;background:var(--bg3);font-family:var(--font-mono);font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap;user-select:none;position:relative;transition:color var(--dur-fast) var(--ease-out)}
+.results-table th:hover{color:var(--text)}
+.results-table th .sort-arrow{display:inline-block;margin-left:4px;opacity:.4}
+.results-table th.sorted .sort-arrow{opacity:1;color:var(--accent)}
+.results-table td{padding:8px 14px;border-top:1px solid var(--bg4);transition:background var(--dur-fast) var(--ease-out);vertical-align:top}
+.results-table tr:hover td{background:var(--bg3)}
+.results-table .level-error{color:var(--red)}
+.results-table .level-warn{color:var(--orange)}
+.results-table .level-info{color:var(--blue)}
+.results-table .level-debug{color:var(--text3)}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filter-chip{padding:4px 12px;border-radius:16px;font-size:12px;font-family:var(--font-mono);background:var(--bg3);border:1px solid var(--bg4);cursor:pointer;transition:all var(--dur-fast) var(--ease-out);color:var(--text2)}
+.filter-chip:hover{border-color:var(--text3)}
+.filter-chip.active{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+.search-input{padding:6px 12px;background:var(--bg);border:1px solid var(--bg4);border-radius:20px;color:var(--text);font-family:var(--font-mono);font-size:12px;flex:1;min-width:120px;transition:border-color var(--dur-fast) var(--ease-out)}
+.search-input:focus{outline:none;border-color:var(--accent)}
+/* Export */
+.export-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.copy-btn{position:relative;padding:6px 14px;background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--radius);font-family:var(--font-mono);font-size:12px;cursor:pointer;color:var(--text2);transition:all var(--dur-fast) var(--ease-out)}
+.copy-btn:hover{background:var(--bg4);color:var(--text)}
+.copy-btn.copied{background:var(--accent-glow);border-color:var(--accent);color:var(--accent)}
+.copy-btn .check-morph{display:inline-block;transition:transform var(--dur-med) var(--ease-out);transform:scale(0);width:0;overflow:hidden}
+.copy-btn.copied .check-morph{transform:scale(1);width:auto;margin-right:4px}
+/* Celebration sweep */
+.celebration-sweep{position:fixed;inset:0;pointer-events:none;z-index:200;background:linear-gradient(90deg,transparent,var(--accent-glow),transparent);transform:translateX(-100%);opacity:0}
+.celebration-sweep.fire{animation:sweep 600ms var(--ease-out) forwards}
+@keyframes sweep{0%{transform:translateX(-100%);opacity:0}20%{opacity:1}80%{opacity:1}100%{transform:translateX(100%);opacity:0}}
+/* Savings counter */
+.savings-box{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius-lg);padding:24px;text-align:center;margin-top:24px}
+.savings-box .label{font-size:13px;color:var(--text2);margin-bottom:4px}
+.savings-box .number{font-family:var(--font-mono);font-size:36px;font-weight:700;color:var(--accent);line-height:1}
+.savings-box .assumption{font-size:12px;color:var(--text3);margin-top:4px}
+.savings-box .number.pulse{animation:pulse-num 600ms var(--ease-out)}
+@keyframes pulse-num{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+/* ===== PROMPT PACK ===== */
+.prompt-pack{padding-top:40px}
+.prompt-tabs{display:flex;gap:4px;margin-bottom:24px;flex-wrap:wrap}
+.prompt-tab{padding:8px 16px;background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--radius) var(--radius) 0 0;font-family:var(--font-mono);font-size:12px;cursor:pointer;color:var(--text2);transition:all var(--dur-fast) var(--ease-out)}
+.prompt-tab:hover{background:var(--bg4)}
+.prompt-tab.active{background:var(--bg2);border-bottom-color:var(--bg2);color:var(--text)}
+.prompt-content{display:none;background:var(--bg2);border:1px solid var(--bg3);border-radius:0 var(--radius-lg) var(--radius-lg) var(--radius-lg);padding:24px}
+.prompt-content.active{display:block}
+.prompt-content pre{background:var(--bg);padding:16px;border-radius:var(--radius);overflow-x:auto;font-size:12px;line-height:1.6;margin-bottom:12px;border:1px solid var(--bg4)}
+.prompt-content .prompt-title{font-family:var(--font-mono);font-size:13px;font-weight:600;margin-bottom:8px}
+.prompt-content .prompt-desc{font-size:13px;color:var(--text2);margin-bottom:16px}
+.prompt-block{margin-bottom:20px}
+.prompt-block h6{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:6px}
+/* ===== FOOTER ===== */
+.footer{padding:32px 0;border-top:1px solid var(--bg3);font-size:12px;color:var(--text3);text-align:center;font-family:var(--font-mono)}
+/* ===== MOTION ===== */
+@media(prefers-reduced-motion:no-preference){
+  .fade-in{opacity:0;transform:translateY(12px);animation:fadeUp 400ms var(--ease-out) forwards}
+  .fade-in:nth-child(2){animation-delay:80ms}
+  .fade-in:nth-child(3){animation-delay:160ms}
+  .fade-in:nth-child(4){animation-delay:240ms}
+  @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+  .stagger>*{opacity:0;animation:fadeUp 400ms var(--ease-out) forwards}
+  .stagger>*:nth-child(1){animation-delay:0ms}
+  .stagger>*:nth-child(2){animation-delay:40ms}
+  .stagger>*:nth-child(3){animation-delay:80ms}
+  .stagger>*:nth-child(4){animation-delay:120ms}
+  .stagger>*:nth-child(5){animation-delay:160ms}
+  .stagger>*:nth-child(6){animation-delay:200ms}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+/* ===== SHARE ===== */
+.share-row{display:flex;gap:8px;margin-top:16px;justify-content:center}
+.share-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--radius);font-size:13px;cursor:pointer;color:var(--text2);transition:all var(--dur-fast) var(--ease-out);font-family:var(--font-sans)}
+.share-btn:hover{background:var(--bg4);color:var(--text)}
+/* Light toggle */
+.theme-toggle{background:none;border:none;color:var(--text2);cursor:pointer;padding:4px;border-radius:4px;font-size:16px;transition:color var(--dur-fast) var(--ease-out);display:flex;align-items:center;justify-content:center;width:32px;height:32px}
+.theme-toggle:hover{color:var(--text)}
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state p{font-size:14px}
+/* Table transition */
+.table-wrap{transition:opacity var(--dur-med) var(--ease-out)}
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" target="_blank">← zero-cost-ai-coding</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="topbar-right">Log Triage</span>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀️</button>
+  </div>
+</header>
+
+<!-- Pitch -->
+<section class="pitch container">
+  <h1>Log <span>Triage</span></h1>
+  <p class="sub">Drop a log file. Watch errors cluster. Find what's broken in seconds.</p>
+  <div class="pitch-actions">
+    <button class="btn btn-primary" onclick="document.getElementById('tool').scrollIntoView({behavior:'smooth'})">Try the tool ↓</button>
+    <button class="btn" onclick="document.getElementById('why').scrollIntoView({behavior:'smooth'})">See the problem</button>
+  </div>
+  <div class="share-row">
+    <button class="share-btn" onclick="shareX()" aria-label="Share on X"><span>𝕏</span> Share</button>
+    <button class="share-btn" onclick="shareLink()" aria-label="Copy link"><span>🔗</span> Copy link</button>
+  </div>
+</section>
+
+<!-- WHY -->
+<section id="why" class="container">
+  <div class="section-label">The Problem</div>
+  <h2>Logs are everywhere. Clarity is not.</h2>
+  <p style="color:var(--text2);font-size:15px;max-width:680px">Every deploy dumps thousands of log lines. Finding the actual errors — let alone grouping them — means grepping, scanning, or paying for an enterprise tool.</p>
+  <div class="why-grid">
+    <!-- Evidence Chart -->
+    <div class="evidence-card fade-in">
+      <h3>📊 Logging questions on Stack Overflow</h3>
+      <div class="chart-container" id="whyChart"></div>
+      <div class="source-label">Source: arXiv 2606.00118 · 216,094 logging posts analyzed</div>
+    </div>
+    <!-- Pricing Table -->
+    <div class="evidence-card fade-in">
+      <h3>💰 What log analysis costs</h3>
+      <table class="pricing-table">
+        <thead><tr><th>Tool</th><th>Free tier</th><th>Paid entry</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Log Triage</strong> <span class="free">(this tool)</span></td><td class="free">Unlimited, browser-native</td><td class="free">$0 forever</td></tr>
+          <tr><td>Papertrail</td><td>50 MB/mo, 48h retention</td><td class="paid">$7/mo</td></tr>
+          <tr><td>Loggly</td><td>200 MB/day, 7d retention</td><td class="paid">$79/mo</td></tr>
+          <tr><td>Datadog Logs</td><td>Trial only</td><td class="paid">$0.10/GB ingested</td></tr>
+          <tr><td>Splunk</td><td>500 MB/day (dev license)</td><td class="paid">~$150/GB/day</td></tr>
+          <tr><td>Graylog</td><td>Self-hosted, unlimited</td><td class="paid">$15K/yr Enterprise</td></tr>
+        </tbody>
+      </table>
+      <div class="source-label">Verified 2026-08-16 · Papertrail SolarWinds · Datadog · Splunk</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section id="how" class="container">
+  <div class="section-label">How It Works</div>
+  <h2>Three steps from mess to meaning</h2>
+  <div class="how-flow" id="howFlow">
+    <div class="flow-step" data-step="0">
+      <div class="flow-icon">📋</div>
+      <div class="flow-label">Paste or drop your log text</div>
+    </div>
+    <div class="flow-connector" data-connector="0"></div>
+    <div class="flow-step" data-step="1">
+      <div class="flow-icon">⚡</div>
+      <div class="flow-label">Auto-parse &amp; cluster errors</div>
+    </div>
+    <div class="flow-connector" data-connector="1"></div>
+    <div class="flow-step" data-step="2">
+      <div class="flow-icon">📊</div>
+      <div class="flow-label">Explore patterns, filter, export</div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:24px">
+    <span class="tool-badge" style="display:inline-flex">🆓 100% browser-native · No upload · No API key</span>
+  </div>
+</section>
+
+<!-- TOOL -->
+<section id="tool" class="container">
+  <div class="section-label">The Tool</div>
+  <h2>Log Triage — Error Pattern Analyzer</h2>
+  <div class="tool-area">
+    <div class="tool-header">
+      <h3>📋 Log Input</h3>
+      <span class="tool-badge">Browser-Native · Free</span>
+    </div>
+    <div class="tool-body">
+      <!-- Examples -->
+      <div class="examples">
+        <span style="font-size:12px;color:var(--text3);align-self:center">Try an example:</span>
+        <button class="example-chip" data-example="small" onclick="loadExample('small')">Small — few errors</button>
+        <button class="example-chip" data-example="medium" onclick="loadExample('medium')">Medium — mixed levels</button>
+        <button class="example-chip" data-example="stress" onclick="loadExample('stress')">Stress — 100+ lines</button>
+      </div>
+      <!-- Input -->
+      <div class="input-area" id="inputArea">
+        <textarea id="logInput" placeholder="Paste your logs here...&#10;&#10;2024-01-15 10:23:45 ERROR Failed to connect to database&#10;2024-01-15 10:23:46 WARN Connection retry scheduled&#10;2024-01-15 10:23:47 INFO Server started on port 8080" spellcheck="false"></textarea>
+        <div class="drop-zone" id="dropZone"><span>📂 Drop a log file here</span></div>
+      </div>
+      <!-- Actions -->
+      <div class="tool-actions">
+        <button class="btn btn-primary" onclick="analyze()">⚡ Analyze</button>
+        <button class="btn" onclick="clearLog()">Clear</button>
+      </div>
+      <!-- Feedback Rail -->
+      <div class="feedback-rail" id="feedbackRail"><div class="bar" id="feedbackBar"></div></div>
+      <div class="feedback-status" id="feedbackStatus"></div>
+      <!-- Results -->
+      <div class="results-area" id="resultsArea">
+        <div class="results-header">
+          <h4>📊 Analysis Results</h4>
+          <div class="results-stats" id="resultsStats"></div>
+        </div>
+        <!-- Charts -->
+        <div class="chart-row">
+          <div class="chart-box">
+            <h5>Error Frequency by Type</h5>
+            <div class="chart-canvas" id="freqChart"></div>
+          </div>
+          <div class="chart-box">
+            <h5>Log Level Distribution</h5>
+            <div class="chart-canvas" id="levelChart"></div>
+          </div>
+        </div>
+        <!-- Filter & Search -->
+        <div class="filter-row" id="filterRow">
+          <button class="filter-chip active" data-level="all" onclick="filterLevel('all',this)">All</button>
+          <button class="filter-chip" data-level="ERROR" onclick="filterLevel('ERROR',this)">ERROR</button>
+          <button class="filter-chip" data-level="WARN" onclick="filterLevel('WARN',this)">WARN</button>
+          <button class="filter-chip" data-level="INFO" onclick="filterLevel('INFO',this)">INFO</button>
+          <button class="filter-chip" data-level="DEBUG" onclick="filterLevel('DEBUG',this)">DEBUG</button>
+          <input class="search-input" id="searchInput" placeholder="Search messages..." oninput="filterTable()">
+        </div>
+        <!-- Table -->
+        <div class="table-wrap" id="tableWrap">
+          <table class="results-table" id="resultsTable">
+            <thead><tr>
+              <th onclick="sortTable(0)">Level <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable(1)">Message <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable(2)">Count <span class="sort-arrow">↕</span></th>
+              <th onclick="sortTable(3)">Sample <span class="sort-arrow">↕</span></th>
+            </tr></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <!-- Export -->
+        <div class="export-row">
+          <button class="copy-btn" onclick="copyResults()">📋 Copy as JSON</button>
+          <button class="copy-btn" onclick="downloadResults()">⬇ Download JSON</button>
+        </div>
+        <!-- Drop zone for JSON import -->
+        <div class="input-area" style="margin-top:16px;height:60px">
+          <div class="drop-zone" id="jsonDropZone" style="position:relative;opacity:1;pointer-events:auto;border-style:solid;height:60px">
+            <span style="font-size:12px">📥 Drop a .json export here to re-import</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Savings -->
+  <div class="savings-box" id="savingsBox" style="display:none">
+    <div class="label">⏱ What this saved you</div>
+    <div class="number" id="savingsNumber">0</div>
+    <div class="assumption">Based on ~15 sec/entry reviewed by hand · <span id="savingsEntries">0</span> unique patterns found</div>
+  </div>
+</section>
+
+<!-- PROMPT PACK -->
+<section id="prompts" class="container prompt-pack">
+  <div class="section-label">Build This Yourself</div>
+  <h2>📦 Parameterized Prompt Pack</h2>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:24px">Copy a ready-to-use prompt for any major model. Fill in the {{double-curly}} variables and run.</p>
+
+  <div class="prompt-tabs" id="promptTabs">
+    <button class="prompt-tab active" data-tab="howto">How to use this</button>
+    <button class="prompt-tab" data-tab="openai">OpenAI</button>
+    <button class="prompt-tab" data-tab="anthropic">Anthropic</button>
+    <button class="prompt-tab" data-tab="google">Google</button>
+    <button class="prompt-tab" data-tab="openweight">Open-Weight</button>
+  </div>
+
+  <!-- Tab: How To -->
+  <div class="prompt-content active" id="tab-howto">
+    <div class="prompt-title">📖 How to use this prompt pack</div>
+    <div class="prompt-desc">
+      <p style="margin-bottom:12px"><strong>For chatbots:</strong> Pick your model tab, copy the system + user prompt, paste into ChatGPT / Claude / Gemini. Replace all {{variables}} with your problem details. Send.</p>
+      <p style="margin-bottom:12px"><strong>For code/API:</strong> Use the Code / API tab — each block is a ready JSON payload for that provider's API. Replace {{variables}} programmatically before calling the endpoint.</p>
+      <p><strong>For local/open-weight:</strong> Use the Open-Weight tab. Plain system/user template with JSON schema — works with vLLM, Ollama, or any endpoint serving Llama 3.1 / Mistral / Qwen2. No tool wrappers needed.</p>
+    </div>
+    <div class="prompt-block">
+      <h6>Parameter reference</h6>
+      <pre style="font-size:11px">{{PROBLEM}} — {{AUDIENCE}} — {{DATE}} — {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}} — {{FREE_TIER_URL}} — {{SOLUTION_MODE}} — {{INPUT_EXAMPLE}} — {{OUTPUT_KIND}} — {{VISUAL_STYLE}}</pre>
+    </div>
+  </div>
+
+  <!-- Tab: OpenAI -->
+  <div class="prompt-content" id="tab-openai">
+    <div class="prompt-title">For GPT-4o / GPT-4o-mini — Log analysis visual tool builder</div>
+    <div class="prompt-desc">Chat Completions API. Copy the system and user messages below.</div>
+    <div class="prompt-block">
+      <h6>Parameters</h6>
+      <pre>temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+model: "gpt-4o"</pre>
+    </div>
+    <div class="prompt-block">
+      <h6>System Prompt</h6>
+      <pre id="openai-system">You build single-file HTML tools that solve real developer problems at zero cost.
+AUDIENCE: {{AUDIENCE}}
+TODAY: {{DATE}}
+SOLUTION_MODE: {{SOLUTION_MODE}}
+You output a complete, working HTML file with inline CSS and JS. No frameworks.
+The tool must work on the visitor's own data via paste/drop. Include pre-filled examples.
+Visual style: {{VISUAL_STYLE}}. Use dark+light themes, JetBrains Mono for code, Inter for body.
+Animate with transform+opacity only. Respect prefers-reduced-motion.
+Include a WHY chart, HOW flow graphic, and UTILITY dashboard with live chart and sortable table.
+Generate a prompt pack tab section teaching others the pattern.</pre>
+      <button class="copy-btn" onclick="copyText('openai-system')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>User Template</h6>
+      <pre id="openai-user">Build a {{SOLUTION_MODE}} tool for {{PROBLEM}}.
+Evidence: {{EVIDENCE_SOURCE}}
+Free tier: {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}} ({{FREE_TIER_URL}})
+Input example: {{INPUT_EXAMPLE}}
+Output kind: {{OUTPUT_KIND}}
+The page must include: problem evidence chart, animated 3-step flow, live utility dashboard with chart + sortable table, savings counter, and a parameterized prompt pack for 4 model families.
+Replace all {{double-curly}} variables in the prompt pack with real content for this tool.</pre>
+      <button class="copy-btn" onclick="copyText('openai-user')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>Filled Example (this tool)</h6>
+      <pre style="font-size:11px;color:var(--text3)">PROBLEM = "log error triage — clustering and visualizing error patterns from raw logs"
+AUDIENCE = "Developers and indie builders who want real tools at genuine $0 cost"
+DATE = "2026-08-16"
+FREE_SERVICE = "Browser-native (no API) — all processing in-browser via vanilla JS"
+FREE_TIER_LIMIT = "Unlimited, no account needed"
+FREE_TIER_URL = "https://developer.mozilla.org/en-US/docs/Web/API/File_API"
+SOLUTION_MODE = "browser-native"
+INPUT_EXAMPLE = "2024-01-15 10:23:45 ERROR Failed to connect to database: timeout"
+OUTPUT_KIND = "structured error pattern clusters with frequency counts"
+VISUAL_STYLE = "bar chart, donut chart, sortable table, animated flow diagram"</pre>
+    </div>
+  </div>
+
+  <!-- Tab: Anthropic -->
+  <div class="prompt-content" id="tab-anthropic">
+    <div class="prompt-title">For Claude 3.5 Sonnet / Claude 4 — Log analysis visual tool builder</div>
+    <div class="prompt-desc">Messages API with tool_use format. Copy the system and messages below.</div>
+    <div class="prompt-block">
+      <h6>Parameters</h6>
+      <pre>temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+model: "claude-sonnet-4-20250514"</pre>
+    </div>
+    <div class="prompt-block">
+      <h6>System Prompt</h6>
+      <pre id="anthropic-system">You build single-file HTML tools solving real developer problems at zero cost.
+AUDIENCE: {{AUDIENCE}}
+TODAY: {{DATE}}
+SOLUTION_MODE: {{SOLUTION_MODE}}
+Output a complete, working HTML file with inline CSS and JS. No frameworks or build tools.
+The tool must work on visitor's own input via paste/drop with clickable pre-filled examples.
+Visual style: {{VISUAL_STYLE}}. Dark+light themes. JetBrains Mono + Inter. transform/opacity animations only. Respect prefers-reduced-motion.
+Required: WHY evidence chart, HOW animated 3-step flow, UTILITY dashboard with live chart + sortable table, savings counter, and a parameterized prompt pack tab section.</pre>
+      <button class="copy-btn" onclick="copyText('anthropic-system')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>User Template</h6>
+      <pre id="anthropic-user">Build a {{SOLUTION_MODE}} tool for {{PROBLEM}}.
+Evidence this is a real problem: {{EVIDENCE_SOURCE}}
+Free tier verification: {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}} (verified at {{FREE_TIER_URL}})
+Example input: {{INPUT_EXAMPLE}}
+Output format: {{OUTPUT_KIND}}
+Include: problem evidence bar chart or pricing table, animated 3-step flow diagram, live utility dashboard with chart + sortable/filterable table, "what this saved you" count-up counter from a stated assumption, and a full parameterized prompt pack with tabs for OpenAI, Anthropic, Google, and open-weight models.
+All {{variables}} in the prompt pack must be filled with real content for this tool.</pre>
+      <button class="copy-btn" onclick="copyText('anthropic-user')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>Tool definition (tool_use format)</h6>
+      <pre id="anthropic-tool">{
+  "name": "create_html_tool",
+  "description": "Write a complete HTML file to the workspace",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "filename": {"type": "string", "description": "File name, e.g. 'log-triage.html'"},
+      "content": {"type": "string", "description": "Complete HTML file content"}
+    },
+    "required": ["filename", "content"]
+  }
+}</pre>
+      <button class="copy-btn" onclick="copyText('anthropic-tool')">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- Tab: Google -->
+  <div class="prompt-content" id="tab-google">
+    <div class="prompt-title">For Gemini 1.5 Pro / 2.0 Flash — Log analysis visual tool builder</div>
+    <div class="prompt-desc">functionDeclarations format. Copy the system instruction and user message.</div>
+    <div class="prompt-block">
+      <h6>Parameters</h6>
+      <pre>temperature: 0.4
+top_p: 0.9
+max_output_tokens: 8192
+model: "gemini-2.0-flash-001"</pre>
+    </div>
+    <div class="prompt-block">
+      <h6>System Instruction</h6>
+      <pre id="google-system">You build single-file HTML tools that solve real developer problems at zero cost.
+AUDIENCE: {{AUDIENCE}}
+TODAY: {{DATE}}
+SOLUTION_MODE: {{SOLUTION_MODE}}
+Output a complete, working HTML file with inline CSS and JS. No external libraries or build tools.
+The tool must accept visitor's own data via paste or file drop. Include 2-3 clickable pre-filled examples.
+Visual style: {{VISUAL_STYLE}}. Dark+light toggle. JetBrains Mono + Inter. Animate only transform+opacity. Respect prefers-reduced-motion.
+Must include: WHY evidence chart (bar/pie), HOW animated 3-step flow (SVG), UTILITY dashboard with live chart + sortable/searchable table, savings count-up, and a parameterized prompt pack tab section.</pre>
+      <button class="copy-btn" onclick="copyText('google-system')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>User Message</h6>
+      <pre id="google-user">Build a {{SOLUTION_MODE}} tool for {{PROBLEM}}.
+Problem evidence: {{EVIDENCE_SOURCE}}
+Free tier: {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}} ({{FREE_TIER_URL}})
+Sample input: {{INPUT_EXAMPLE}}
+Output: {{OUTPUT_KIND}}
+Components required: evidence visualization (bar chart or pricing table), animated flow diagram (3 steps with SVG line fill), live utility dashboard with chart + sortable table, count-up savings counter, JSON export/import, and a prompt pack with tabs for how-to-use, OpenAI, Anthropic, Google, and open-weight.
+Fill all {{variables}} in the prompt pack with real content for this specific tool.</pre>
+      <button class="copy-btn" onclick="copyText('google-user')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>functionDeclaration</h6>
+      <pre id="google-tool">{
+  "name": "create_html_file",
+  "description": "Create an HTML file in the workspace",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "filename": {"type": "string"},
+      "content": {"type": "string"}
+    },
+    "required": ["filename", "content"]
+  }
+}</pre>
+      <button class="copy-btn" onclick="copyText('google-tool')">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- Tab: Open-Weight -->
+  <div class="prompt-content" id="tab-openweight">
+    <div class="prompt-title">For Llama 3.1 70B/405B / Mistral Large / Qwen2 72B — Log analysis visual tool builder</div>
+    <div class="prompt-desc">Plain system/user template with strict JSON schema. No tool wrappers — works with any endpoint.</div>
+    <div class="prompt-block">
+      <h6>Parameters</h6>
+      <pre>temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+stop: ["&lt;|eot_id|&gt;", "&lt;/s&gt;"]</pre>
+    </div>
+    <div class="prompt-block">
+      <h6>System Prompt</h6>
+      <pre id="ow-system">You are a tool builder. Your task is to produce a single, valid JSON object with key "html_content" containing a complete HTML file.
+AUDIENCE: {{AUDIENCE}}
+TODAY: {{DATE}}
+SOLUTION_MODE: {{SOLUTION_MODE}}
+
+The HTML file must:
+- Be a single file with inline &lt;style&gt; and &lt;script&gt; (no external deps except Google Fonts)
+- Solve {{PROBLEM}} using only {{SOLUTION_MODE}} approach
+- Work on visitor's own data via paste/drop with clickable pre-filled examples
+- Use dark+light theme toggle, JetBrains Mono + Inter fonts
+- Animate with transform+opacity only, respect prefers-reduced-motion
+Include: WHY evidence chart (bar or pricing table), HOW animated 3-step flow (SVG with stroke-dashoffset), UTILITY dashboard with live chart + sortable table, savings count-up, and prompt pack tab section with parameterized {{variables}}.
+
+Output ONLY valid JSON: {"html_content": "&lt;!DOCTYPE html&gt;..."}. Escape all double quotes and newlines in the HTML content.</pre>
+      <button class="copy-btn" onclick="copyText('ow-system')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>User Template</h6>
+      <pre id="ow-user">Build a {{SOLUTION_MODE}} tool for {{PROBLEM}}.
+Evidence: {{EVIDENCE_SOURCE}}
+Free tier: {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}} ({{FREE_TIER_URL}})
+Input example: {{INPUT_EXAMPLE}}
+Output kind: {{OUTPUT_KIND}}
+Visual style: {{VISUAL_STYLE}}
+
+Return JSON: {"html_content": "..."} with the complete self-contained HTML file.</pre>
+      <button class="copy-btn" onclick="copyText('ow-user')">📋 Copy</button>
+    </div>
+    <div class="prompt-block">
+      <h6>JSON Schema (for structured output endpoints)</h6>
+      <pre id="ow-schema">{
+  "type": "object",
+  "properties": {
+    "html_content": {
+      "type": "string",
+      "description": "Complete self-contained HTML file as a string"
+    }
+  },
+  "required": ["html_content"]
+}</pre>
+      <button class="copy-btn" onclick="copyText('ow-schema')">📋 Copy</button>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer container">
+  Free-tier verified: Browser-native (no API) — All processing runs client-side — 2026-08-16<br>
+  <span style="color:var(--text3)">Source: arXiv 2606.00118 · Papertrail SolarWinds · Datadog · Splunk pricing pages</span>
+</footer>
+
+<!-- Celebration sweep -->
+<div class="celebration-sweep" id="celebration"></div>
+
+<script>
+// ===== THEME =====
+function toggleTheme(){
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.querySelector('.theme-toggle').textContent = isDark ? '🌙' : '☀️';
+}
+
+// ===== SHARE =====
+function shareX(){
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent('Log Triage — free browser-based error pattern analyzer');
+  window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+}
+function shareLink(){
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const btn = document.querySelector('.share-btn:last-child');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.innerHTML = '<span>🔗</span> Copy link', 1200);
+  });
+}
+
+// ===== EXAMPLE DATA =====
+const EXAMPLES = {
+  small: `2024-01-15 10:23:45 ERROR Failed to connect to database: connection timeout after 30s
+2024-01-15 10:23:46 WARN Connection retry scheduled, attempt 2 of 5
+2024-01-15 10:23:47 INFO Server started on port 8080
+2024-01-15 10:23:48 ERROR Failed to connect to database: connection timeout after 30s
+2024-01-15 10:23:49 ERROR Uncaught TypeError: Cannot read property 'x' of undefined
+2024-01-15 10:23:50 WARN Memory usage at 85% threshold
+2024-01-15 10:23:51 ERROR Failed to connect to database: connection refused
+2024-01-15 10:23:52 INFO Health check passed
+2024-01-15 10:23:53 DEBUG Request /api/users took 234ms
+2024-01-15 10:23:54 ERROR Uncaught TypeError: Cannot read property 'x' of undefined
+2024-01-15 10:23:55 ERROR Failed to connect to database: connection timeout after 30s
+2024-01-15 10:23:56 WARN Disk space at 78%`,
+  medium: `[2024-03-20 14:12:01] INFO  Starting application version 2.4.1
+[2024-03-20 14:12:02] DEBUG Loaded config from /etc/app/config.yaml
+[2024-03-20 14:12:03] INFO  Connected to PostgreSQL at db.internal:5432
+[2024-03-20 14:12:04] WARN  Connection pool at 80% capacity
+[2024-03-20 14:12:05] ERROR POST /api/orders — 500 — Internal: order_total is missing
+[2024-03-20 14:12:06] INFO  Request GET /api/health — 200
+[2024-03-20 14:12:07] ERROR POST /api/orders — 500 — Internal: order_total is missing
+[2024-03-20 14:12:08] ERROR POST /api/orders — 500 — Internal: order_total is missing
+[2024-03-20 14:12:09] WARN  Redis memory fragmentation ratio is 1.45
+[2024-03-20 14:12:10] ERROR GET /api/users/4421 — 500 — NullPointerException at UserService.java:112
+[2024-03-20 14:12:11] INFO  Cache hit ratio: 0.87
+[2024-03-20 14:12:12] WARN  SSL certificate expires in 14 days
+[2024-03-20 14:12:13] ERROR POST /api/orders — 500 — Internal: order_total is missing
+[2024-03-20 14:12:14] DEBUG SQL query took 1.2s: SELECT * FROM orders WHERE user_id = ?
+[2024-03-20 14:12:15] ERROR GET /api/users/4421 — 500 — NullPointerException at UserService.java:112
+[2024-03-20 14:12:16] INFO  Scheduled task: weekly_cleanup completed
+[2024-03-20 14:12:17] ERROR POST /api/payments — 500 — Insufficient funds
+[2024-03-20 14:12:18] WARN  Request rate limiting activated for IP 192.168.1.50`,
+  stress: Array.from({length:120}, (_,i) => {
+    const levels = ['ERROR','WARN','INFO','DEBUG'];
+    const msgs = [
+      'Connection timeout after 30s to db.internal:5432',
+      'Null pointer in UserService.processOrder',
+      'Memory usage above 90% threshold',
+      'Failed to send email notification: SMTP error',
+      'Cache miss for key user_session:token_expired',
+      'Rate limit exceeded for API key sk-xxxx',
+      'Disk write operation failed: no space left',
+      'Authentication failed: invalid token format',
+      'Queue worker crashed with signal SIGSEGV',
+      'Health check endpoint returned 503'
+    ];
+    const lv = levels[i % 4];
+    const msg = msgs[i % msgs.length];
+    return `2024-03-20 ${String(14 + Math.floor(i/60)).padStart(2,'0')}:${String(Math.floor(i%60)).padStart(2,'0')}:00 ${lv} ${msg}`;
+  }).join('\n')
+};
+
+function loadExample(name){
+  document.getElementById('logInput').value = EXAMPLES[name];
+  document.querySelectorAll('.example-chip').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.example-chip[data-example="${name}"]`).classList.add('active');
+  analyze();
+}
+
+// ===== PARSER =====
+function parseLogs(text){
+  const lines = text.split('\n').filter(l => l.trim());
+  const entries = [];
+  // Try common patterns
+  const patterns = [
+    // [timestamp] LEVEL message
+    /^\[?(\d{4}[-\/]\d{2}[-\/]\d{2}[T ]?\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\]?\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL)\s*[:]?\s*(.+)/i,
+    // LEVEL: message
+    /^(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL)\s*[:>]\s*(.+)/i,
+    // Generic: timestamp - level - message
+    /^(\d{4}[-\/]\d{2}[-\/]\d{2}[T ]?\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?).*?(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL)\s*[:]?\s*(.+)/i,
+  ];
+
+  for(const line of lines){
+    let matched = false;
+    for(const pat of patterns){
+      const m = line.match(pat);
+      if(m){
+        let level = m[2] || m[1];
+        level = level.toUpperCase();
+        if(level === 'WARNING') level = 'WARN';
+        if(level === 'FATAL' || level === 'TRACE') level = 'ERROR';
+        entries.push({ level, message: m[m.length-1].trim(), raw: line });
+        matched = true;
+        break;
+      }
+    }
+    if(!matched){
+      // Classify by keywords
+      const upper = line.toUpperCase();
+      let level = 'INFO';
+      if(/ERROR|FATAL|CRITICAL|EXCEPTION|FAILED|UNCAUGHT/i.test(line)) level = 'ERROR';
+      else if(/WARN|WARNING|CAUTION/i.test(line)) level = 'WARN';
+      else if(/DEBUG|TRACE|VERBOSE/i.test(line)) level = 'DEBUG';
+      entries.push({ level, message: line, raw: line });
+    }
+  }
+  return entries;
+}
+
+// ===== CLUSTER =====
+function clusterErrors(entries){
+  const clusters = {};
+  for(const e of entries){
+    // Normalize message for grouping: remove IDs, numbers, timestamps
+    let key = e.message
+      .replace(/0x[0-9a-fA-F]+/g, '0x...')
+      .replace(/['"][^'"]*['"]/g, '"..."')
+      .replace(/\b\d{2,}\b/g, 'NN')
+      .replace(/\b[a-f0-9]{8,}\b/g, 'hash')
+      .replace(/:\d{4,}/g, ':NNNN')
+      .substring(0, 120);
+    const level = e.level;
+    const clusterKey = level + '::' + key;
+    if(!clusters[clusterKey]){
+      clusters[clusterKey] = { level, message: e.message, count: 0, samples: [] };
+    }
+    clusters[clusterKey].count++;
+    if(clusters[clusterKey].samples.length < 3) clusters[clusterKey].samples.push(e.raw);
+  }
+  return Object.values(clusters).sort((a,b) => b.count - a.count);
+}
+
+// ===== DRAW CHARTS =====
+let chartCache = {};
+
+function drawFreqChart(clusters, targetId){
+  const container = document.getElementById(targetId);
+  if(!container) return;
+  const top = clusters.slice(0, 12);
+  const maxCount = Math.max(...top.map(c => c.count), 1);
+  const w = container.clientWidth || 400;
+  const h = container.clientHeight || 180;
+  const pad = { top: 10, bottom: 28, left: 12, right: 12 };
+  const barW = Math.max(8, Math.min(28, (w - pad.left - pad.right) / top.length - 4));
+  const chartH = h - pad.top - pad.bottom;
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
+  top.forEach((c, i) => {
+    const barH = (c.count / maxCount) * chartH;
+    const x = pad.left + i * (barW + 4);
+    const y = pad.top + chartH - barH;
+    const color = c.level === 'ERROR' ? '#ef4444' : c.level === 'WARN' ? '#f59e0b' : c.level === 'DEBUG' ? '#6b6b78' : '#3b82f6';
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${color}" rx="2" opacity="0.85">`;
+    svg += `<title>${c.count}× ${escXml(c.message.substring(0,60))}</title>`;
+    svg += `</rect>`;
+    // Label
+    const label = c.message.length > 10 ? c.message.substring(0,8)+'…' : c.message;
+    svg += `<text x="${x + barW/2}" y="${h - 6}" text-anchor="end" transform="rotate(-35,${x+barW/2},${h-6})" font-size="9" fill="var(--text3)" font-family="var(--font-mono)">${escXml(label)}</text>`;
+  });
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+
+function drawLevelChart(entries, targetId){
+  const container = document.getElementById(targetId);
+  if(!container) return;
+  const counts = {ERROR:0, WARN:0, INFO:0, DEBUG:0};
+  entries.forEach(e => { if(counts[e.level]!==undefined) counts[e.level]++; else counts.INFO++; });
+  const total = entries.length || 1;
+  const w = container.clientWidth || 400;
+  const h = container.clientHeight || 180;
+  const cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 30;
+
+  const colors = {ERROR:'#ef4444', WARN:'#f59e0b', INFO:'#3b82f6', DEBUG:'#6b6b78'};
+  const items = Object.entries(counts).filter(([_,v]) => v > 0);
+  
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
+  let angle = -90;
+  items.forEach(([level, count]) => {
+    const pct = count / total;
+    const a = pct * 360;
+    if(a < 0.5) return;
+    const aRad = (angle * Math.PI) / 180;
+    const aEnd = ((angle + a) * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(aRad);
+    const y1 = cy + r * Math.sin(aRad);
+    const x2 = cx + r * Math.cos(aEnd);
+    const y2 = cy + r * Math.sin(aEnd);
+    const large = a > 180 ? 1 : 0;
+    svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${colors[level]}" opacity="0.85"><title>${level}: ${count} (${(pct*100).toFixed(1)}%)</title></path>`;
+    angle += a;
+  });
+  // Center hole
+  svg += `<circle cx="${cx}" cy="${cy}" r="${r*0.5}" fill="var(--bg)"/>`;
+  svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="20" font-weight="700" fill="var(--text)" font-family="var(--font-mono)">${total}</text>`;
+  svg += `<text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="9" fill="var(--text3)" font-family="var(--font-mono)">entries</text>`;
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+
+function escXml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===== TABLE =====
+let currentClusters = [];
+let currentFilter = 'all';
+let currentSort = { col: 2, dir: -1 };
+
+function renderTable(clusters){
+  currentClusters = clusters;
+  const tbody = document.getElementById('tableBody');
+  let filtered = clusters;
+  if(currentFilter !== 'all') filtered = filtered.filter(c => c.level === currentFilter);
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  if(search) filtered = filtered.filter(c => c.message.toLowerCase().includes(search));
+
+  // Sort
+  filtered.sort((a,b) => {
+    let va, vb;
+    if(currentSort.col === 0) { va = a.level; vb = b.level; }
+    else if(currentSort.col === 1) { va = a.message; vb = b.message; }
+    else if(currentSort.col === 2) { va = a.count; vb = b.count; }
+    else { va = a.samples[0] || ''; vb = b.samples[0] || ''; }
+    if(typeof va === 'string') return currentSort.dir * va.localeCompare(vb);
+    return currentSort.dir * (va - vb);
+  });
+
+  tbody.innerHTML = filtered.map(c => {
+    const lc = c.level === 'ERROR' ? 'level-error' : c.level === 'WARN' ? 'level-warn' : c.level === 'INFO' ? 'level-info' : 'level-debug';
+    return `<tr>
+      <td><span class="${lc}">${c.level}</span></td>
+      <td>${escXml(c.message)}</td>
+      <td><strong>${c.count}</strong></td>
+      <td style="font-size:11px;color:var(--text3);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escXml(c.samples[0] || '')}</td>
+    </tr>`;
+  }).join('');
+
+  // Update sort arrows
+  document.querySelectorAll('.results-table th .sort-arrow').forEach((el,i) => {
+    el.textContent = i === currentSort.col ? (currentSort.dir === 1 ? '↑' : '↓') : '↕';
+  });
+
+  // Update stats
+  const total = clusters.reduce((s,c) => s + c.count, 0);
+  document.getElementById('resultsStats').innerHTML = `
+    <span class="stat-chip"><strong>${clusters.length}</strong> patterns</span>
+    <span class="stat-chip"><strong>${total}</strong> total entries</span>
+    <span class="stat-chip">Filtered: <strong>${filtered.length}</strong></span>
+  `;
+}
+
+function filterLevel(level, btn){
+  currentFilter = level;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(currentClusters);
+}
+
+function filterTable(){
+  renderTable(currentClusters);
+}
+
+function sortTable(col){
+  if(currentSort.col === col) currentSort.dir *= -1;
+  else { currentSort.col = col; currentSort.dir = -1; }
+  renderTable(currentClusters);
+}
+
+// ===== SAVINGS COUNTER =====
+function animateSavings(count){
+  const el = document.getElementById('savingsNumber');
+  const entriesEl = document.getElementById('savingsEntries');
+  entriesEl.textContent = count;
+  const target = count * 15; // ~15 sec per entry
+  const duration = 800;
+  let start = null;
+  function frame(t){
+    if(!start) start = t;
+    const p = Math.min((t - start) / duration, 1);
+    // Ease out
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(eased * target);
+    if(p < 1) requestAnimationFrame(frame);
+    else {
+      el.textContent = target;
+      el.classList.add('pulse');
+      setTimeout(() => el.classList.remove('pulse'), 600);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ===== CELEBRATION =====
+let hasCelebrated = false;
+
+function celebrate(){
+  if(hasCelebrated) return;
+  hasCelebrated = true;
+  const el = document.getElementById('celebration');
+  el.classList.add('fire');
+  setTimeout(() => el.classList.remove('fire'), 700);
+}
+
+// ===== MAIN ANALYZE =====
+function analyze(){
+  const text = document.getElementById('logInput').value.trim();
+  if(!text){
+    document.getElementById('feedbackStatus').textContent = '⚠️ Paste some logs first';
+    return;
+  }
+
+  // Don't reset hasCelebrated — celebration is once per page load
+  const rail = document.getElementById('feedbackRail');
+  const bar = document.getElementById('feedbackBar');
+  const status = document.getElementById('feedbackStatus');
+  const resultsArea = document.getElementById('resultsArea');
+  const savingsBox = document.getElementById('savingsBox');
+  
+  rail.classList.add('show');
+  bar.style.width = '20%';
+  bar.classList.add('pulse');
+  status.textContent = '⏳ Parsing log entries...';
+  
+  // Update flow
+  updateFlow(0);
+
+  setTimeout(() => {
+    const entries = parseLogs(text);
+    if(entries.length === 0){
+      status.textContent = '⚠️ No recognizable log entries found';
+      bar.classList.remove('pulse');
+      return;
+    }
+
+    bar.style.width = '50%';
+    status.textContent = `🔍 Found ${entries.length} entries. Clustering patterns...`;
+    updateFlow(1);
+
+    setTimeout(() => {
+      const clusters = clusterErrors(entries);
+      
+      bar.style.width = '80%';
+      status.textContent = `📊 ${clusters.length} unique patterns identified. Rendering...`;
+      
+      setTimeout(() => {
+        // Render
+        drawFreqChart(clusters, 'freqChart');
+        drawLevelChart(entries, 'levelChart');
+        renderTable(clusters);
+        
+        bar.style.width = '100%';
+        bar.classList.remove('pulse');
+        status.textContent = `✅ Done — ${clusters.length} patterns from ${entries.length} entries`;
+        updateFlow(2);
+        
+        resultsArea.classList.add('show');
+        savingsBox.style.display = 'block';
+        animateSavings(clusters.length);
+        celebrate();
+        
+        // Scroll to results
+        setTimeout(() => {
+          resultsArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+      }, 150);
+    }, 200);
+  }, 200);
+}
+
+function clearLog(){
+  document.getElementById('logInput').value = '';
+  document.getElementById('resultsArea').classList.remove('show');
+  document.getElementById('savingsBox').style.display = 'none';
+  document.getElementById('feedbackRail').classList.remove('show');
+  document.getElementById('feedbackStatus').textContent = '';
+  document.querySelectorAll('.example-chip').forEach(c => c.classList.remove('active'));
+  updateFlow(-1);
+}
+
+// ===== FLOW ANIMATION =====
+function updateFlow(step){
+  document.querySelectorAll('.flow-step').forEach((el,i) => {
+    el.classList.toggle('active', i === step);
+    el.classList.toggle('done', i < step);
+  });
+  document.querySelectorAll('.flow-connector').forEach((el,i) => {
+    el.classList.toggle('fill', i < step);
+  });
+}
+
+// ===== DRAG & DROP =====
+(function(){
+  const inputArea = document.getElementById('inputArea');
+  const dropZone = document.getElementById('dropZone');
+  const textarea = document.getElementById('logInput');
+  const jsonDrop = document.getElementById('jsonDropZone');
+
+  inputArea.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('show','drag-over'); });
+  inputArea.addEventListener('dragleave', e => { dropZone.classList.remove('drag-over'); });
+  inputArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('show','drag-over');
+    const file = e.dataTransfer.files[0];
+    if(file){
+      const reader = new FileReader();
+      reader.onload = () => { textarea.value = reader.result; };
+      reader.readAsText(file);
+    }
+  });
+
+  // JSON drop
+  jsonDrop.addEventListener('dragover', e => { e.preventDefault(); jsonDrop.classList.add('drag-over'); });
+  jsonDrop.addEventListener('dragleave', e => { jsonDrop.classList.remove('drag-over'); });
+  jsonDrop.addEventListener('drop', e => {
+    e.preventDefault();
+    jsonDrop.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if(file){
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if(data.zcac && data.data && data.data.clusters){
+            // Import!
+            currentClusters = data.data.clusters;
+            const entries = data.data.entries || [];
+            drawFreqChart(currentClusters, 'freqChart');
+            drawLevelChart(entries, 'levelChart');
+            renderTable(currentClusters);
+            document.getElementById('resultsArea').classList.add('show');
+            document.getElementById('savingsBox').style.display = 'block';
+            animateSavings(currentClusters.length);
+            jsonDrop.innerHTML = '<span style="color:var(--accent)">✅ Imported! ✓</span>';
+            setTimeout(() => { jsonDrop.innerHTML = '<span style="font-size:12px">📥 Drop a .json export here to re-import</span>'; }, 2000);
+          }
+        } catch(e){ jsonDrop.innerHTML = '<span style="color:var(--red)">❌ Invalid JSON format</span>';
+          setTimeout(() => { jsonDrop.innerHTML = '<span style="font-size:12px">📥 Drop a .json export here to re-import</span>'; }, 2000); }
+      };
+      reader.readAsText(file);
+    }
+  });
+
+  // Also show drop zone on drag over document
+  document.addEventListener('dragover', e => { e.preventDefault(); });
+  document.addEventListener('drop', e => { e.preventDefault(); });
+  
+  // Hide drop zone when not dragging over input
+  textarea.addEventListener('focus', () => dropZone.classList.remove('show'));
+  textarea.addEventListener('blur', () => dropZone.classList.remove('show'));
+  textarea.addEventListener('input', () => dropZone.classList.remove('show'));
+})();
+
+// ===== COPY / EXPORT =====
+function copyText(id){
+  const el = document.getElementById(id);
+  const text = el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = el.parentElement.querySelector('.copy-btn') || el.parentElement.nextElementSibling;
+    if(btn && btn.classList){
+      btn.classList.add('copied');
+      const check = btn.querySelector('.check-morph') || (() => { const s = document.createElement('span'); s.className='check-morph'; s.textContent='✓'; btn.prepend(s); return s; })();
+      setTimeout(() => { btn.classList.remove('copied'); if(btn.querySelector('.check-morph')) btn.querySelector('.check-morph').remove(); }, 1200);
+    }
+  });
+}
+
+function copyResults(){
+  const data = {
+    zcac: true,
+    kind: "log-triage-analysis",
+    data: {
+      clusters: currentClusters,
+      entries: currentClusters.reduce((a,c) => a + c.count, 0)
+    }
+  };
+  navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
+    const btn = document.querySelector('.export-row .copy-btn');
+    btn.classList.add('copied');
+    let check = btn.querySelector('.check-morph');
+    if(!check){ check = document.createElement('span'); check.className='check-morph'; check.textContent='✓ '; btn.prepend(check); }
+    setTimeout(() => { btn.classList.remove('copied'); if(btn.querySelector('.check-morph')) btn.querySelector('.check-morph').remove(); }, 1200);
+  });
+}
+
+function downloadResults(){
+  const data = {
+    zcac: true,
+    kind: "log-triage-analysis",
+    data: {
+      clusters: currentClusters,
+      entries: currentClusters.reduce((a,c) => a + c.count, 0),
+      analyzedAt: new Date().toISOString()
+    }
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'log-triage-analysis.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== PROMPT TABS =====
+document.getElementById('promptTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.prompt-tab');
+  if(!tab) return;
+  document.querySelectorAll('.prompt-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.prompt-content').forEach(c => c.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+});
+
+// ===== INIT =====
+// Draw initial why chart
+(function(){
+  const container = document.getElementById('whyChart');
+  if(!container) return;
+  const w = container.clientWidth || 500;
+  const h = 200;
+  // Data: approximate yearly logging SO questions (based on arXiv paper trends)
+  const data = [
+    { year: '2020', count: 42000 },
+    { year: '2021', count: 38500 },
+    { year: '2022', count: 35000 },
+    { year: '2023', count: 28000 },
+    { year: '2024', count: 18000 },
+    { year: '2025', count: 8000 },
+  ];
+  const max = Math.max(...data.map(d => d.count));
+  const pad = { top: 16, bottom: 28, left: 40, right: 12 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+  const barW = Math.max(10, Math.min(40, chartW / data.length - 8));
+
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
+  // Grid lines
+  for(let i = 0; i <= 4; i++){
+    const y = pad.top + chartH - (i/4)*chartH;
+    const val = Math.round((i/4)*max);
+    svg += `<line x1="${pad.left}" y1="${y}" x2="${w-pad.right}" y2="${y}" stroke="var(--bg4)" stroke-width="1"/>`;
+    svg += `<text x="${pad.left-6}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)" font-family="var(--font-mono)">${val.toLocaleString()}</text>`;
+  }
+  data.forEach((d,i) => {
+    const barH = (d.count / max) * chartH;
+    const x = pad.left + i * (barW + 8);
+    const y = pad.top + chartH - barH;
+    svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="var(--accent)" rx="2" opacity="0.8"><title>${d.year}: ${d.count.toLocaleString()}</title></rect>`;
+    svg += `<text x="${x+barW/2}" y="${h-6}" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="var(--font-mono)">${d.year}</text>`;
+    // Count on top
+    svg += `<text x="${x+barW/2}" y="${y-4}" text-anchor="middle" font-size="9" fill="var(--text2)" font-family="var(--font-mono)">${(d.count/1000).toFixed(0)}k</text>`;
+  });
+  svg += `<text x="${w-12}" y="12" text-anchor="end" font-size="9" fill="var(--text3)" font-family="var(--font-mono)">Annual logging questions (est.)</text>`;
+  svg += `</svg>`;
+  container.innerHTML = svg;
+})();
+
+// ===== SAVINGS COUNTER DEFAULTS =====
+// Pre-load with empty state
+document.getElementById('resultsArea').classList.remove('show');
+document.getElementById('savingsBox').style.display = 'none';
+</script>
+</body>
+</html>
