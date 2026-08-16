@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Engineering: LLM Structured Output Repair & Context Profiler</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d;
+      --text: #c9d1d9; --accent: #58a6ff; --green: #3fb950;
+      --red: #f85149; --yellow: #d29922; --font: system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); padding: 1rem; line-height: 1.5; }
+    header { margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    h1 { font-size: 1.25rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem; }
+    .badge { background: #1f6feb22; color: var(--accent); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; border: 1px solid #1f6feb44; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; }
+    .card h2 { font-size: 0.95rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; }
+    textarea { width: 100%; height: 160px; background: #0d1117; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: monospace; padding: 0.5rem; font-size: 0.85rem; resize: vertical; }
+    textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+    .btn-group { display: flex; gap: 0.5rem; margin: 0.75rem 0; flex-wrap: wrap; }
+    button { background: #21262d; border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+    button:hover { background: #30363d; border-color: #8b949e; }
+    button.primary { background: #238636; border-color: #2ea043; color: #fff; }
+    button.primary:hover { background: #2ea043; }
+    .status-bar { padding: 0.5rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .status-valid { background: #23863622; color: var(--green); border: 1px solid #23863644; }
+    .status-repaired { background: #d2992222; color: var(--yellow); border: 1px solid #d2992244; }
+    .status-invalid { background: #f8514922; color: var(--red); border: 1px solid #f8514944; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: center; margin-top: 0.5rem; }
+    .metric-box { background: #0d1117; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border); }
+    .metric-val { font-size: 1.1rem; font-weight: bold; color: var(--accent); }
+    .metric-lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>AI Engineering Harness <span class="badge">Zero-Cost Vanilla Stack</span></h1>
+    <p style="font-size:0.8rem; color:#8b949e; margin-top:0.25rem;">Deterministic LLM JSON Repair & Multi-Section Token Budget Profiler</p>
+  </header>
+
+  <main class="grid">
+    <!-- JSON Repair Engine Panel -->
+    <section class="card">
+      <h2>1. Malformed LLM JSON Recovery</h2>
+      <p style="font-size:0.75rem; color:#8b949e; margin-bottom:0.5rem;">Paste raw/truncated LLM string output below. Auto-fixes markdown blocks, missing brackets, unescaped quotes, & trailing commas.</p>
+      <textarea id="jsonInput" placeholder="```json&#10;{\n  &quot;status&quot;: &quot;success&quot;,\n  &quot;data&quot;: [&quot;item1&quot;, &quot;item2&quot;,\n  &quot;metrics&quot;: { &quot;accuracy&quot;: 0.98&#10;```"></textarea>
+      
+      <div class="btn-group">
+        <button class="primary" onclick="processJSON()">Repair JSON</button>
+        <button onclick="loadSampleMalformed()">Load Bad JSON Sample</button>
+      </div>
+
+      <div id="repairStatus" class="status-bar status-invalid" style="display:none;"></div>
+      <textarea id="jsonOutput" readonly placeholder="Repaired JSON output will display here..."></textarea>
+    </section>
+
+    <!-- Context Budget & Token Profiler Panel -->
+    <section class="card">
+      <h2>2. Prompt Context Token Budgeting</h2>
+      <p style="font-size:0.75rem; color:#8b949e; margin-bottom:0.5rem;">Estimate sub-prompt token allocations (~4 chars/token approximation) across agent prompt sections.</p>
+      
+      <label style="font-size:0.75rem; color:#8b949e;">System Prompt + Tool Definitions:</label>
+      <textarea id="sysPromptInput" style="height:60px;" placeholder="System prompt & function schemas..."></textarea>
+      
+      <label style="font-size:0.75rem; color:#8b949e; margin-top:0.5rem; display:block;">RAG Context / Few-Shot Examples:</label>
+      <textarea id="ragContextInput" style="height:60px;" placeholder="Retrieved documents or long context..."></textarea>
+
+      <div class="btn-group">
+        <button onclick="calculateTokens()">Calculate Budget</button>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div id="sysTokens" class="metric-val">0</div>
+          <div class="metric-lbl">System Tokens</div>
+        </div>
+        <div class="metric-box">
+          <div id="ragTokens" class="metric-val">0</div>
+          <div class="metric-lbl">RAG Tokens</div>
+        </div>
+        <div class="metric-box">
+          <div id="totalTokens" class="metric-val">0</div>
+          <div class="metric-lbl">Total Est. Tokens</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function parseAndRepairJSON(raw) {
+      if (!raw || !raw.trim()) return { success: false, data: null, message: "Empty input" };
+      
+      let str = raw.trim();
+
+      // Step 1: Strip Markdown code blocks
+      str = str.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+
+      // Step 2: Try immediate parse
+      try {
+        return { success: true, data: JSON.parse(str), message: "Valid JSON (No repair required)", repaired: false };
+      } catch (e) {
+        // Fallback to repair heuristic
+      }
+
+      // Step 3: Remove trailing commas before closing braces/brackets
+      str = str.replace(/,\s*([\}\]])/g, '$1');
+
+      // Step 4: Balance unclosed string quotes
+      let inString = false;
+      let escaped = false;
+      for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        if (char === '\\' && !escaped) {
+          escaped = true;
+        } else {
+          if (char === '"' && !escaped) {
+            inString = !inString;
+          }
+          escaped = false;
+        }
+      }
+      if (inString) {
+        str += '"';
+      }
+
+      // Step 5: Balance structural brackets/braces
+      const stack = [];
+      inString = false;
+      escaped = false;
+      for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        if (char === '\\' && !escaped) {
+          escaped = true;
+          continue;
+        }
+        if (char === '"' && !escaped) {
+          inString = !inString;
+        }
+        if (!inString) {
+          if (char === '{' || char === '[') stack.push(char === '{' ? '}' : ']');
+          else if (char === '}' || char === ']') {
+            if (stack.length > 0 && stack[stack.length - 1] === char) {
+              stack.pop();
+            }
+          }
+        }
+        escaped = false;
+      }
+
+      // Append missing closing symbols in reverse order
+      while (stack.length > 0) {
+        str += stack.pop();
+      }
+
+      // Final JSON parse test
+      try {
+        const parsed = JSON.parse(str);
+        return { success: true, data: parsed, message: "Successfully repaired malformed structure", repaired: true };
+      } catch (err) {
+        return { success: false, data: null, message: "Fatal structural corruption: " + err.message, repaired: false };
+      }
+    }
+
+    function processJSON() {
+      const input = document.getElementById('jsonInput').value;
+      const statusEl = document.getElementById('repairStatus');
+      const outputEl = document.getElementById('jsonOutput');
+
+      const res = parseAndRepairJSON(input);
+      statusEl.style.display = 'block';
+
+      if (res.success) {
+        statusEl.className = 'status-bar ' + (res.repaired ? 'status-repaired' : 'status-valid');
+        statusEl.textContent = res.message;
+        outputEl.value = JSON.stringify(res.data, null, 2);
+      } else {
+        statusEl.className = 'status-bar status-invalid';
+        statusEl.textContent = res.message;
+        outputEl.value = '';
+      }
+    }
+
+    function calculateTokens() {
+      const sys = document.getElementById('sysPromptInput').value || "";
+      const rag = document.getElementById('ragContextInput').value || "";
+
+      // Standard heuristic: 1 token ~ 4 English characters
+      const sysTok = Math.ceil(sys.length / 4);
+      const ragTok = Math.ceil(rag.length / 4);
+
+      document.getElementById('sysTokens').textContent = sysTok.toLocaleString();
+      document.getElementById('ragTokens').textContent = ragTok.toLocaleString();
+      document.getElementById('totalTokens').textContent = (sysTok + ragTok).toLocaleString();
+    }
+
+    function loadSampleMalformed() {
+      document.getElementById('jsonInput').value = "```json\n{\n  \"model\": \"llama-4-70b\",\n  \"latency_ms\": 142,\n  \"predictions\": [\"cat\", \"dog\", \"bird\",\n  \"tokens_used\": {\n    \"prompt\": 120\n```";
+    }
+  </script>
+</body>
+</html>
