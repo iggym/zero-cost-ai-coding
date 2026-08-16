@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fine-tune Inspector — zero-cost AI coding tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --ease-out:cubic-bezier(.16,1,.3,1); --ease-in-out:cubic-bezier(.65,0,.35,1); --dur-fast:150ms; --dur-med:300ms; --dur-slow:500ms; }
+  [data-theme="dark"]{ --bg:#0b0e10; --bg-2:#11151a; --surface:#151b22; --surface-2:#1b232c; --border:#283340; --border-soft:#1f2a36; --text:#e6edf3; --text-dim:#9aa7b5; --text-mute:#6b7785; --accent:#34d399; --accent-dim:#10b981; --accent-soft:rgba(52,211,153,.14); --crit:#f87171; --warn:#fbbf24; --info:#60a5fa; --ok:#34d399; --shadow:0 1px 0 rgba(255,255,255,.04),0 8px 28px rgba(0,0,0,.42); }
+  [data-theme="light"]{ --bg:#f6f8fa; --bg-2:#eef2f6; --surface:#ffffff; --surface-2:#f3f6f9; --border:#dbe3ea; --border-soft:#e7edf3; --text:#0f1a22; --text-dim:#41505d; --text-mute:#6b7785; --accent:#0f9d6b; --accent-dim:#0c7d56; --accent-soft:rgba(15,157,107,.12); --crit:#dc2626; --warn:#d97706; --info:#2563eb; --ok:#0f9d6b; --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.08); }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;transition:background var(--dur-med) var(--ease-out),color var(--dur-med) var(--ease-out);}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  section{padding:54px 0;border-bottom:1px solid var(--border-soft)}
+  h1,h2,h3{font-family:'JetBrains Mono',monospace;letter-spacing:-.02em;line-height:1.12;margin:0 0 .4em}
+  h2{font-size:1.7rem} h3{font-size:1.05rem}
+  p{margin:0 0 .7em;color:var(--text-dim)} .dim{color:var(--text-dim)} .mute{color:var(--text-mute);font-size:.82rem}
+
+  .topbar{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom:1px solid var(--border-soft)}
+  .topbar .row{display:flex;align-items:center;justify-content:space-between;height:54px;gap:12px}
+  .home-link{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text-dim)}
+  .home-link .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .topbar .title{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--text-dim)}
+  .theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.78rem;transition:all var(--dur-fast) var(--ease-out)}
+  .theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+  .hero{padding:64px 0 30px}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:999px;padding:5px 12px;font-size:.74rem;font-family:'JetBrains Mono',monospace;margin-bottom:18px}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .hero h1{font-size:2.6rem;max-width:18ch}
+  .hero .hook{font-family:'JetBrains Mono',monospace;color:var(--text-dim);font-size:1.02rem;margin-top:6px;border-left:2px solid var(--accent);padding-left:12px}
+  .hero .lede{max-width:64ch;margin-top:18px}
+  .share-row{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 13px;cursor:pointer;font-size:.82rem;font-family:'JetBrains Mono',monospace;transition:all var(--dur-fast) var(--ease-out)}
+  .btn:hover{border-color:var(--accent);transform:translateY(-1px)} .btn:active{transform:translateY(0)}
+  .btn.primary{background:var(--accent);color:#04140d;border-color:var(--accent);font-weight:600} .btn.primary:hover{background:var(--accent-dim)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow)}
+  .grid2{display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}.hero h1{font-size:1.9rem}}
+
+  table.data{width:100%;border-collapse:collapse;font-size:.85rem}
+  table.data th,table.data td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border-soft)}
+  table.data th{font-family:'JetBrains Mono',monospace;font-size:.72rem;text-transform:uppercase;color:var(--text-mute);cursor:pointer;user-select:none;white-space:nowrap}
+  table.data th:hover{color:var(--accent)} table.data th .arrow{opacity:.4;font-size:.7rem;margin-left:4px}
+  table.data th.sorted .arrow{opacity:1;color:var(--accent)}
+  table.data tr:last-child td{border-bottom:none}
+  table.data tr.row-fade td{transition:background var(--dur-med) var(--ease-out)}
+
+  .chartbox{position:relative} .chart-svg{width:100%;height:auto;display:block;overflow:visible}
+  .chart-caption{font-size:.74rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace;margin-top:8px}
+
+  .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:0;margin-top:8px}
+  .flow-node{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;transition:border-color var(--dur-med) var(--ease-out),transform var(--dur-med) var(--ease-out)}
+  .flow-node.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)} .flow-node.done{border-color:var(--accent)}
+  .flow-node .ico{font-family:'JetBrains Mono',monospace;font-size:1.2rem;color:var(--accent);margin-bottom:6px}
+  .flow-node .lbl{font-size:.72rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
+  .flow-node .desc{font-size:.82rem;margin-top:4px;color:var(--text-dim)}
+  .flow-line{width:34px;flex:0 0 34px}
+  @media(max-width:820px){.flow{grid-template-columns:1fr;gap:8px}.flow-line{width:1px;height:18px;margin:0 auto}}
+
+  .dropzone{position:relative;border:1.5px dashed var(--border);border-radius:12px;transition:all var(--dur-med) var(--ease-out);background:var(--surface-2)}
+  .dropzone.over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.005)}
+  .dropzone textarea{width:100%;min-height:170px;background:transparent;border:none;outline:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:14px;resize:vertical;line-height:1.5}
+  .dropzone textarea::placeholder{color:var(--text-mute)}
+  .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:.74rem;font-family:'JetBrains Mono',monospace;color:var(--text-dim);transition:all var(--dur-fast) var(--ease-out)}
+  .chip:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)} .chip .sz{color:var(--text-mute);margin-left:5px}
+  .tool-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:4px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-soft);color:var(--text-dim)}
+
+  .rail{position:fixed;left:0;bottom:0;width:100%;z-index:40;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--border-soft);transform:translateY(110%);transition:transform var(--dur-med) var(--ease-out)}
+  .rail.show{transform:translateY(0)}
+  .rail .inner{display:flex;align-items:center;gap:14px;max-width:1080px;margin:0 auto;padding:10px 20px}
+  .rail .status{font-family:'JetBrains Mono',monospace;font-size:.78rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail .steps{display:flex;gap:6px} .rail .step-dot{width:9px;height:9px;border-radius:50%;background:var(--border);transition:all var(--dur-med) var(--ease-out)}
+  .rail .step-dot.active{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)} .rail .step-dot.done{background:var(--accent)}
+  .rail .count{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--accent)}
+
+  .stat-row{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}
+  .stat{flex:1;min-width:120px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:11px;padding:14px}
+  .stat .v{font-family:'JetBrains Mono',monospace;font-size:1.6rem;color:var(--text)} .stat .l{font-size:.72rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
+  .stat .sub{font-size:.72rem;color:var(--text-mute);margin-top:4px}
+  .stat.ok .v{color:var(--ok)} .stat.crit .v{color:var(--crit)}
+  .save-pulse{animation:pulse 1.6s var(--ease-out)}
+  .slider-wrap{display:flex;align-items:center;gap:12px;margin:14px 0;flex-wrap:wrap}
+  .slider-wrap label{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--text-dim)}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:5px;border-radius:5px;background:var(--border);outline:none;flex:1;min-width:160px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;transition:transform var(--dur-fast) var(--ease-out)}
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:var(--accent);cursor:pointer}
+  .search-input{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:.8rem;width:100%;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color var(--dur-fast) var(--ease-out)}
+  .search-input:focus{border-color:var(--accent)}
+
+  .results-table th{cursor:pointer;white-space:nowrap}
+  .tag{display:inline-block;padding:2px 8px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+  .tag-ok{background:var(--accent-soft);color:var(--ok)} .tag-bad{background:rgba(248,113,113,.14);color:var(--crit)} .tag-dup{background:rgba(251,191,36,.14);color:var(--warn)}
+  .preview{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--text-dim);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--text-mute)} .empty-state .big{font-family:'JetBrains Mono',monospace;font-size:2rem;margin-bottom:8px}
+
+  .tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:16px}
+  .tab{background:transparent;border:1px solid transparent;border-bottom:none;color:var(--text-dim);padding:9px 14px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:.78rem;border-radius:8px 8px 0 0;transition:all var(--dur-fast) var(--ease-out)}
+  .tab:hover{color:var(--accent)} .tab.active{color:var(--accent);border-color:var(--border);border-bottom-color:var(--bg);background:var(--surface)}
+  .tab-panel{display:none;animation:fade var(--dur-med) var(--ease-out)} .tab-panel.active{display:block}
+  .prompt-block{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:10px;padding:14px;margin-bottom:12px;position:relative}
+  .prompt-block .hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .prompt-block .hd .ttl{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text-dim)}
+  .prompt-block .params{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-mute);background:var(--bg-2);border-radius:6px;padding:6px 9px;margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap}
+  pre.code{background:var(--bg-2);border:1px solid var(--border-soft);border-radius:8px;padding:12px;overflow:auto;font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--text);line-height:1.5;max-height:340px;margin:0}
+
+  .import-zone{border:1.5px dashed var(--border);border-radius:10px;padding:18px;text-align:center;color:var(--text-mute);font-family:'JetBrains Mono',monospace;font-size:.78rem;transition:all var(--dur-med) var(--ease-out);cursor:pointer;margin-top:12px}
+  .import-zone.over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.01);color:var(--accent)}
+
+  .footer{text-align:center;padding:26px 0;color:var(--text-mute);font-size:.76rem;font-family:'JetBrains Mono',monospace} .foot-link{color:var(--text-dim)}
+
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 var(--accent-soft)}70%{box-shadow:0 0 0 12px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .stagger{opacity:0;transform:translateY(10px)}
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#04140d;padding:9px 16px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:600;opacity:0;pointer-events:none;transition:all var(--dur-med) var(--ease-out);z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:8px}
+  code.inline{background:var(--bg-2);border:1px solid var(--border-soft);border-radius:4px;padding:1px 5px;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+
+  @media (prefers-reduced-motion: no-preference){
+    .stagger{animation:fade var(--dur-med) var(--ease-out) both}
+    .card{transition:transform var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out)}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <a class="home-link" href="https://iggym.github.io/zero-cost-ai-coding/"><span class="dot"></span> zero-cost-ai-coding</a>
+  <span class="title">Fine-tune Inspector</span>
+  <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">◐ theme</button>
+</div></div>
+
+<main class="wrap">
+
+  <section class="hero" style="border-bottom:none">
+    <span class="pill"><span class="dot"></span> Browser-native · no key · no backend</span>
+    <h1>Inspect &amp; validate a fine-tuning JSONL before you upload.</h1>
+    <div class="hook">Drop a dataset. Watch bad rows surface.</div>
+    <p class="lede">Paste an OpenAI chat-format fine-tuning dataset (one JSON object per line) and this tool parses every line, validates the <code class="inline">messages</code> schema, flags malformed rows and duplicates, estimates per-example token size, and gives you a sortable triage table — all in your browser. Your data never leaves the page. No API key, no card.</p>
+    <div class="share-row">
+      <button class="btn" id="shareX">↗ share on X</button>
+      <button class="btn" id="shareCopy" data-copy-target="link">🔗 copy link</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">01 · Why this exists</div>
+    <h2>Dataset prep is where fine-tuning quietly fails.</h2>
+    <p>OpenAI accepts a JSONL file where each line is a conversation in Chat Completions shape — but a single malformed line, an empty <code class="inline">content</code> field, or a stray trailing comma rejects the whole upload. The OpenAI community forum is full of "invalid training file" and "does not appear to be valid JSON format" threads ([example](https://community.openai.com/t/fine-tuning-error-the-job-failed-due-to-an-invalid-training-file-unexpected-file-format-expected-either-prompt-completion-pairs-or-chat-messages/726568)). Inspecting the file locally before upload is a $0, in-browser job — no need for a paid LLM-dev platform just to validate rows.</p>
+
+    <div class="grid2" style="margin-top:20px">
+      <div class="card">
+        <h3>LLM dev platforms vs. $0</h3>
+        <table class="data" id="priceTable">
+          <thead><tr>
+            <th data-key="name" class="sorted">Tool <span class="arrow">↑</span></th>
+            <th data-key="price">Starting price <span class="arrow"></span></th>
+            <th data-key="unit">Billed on <span class="arrow"></span></th>
+            <th data-key="free">Free tier <span class="arrow"></span></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="chart-caption">Source: vendor pricing pages, retrieved 2026-08-16 · <a href="https://www.langchain.com/pricing" target="_blank" rel="noopener">LangSmith</a> · <a href="https://www.helicone.ai/pricing" target="_blank" rel="noopener">Helicone</a> · <a href="https://arize.com/pricing/" target="_blank" rel="noopener">Arize</a></div>
+      </div>
+      <div class="card">
+        <h3>What a valid row needs</h3>
+        <div class="chartbox">
+          <svg class="chart-svg" id="schemaChart" viewBox="0 0 320 210" role="img" aria-label="valid JSONL row schema"></svg>
+          <div class="chart-caption">OpenAI chat fine-tuning format · <a href="https://developers.openai.com/api/docs/guides/supervised-fine-tuning.md" target="_blank" rel="noopener">developers.openai.com</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">02 · How it works</div>
+    <h2>Three local steps. No data leaves the browser.</h2>
+    <p>Each line is parsed as JSON, validated against the chat <code class="inline">messages</code> shape, then deduped and sized. The flow below lights up as the tool runs.</p>
+    <div style="margin-top:18px">
+      <div class="flow" id="flow">
+        <div class="flow-node" data-step="0"><div class="ico">[ ]</div><div class="lbl">Empty</div><div class="desc">Paste or drop JSONL</div></div>
+        <svg class="flow-line" viewBox="0 0 34 24"><line x1="2" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="2" stroke-linecap="round" stroke-dasharray="30" stroke-dashoffset="30"/><line x1="2" y1="12" x2="32" y2="12" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-dasharray="30" stroke-dashoffset="30" id="flowLine1On" style="transition:stroke-dashoffset .5s var(--ease-out)"/></svg>
+        <div class="flow-node" data-step="1"><div class="ico">≈</div><div class="lbl">Working</div><div class="desc">Parse &amp; validate</div></div>
+        <svg class="flow-line" viewBox="0 0 34 24"><line x1="2" y1="12" x2="32" y2="12" stroke="var(--border)" stroke-width="2" stroke-linecap="round" stroke-dasharray="30" stroke-dashoffset="30"/><line x1="2" y1="12" x2="32" y2="12" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-dasharray="30" stroke-dashoffset="30" id="flowLine2On" style="transition:stroke-dashoffset .5s var(--ease-out)"/></svg>
+        <div class="flow-node" data-step="2"><div class="ico">✓</div><div class="lbl">Done</div><div class="desc">Validated, sortable table</div></div>
+      </div>
+    </div>
+    <div style="margin-top:18px"><span class="badge">Free-tier limit: none — runs locally in your browser, no provider quota</span></div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">03 · The tool</div>
+    <h2>Try it on your own dataset.</h2>
+    <p class="dim">Paste below, drop a <code class="inline">.jsonl</code>/<code class="inline">.txt</code> file, or click a sample. Everything stays client-side.</p>
+
+    <div class="card" style="margin-top:8px">
+      <div class="chip-row">
+        <button class="chip" data-sample="tiny">Try this → tiny <span class="sz">6 rows</span></button>
+        <button class="chip" data-sample="medium">Try this → medium <span class="sz">~30 rows</span></button>
+        <button class="chip" data-sample="stress">Try this → stress <span class="sz">~400 rows</span></button>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <textarea id="logInput" spellcheck="false" placeholder='Paste JSONL here, e.g.
+{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello!"}]}
+{"messages":[{"role":"user","content":"What is 2+2?"},{"role":"assistant","content":"4"}]}'></textarea>
+      </div>
+      <div class="tool-actions">
+        <button class="btn primary" id="runBtn">▶ inspect</button>
+        <button class="btn" id="clearBtn">clear</button>
+        <button class="btn" id="exportJsonl" data-copy-target="export">⤓ download cleaned JSONL</button>
+        <button class="btn" id="copyJson" data-copy-target="copyjson">⧉ copy as JSON</button>
+        <span class="badge" id="lineBadge">0 rows</span>
+      </div>
+      <div class="import-zone" id="importZone">⇣ drop a Fine-tune Inspector JSON here to import a previous result (kind: ft-dataset)</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">04 · What it found</div>
+    <h2>Utility dashboard</h2>
+    <p class="dim">Charts and table update live from your pasted dataset. Drag the token-budget slider to surface over-budget examples.</p>
+
+    <div class="stat-row">
+      <div class="stat"><div class="v" id="statRows">0</div><div class="l">Rows parsed</div></div>
+      <div class="stat ok"><div class="v" id="statValid">0</div><div class="l">Valid rows</div></div>
+      <div class="stat crit"><div class="v" id="statBad">0</div><div class="l">Malformed rows</div></div>
+      <div class="stat"><div class="v" id="statDup">0</div><div class="l">Possible dupes</div><div class="sub">normalized exact match</div></div>
+      <div class="stat"><div class="v" id="statTokens">0</div><div class="l">Approx tokens</div><div class="sub">≈4 chars/token heuristic</div></div>
+    </div>
+
+    <div class="grid2" style="align-items:start">
+      <div class="card">
+        <h3>Messages-per-example</h3>
+        <div class="chartbox"><svg class="chart-svg" id="histChart" viewBox="0 0 420 220" role="img" aria-label="messages per example histogram"></svg></div>
+        <div class="chart-caption">Distribution of conversation length</div>
+      </div>
+      <div class="card">
+        <h3>Valid vs malformed</h3>
+        <div class="chartbox"><svg class="chart-svg" id="donutChart" viewBox="0 0 220 220" role="img" aria-label="valid vs malformed donut"></svg></div>
+        <div class="chart-caption" id="donutLegend"></div>
+      </div>
+    </div>
+
+    <div class="slider-wrap">
+      <label for="tokSlider">Token budget (approx):</label>
+      <input type="range" id="tokSlider" min="0" max="4000" value="4000" step="5" aria-label="token budget threshold" />
+      <label class="mono" style="min-width:90px" id="tokLabel">≤ 4000 tok</label>
+      <input type="search" id="tableSearch" class="search-input" placeholder="filter content…" style="max-width:240px" />
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="empty-state" id="emptyState">
+        <div class="big">∅</div><div>No dataset inspected yet.</div>
+        <div class="mute">Click a “Try this →” sample above, or paste your own JSONL.</div>
+      </div>
+      <div id="tableWrap" style="display:none">
+        <table class="data results-table" id="resTable">
+          <thead><tr>
+            <th data-key="rank">#</th>
+            <th data-key="status" class="sorted">Status <span class="arrow">↓</span></th>
+            <th data-key="msgs">Msgs <span class="arrow"></span></th>
+            <th data-key="tokens">≈Tokens <span class="arrow"></span></th>
+            <th data-key="roles">Roles <span class="arrow"></span></th>
+            <th data-key="preview">First content <span class="arrow"></span></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" id="badCard" style="margin-top:14px;border-color:var(--warn);display:none">
+      <h3 style="color:var(--warn)">Malformed rows</h3>
+      <table class="data" id="badTable">
+        <thead><tr><th>Line</th><th>Reason</th><th>Raw snippet</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:14px;border-color:var(--warn)">
+      <h3 style="color:var(--warn)">What breaks / honest limits</h3>
+      <p class="dim" style="margin:0">Token counts are a <strong>rough estimate</strong> using OpenAI’s “≈4 characters per token” rule of thumb for English — real tokenizers differ, especially for code, JSON, and non-English text, so treat numbers as a budget proxy, not an exact count. Dedupe is a <strong>normalized exact match</strong> (roles + content), not semantic similarity — reworded but equivalent examples will NOT merge. Validation covers the chat <code class="inline">messages</code> shape (role + content, at least one message); it does not enforce OpenAI’s full content-policy or per-model rules. Very large files (100k+ lines) will slow the single-threaded parser. Exported cleaned JSONL drops malformed rows and keeps one copy of each duplicate.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-eyebrow">05 · Build this yourself</div>
+    <h2>Parameterized prompt pack</h2>
+    <p class="dim">This teaches the pattern — not just this tool. Pick your model tab, copy, replace the <code class="inline">variables</code>, and run. Every schema below is the provider’s current real format, verified 2026-08-16.</p>
+
+    <div class="tabs" id="promptTabs">
+      <button class="tab active" data-tab="howto">How to use this</button>
+      <button class="tab" data-tab="openai">OpenAI</button>
+      <button class="tab" data-tab="anthropic">Anthropic</button>
+      <button class="tab" data-tab="google">Google</button>
+      <button class="tab" data-tab="openweight">Open-Weight</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="howto">
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">How to use this pack</span></div>
+        <p class="dim" style="font-size:.84rem;margin:0">
+          <strong>1. In a chatbot:</strong> Pick your model tab (e.g. <em>Anthropic</em>), click <em>Copy</em> on the system block and the user block, paste into claude.ai / chat.openai.com / aistudio.google.com, replace every <span class="mono" style="color:var(--accent)">{{variable}}</span> with your problem, send.<br><br>
+          <strong>2. In code:</strong> Use the model’s tool/function block — it is a ready <span class="mono">tools</span> payload for the OpenAI / Anthropic / Google API. Replace <span class="mono" style="color:var(--accent)">{{variables}}</span> programmatically.<br><br>
+          <strong>3. All prompts are parameterized</strong> with <span class="mono" style="color:var(--accent)">{{double-curly}}</span> variables you must fill. Never hardcode the example problem.<br><br>
+          <strong>4. Open-weight</strong> (local / vLLM / Ollama with Llama 3.1, Mistral, Qwen2): use the plain system/user template with strict JSON output — no tool wrappers needed.
+        </p>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Variables you must fill</span></div>
+        <pre class="code mono">{{PROBLEM}} {{AUDIENCE}} {{DATE}} {{FREE_SERVICE}} {{FREE_TIER_LIMIT}} {{FREE_TIER_URL}} {{SOLUTION_MODE}} {{INPUT_EXAMPLE}} {{OUTPUT_KIND}} {{VISUAL_STYLE}}</pre>
+      </div>
+    </div>
+
+    <!-- OPENAI -->
+    <div class="tab-panel" data-panel="openai">
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder</span><button class="btn" data-copy-target="oai-sys">⧉ copy system</button></div>
+        <div class="params"><span>temperature: 0.4</span><span>top_p: 0.9</span><span>max_tokens: 4096</span></div>
+        <pre class="code mono" id="oai-sys">You are a senior front-end engineer who builds single-file, WORKING web tools
+that solve real developer problems with genuinely free compute/hosting.
+Audience: {{AUDIENCE}}. Today: {{DATE}}. Solution mode: {{SOLUTION_MODE}}.
+
+Rules:
+- One HTML file. One &lt;style&gt;, one &lt;script&gt;. No build tools, no frameworks.
+- Inline SVG/Canvas + vanilla JS for all charts. No external chart libs.
+- Dark default + light toggle. Respect prefers-reduced-motion.
+- Every price/limit must trace to a live source you verified on {{DATE}}.
+- Output a complete, runnable HTML file. No placeholders.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">User template</span><button class="btn" data-copy-target="oai-user">⧉ copy user</button></div>
+        <pre class="code mono" id="oai-user">Problem: {{PROBLEM}}
+Evidence source: {{EVIDENCE_SOURCE}}
+Free service: {{FREE_SERVICE}} — verified free tier limit: {{FREE_TIER_LIMIT}}
+Free-tier docs: {{FREE_TIER_URL}}
+Input example a visitor can paste:
+{{INPUT_EXAMPLE}}
+
+Output kind: {{OUTPUT_KIND}}. Visual style: {{VISUAL_STYLE}}.
+
+Build the tool. Include a visual WHY (evidence chart/table), a HOW flow,
+and a UTILITY dashboard that updates live from the visitor's real input.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Tool definition — OpenAI Chat Completions / Responses API</span><button class="btn" data-copy-target="oai-tool">⧉ copy tool</button></div>
+        <pre class="code mono" id="oai-tool">// Verified formats — platform.openai.com/docs/guides/function-calling &
+// platform.openai.com/docs/api-reference/chat/create (2026-08-16)
+
+// --- A) Chat Completions: NESTED function tool ---
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "build_visual_tool",
+        "description": "Emits a complete single-file HTML tool for the given problem.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "problem": {"type":"string","description":"The dev problem to solve"},
+            "evidence_source": {"type":"string","description":"URL proving the problem is real"},
+            "free_tier_url": {"type":"string","description":"Docs URL verifying the free tier"},
+            "input_example": {"type":"string","description":"Sample input a visitor can paste"},
+            "output_kind": {"type":"string","description":"Structured output kind, or null"},
+            "visual_style": {"type":"string","description":"Chart/table/graphic mix"}
+          },
+          "required": ["problem","evidence_source","free_tier_url","input_example"],
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    }
+  ]
+}
+
+// --- B) Responses API: FLAT function tool ---
+// The Responses API uses the newer flat {type, name, parameters, strict}:
+{
+  "tools": [
+    {
+      "type": "function",
+      "name": "build_visual_tool",
+      "description": "Emits a complete single-file HTML tool for the given problem.",
+      "parameters": { /* same JSON Schema object as above */ },
+      "strict": true
+    }
+  ]
+}</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Filled example (fine-tune inspector)</span><button class="btn" data-copy-target="oai-ex">⧉ copy example</button></div>
+        <pre class="code mono" id="oai-ex">model: "gpt-4o-mini"
+// {{MODEL_NAME}}=GPT-4o-mini  {{PROBLEM_TYPE}}=fine-tune-jsonl-inspector
+// {{AUDIENCE}}=AI engineers prepping datasets at $0  {{DATE}}=2026-08-16
+// {{SOLUTION_MODE}}=Browser-Native
+// {{PROBLEM}}=Validate & inspect OpenAI chat fine-tuning JSONL before upload
+// {{EVIDENCE_SOURCE}}=https://community.openai.com/t/fine-tuning-error-the-job-failed-due-to-an-invalid-training-file-.../726568
+// {{FREE_SERVICE}}=Browser-native JS + GitHub Pages static hosting
+// {{FREE_TIER_LIMIT}}=no provider quota; runs locally; GitHub Pages free for public repos
+// {{FREE_TIER_URL}}=https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
+// {{INPUT_EXAMPLE}}={"messages":[{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello!"}]}
+// {{OUTPUT_KIND}}={"zcac":true,"kind":"ft-dataset","data":{...}}
+// {{VISUAL_STYLE}}=messages-per-example histogram + valid/invalid donut + sortable table</pre>
+      </div>
+    </div>
+
+    <!-- ANTHROPIC -->
+    <div class="tab-panel" data-panel="anthropic">
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder</span><button class="btn" data-copy-target="ant-sys">⧉ copy system</button></div>
+        <div class="params"><span>temperature: 0.4</span><span>top_p: 0.9</span><span>max_tokens: 4096</span></div>
+        <pre class="code mono" id="ant-sys">You are a senior front-end engineer who builds single-file, WORKING web tools
+that solve real developer problems with genuinely free compute/hosting.
+Audience: {{AUDIENCE}}. Today: {{DATE}}. Solution mode: {{SOLUTION_MODE}}.
+
+Rules:
+- One HTML file. One &lt;style&gt;, one &lt;script&gt;. No build tools, no frameworks.
+- Inline SVG/Canvas + vanilla JS for all charts. No external chart libs.
+- Dark default + light toggle. Respect prefers-reduced-motion.
+- Every price/limit must trace to a live source you verified on {{DATE}}.
+- Output a complete, runnable HTML file. No placeholders.
+
+When you have gathered enough to build, call the build_visual_tool tool.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">User template</span><button class="btn" data-copy-target="ant-user">⧉ copy user</button></div>
+        <pre class="code mono" id="ant-user">Problem: {{PROBLEM}}
+Evidence source: {{EVIDENCE_SOURCE}}
+Free service: {{FREE_SERVICE}} — verified free tier limit: {{FREE_TIER_LIMIT}}
+Free-tier docs: {{FREE_TIER_URL}}
+Input example a visitor can paste:
+{{INPUT_EXAMPLE}}
+
+Output kind: {{OUTPUT_KIND}}. Visual style: {{VISUAL_STYLE}}.
+
+Build the tool now via the build_visual_tool tool.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Tool definition — Anthropic Messages API (tool_use)</span><button class="btn" data-copy-target="ant-tool">⧉ copy tool</button></div>
+        <pre class="code mono" id="ant-tool">// Verified format: docs.anthropic.com/en/docs/build-with-claude/tool-use (2026-08-16)
+// Each tool uses input_schema (NOT parameters). Pass via `tools`.
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 4096,
+  "tools": [
+    {
+      "name": "build_visual_tool",
+      "description": "Emits a complete single-file HTML tool for the given problem.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "problem": {"type":"string","description":"The dev problem to solve"},
+          "evidence_source": {"type":"string","description":"URL proving the problem is real"},
+          "free_tier_url": {"type":"string","description":"Docs URL verifying the free tier"},
+          "input_example": {"type":"string","description":"Sample input a visitor can paste"},
+          "output_kind": {"type":"string","description":"Structured output kind, or null"},
+          "visual_style": {"type":"string","description":"Chart/table/graphic mix"}
+        },
+        "required": ["problem","evidence_source","free_tier_url","input_example"]
+      }
+    }
+  ],
+  "tool_choice": {"type": "auto"},
+  "messages": [
+    {"role": "user", "content": "<user template above with vars filled>"}
+  ]
+}</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Filled example (fine-tune inspector)</span><button class="btn" data-copy-target="ant-ex">⧉ copy example</button></div>
+        <pre class="code mono" id="ant-ex">// {{MODEL_NAME}}=Claude Sonnet 4.5  {{PROBLEM_TYPE}}=fine-tune-jsonl-inspector
+// {{AUDIENCE}}=AI engineers prepping datasets at $0  {{DATE}}=2026-08-16
+// {{SOLUTION_MODE}}=Browser-Native
+// {{PROBLEM}}=Validate & inspect OpenAI chat fine-tuning JSONL before upload
+// {{EVIDENCE_SOURCE}}=https://community.openai.com/t/fine-tuning-error-.../726568
+// {{FREE_SERVICE}}=Browser-native JS + GitHub Pages
+// {{FREE_TIER_LIMIT}}=no provider quota; runs locally; GH Pages free for public repos
+// {{FREE_TIER_URL}}=https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
+// {{INPUT_EXAMPLE}}={"messages":[{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello!"}]}
+// {{OUTPUT_KIND}}={"zcac":true,"kind":"ft-dataset","data":{...}}
+// {{VISUAL_STYLE}}=messages-per-example histogram + valid/invalid donut + sortable table</pre>
+      </div>
+    </div>
+
+    <!-- GOOGLE -->
+    <div class="tab-panel" data-panel="google">
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder</span><button class="btn" data-copy-target="ggl-sys">⧉ copy system</button></div>
+        <div class="params"><span>temperature: 0.4</span><span>top_p: 0.9</span><span>max_output_tokens: 4096</span></div>
+        <pre class="code mono" id="ggl-sys">You are a senior front-end engineer who builds single-file, WORKING web tools
+that solve real developer problems with genuinely free compute/hosting.
+Audience: {{AUDIENCE}}. Today: {{DATE}}. Solution mode: {{SOLUTION_MODE}}.
+
+Rules:
+- One HTML file. One &lt;style&gt;, one &lt;script&gt;. No build tools, no frameworks.
+- Inline SVG/Canvas + vanilla JS for all charts. No external chart libs.
+- Dark default + light toggle. Respect prefers-reduced-motion.
+- Every price/limit must trace to a live source you verified on {{DATE}}.
+- Output a complete, runnable HTML file. No placeholders.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">User template</span><button class="btn" data-copy-target="ggl-user">⧉ copy user</button></div>
+        <pre class="code mono" id="ggl-user">Problem: {{PROBLEM}}
+Evidence source: {{EVIDENCE_SOURCE}}
+Free service: {{FREE_SERVICE}} — verified free tier limit: {{FREE_TIER_LIMIT}}
+Free-tier docs: {{FREE_TIER_URL}}
+Input example a visitor can paste:
+{{INPUT_EXAMPLE}}
+
+Output kind: {{OUTPUT_KIND}}. Visual style: {{VISUAL_STYLE}}.
+
+Build the tool. Use the build_visual_tool function to emit the result.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Function declaration — Google Gemini (functionDeclarations)</span><button class="btn" data-copy-target="ggl-tool">⧉ copy tool</button></div>
+        <pre class="code mono" id="ggl-tool">// Verified format: ai.google.dev/gemini-api/docs/function-calling (2026-08-16)
+// Gemini uses functionDeclarations under `tools`. Only a subset of
+// OpenAPI schema is supported (type, properties, enum, items, required).
+{
+  "model": "gemini-2.0-flash",
+  "generationConfig": {"temperature": 0.4, "topP": 0.9, "maxOutputTokens": 4096},
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "type": "function",
+          "name": "build_visual_tool",
+          "description": "Emits a complete single-file HTML tool for the given problem.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "problem": {"type":"string","description":"The dev problem to solve"},
+              "evidence_source": {"type":"string","description":"URL proving the problem is real"},
+              "free_tier_url": {"type":"string","description":"Docs URL verifying the free tier"},
+              "input_example": {"type":"string","description":"Sample input a visitor can paste"},
+              "output_kind": {"type":"string","description":"Structured output kind, or null"},
+              "visual_style": {"type":"string","description":"Chart/table/graphic mix"}
+            },
+            "required": ["problem","evidence_source","free_tier_url","input_example"]
+          }
+        }
+      ]
+    }
+  ],
+  "contents": [
+    {"role": "user", "parts": [{"text": "<user template above with vars filled>"}]}
+  ]
+}</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Filled example (fine-tune inspector)</span><button class="btn" data-copy-target="ggl-ex">⧉ copy example</button></div>
+        <pre class="code mono" id="ggl-ex">// {{MODEL_NAME}}=Gemini 2.0 Flash  {{PROBLEM_TYPE}}=fine-tune-jsonl-inspector
+// {{AUDIENCE}}=AI engineers prepping datasets at $0  {{DATE}}=2026-08-16
+// {{SOLUTION_MODE}}=Browser-Native
+// {{PROBLEM}}=Validate & inspect OpenAI chat fine-tuning JSONL before upload
+// {{EVIDENCE_SOURCE}}=https://community.openai.com/t/fine-tuning-error-.../726568
+// {{FREE_SERVICE}}=Browser-native JS + GitHub Pages
+// {{FREE_TIER_LIMIT}}=no provider quota; runs locally; GH Pages free for public repos
+// {{FREE_TIER_URL}}=https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
+// {{INPUT_EXAMPLE}}={"messages":[{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello!"}]}
+// {{OUTPUT_KIND}}={"zcac":true,"kind":"ft-dataset","data":{...}}
+// {{VISUAL_STYLE}}=messages-per-example histogram + valid/invalid donut + sortable table</pre>
+      </div>
+    </div>
+
+    <!-- OPEN-WEIGHT -->
+    <div class="tab-panel" data-panel="openweight">
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder (Llama 3.1 / Mistral / Qwen2)</span><button class="btn" data-copy-target="ow-sys">⧉ copy system</button></div>
+        <div class="params"><span>temperature: 0.4</span><span>top_p: 0.9</span><span>max_tokens: 4096</span></div>
+        <pre class="code mono" id="ow-sys">You are a senior front-end engineer who builds single-file, WORKING web tools
+that solve real developer problems with genuinely free compute/hosting.
+Audience: {{AUDIENCE}}. Today: {{DATE}}. Solution mode: {{SOLUTION_MODE}}.
+
+Rules:
+- One HTML file. One &lt;style&gt;, one &lt;script&gt;. No build tools, no frameworks.
+- Inline SVG/Canvas + vanilla JS for all charts. No external chart libs.
+- Dark default + light toggle. Respect prefers-reduced-motion.
+- Every price/limit must trace to a live source you verified on {{DATE}}.
+
+IMPORTANT: This model has no native tool-calling. You MUST respond with a
+SINGLE valid JSON object matching the schema below and nothing else — no
+prose, no markdown fences. The JSON's "html" field holds the full tool.
+
+JSON schema you must follow:
+{
+  "type": "object",
+  "properties": {
+    "html": {"type":"string","description":"Complete runnable HTML file"},
+    "summary": {"type":"string","description":"One-line description"},
+    "free_tier_url": {"type":"string","description":"Verified free-tier docs URL"}
+  },
+  "required": ["html","summary","free_tier_url"],
+  "additionalProperties": false
+}</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">User template (plain system/user, strict JSON output)</span><button class="btn" data-copy-target="ow-user">⧉ copy user</button></div>
+        <pre class="code mono" id="ow-user">Problem: {{PROBLEM}}
+Evidence source: {{EVIDENCE_SOURCE}}
+Free service: {{FREE_SERVICE}} — verified free tier limit: {{FREE_TIER_LIMIT}}
+Free-tier docs: {{FREE_TIER_URL}}
+Input example a visitor can paste:
+{{INPUT_EXAMPLE}}
+
+Output kind: {{OUTPUT_KIND}}. Visual style: {{VISUAL_STYLE}}.
+
+Respond with the JSON object only (per the schema in the system message).
+Place the complete runnable HTML in the "html" field.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">No tool wrapper — strict JSON output</span><button class="btn" data-copy-target="ow-tool">⧉ copy schema</button></div>
+        <pre class="code mono" id="ow-tool">// Open-weight models (Llama 3.1 70B/405B, Mistral Large, Qwen2 72B) served via
+// vLLM / Ollama / text-generation-inference use a PLAIN system+user prompt.
+// No tools/functionDeclarations — enforce structured output with a JSON
+// schema instruction in the system prompt (above) + "json" response_format.
+
+// Example request (Ollama / OpenAI-compatible endpoint):
+{
+  "model": "llama3.1:70b",
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "max_tokens": 4096,
+  "response_format": {"type": "json_object"},
+  "messages": [
+    {"role": "system", "content": "<system block above, with vars filled>"},
+    {"role": "user", "content": "<user template above, with vars filled>"}
+  ]
+}
+
+// vLLM equivalent uses guided_json with the same schema for strict output.
+// If the server has no JSON mode, the system-prompt schema instruction is
+// the fallback — instruct the model to output ONLY the JSON object.</pre>
+      </div>
+      <div class="prompt-block">
+        <div class="hd"><span class="ttl">Filled example (fine-tune inspector)</span><button class="btn" data-copy-target="ow-ex">⧉ copy example</button></div>
+        <pre class="code mono" id="ow-ex">// {{MODEL_NAME}}=Llama 3.1 70B  {{PROBLEM_TYPE}}=fine-tune-jsonl-inspector
+// {{AUDIENCE}}=AI engineers prepping datasets at $0  {{DATE}}=2026-08-16
+// {{SOLUTION_MODE}}=Browser-Native
+// {{PROBLEM}}=Validate & inspect OpenAI chat fine-tuning JSONL before upload
+// {{EVIDENCE_SOURCE}}=https://community.openai.com/t/fine-tuning-error-.../726568
+// {{FREE_SERVICE}}=Browser-native JS + GitHub Pages
+// {{FREE_TIER_LIMIT}}=no provider quota; runs locally; GH Pages free for public repos
+// {{FREE_TIER_URL}}=https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
+// {{INPUT_EXAMPLE}}={"messages":[{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello!"}]}
+// {{OUTPUT_KIND}}={"zcac":true,"kind":"ft-dataset","data":{...}}
+// {{VISUAL_STYLE}}=messages-per-example histogram + valid/invalid donut + sortable table</pre>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    Free-tier verified: Browser-native local compute (no provider quota) + GitHub Pages static hosting —
+    free in public repos on GitHub Free (published site ≤ 1 GB, soft 100 GB/mo bandwidth, 10 builds/hr) —
+    <a class="foot-link" href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages" target="_blank" rel="noopener">GitHub Pages docs</a> — 2026-08-16
+  </footer>
+
+</main>
+
+<div class="rail" id="rail"><div class="inner">
+  <span class="status" id="railStatus">idle</span>
+  <span class="steps" id="railSteps"><span class="step-dot"></span><span class="step-dot"></span><span class="step-dot"></span></span>
+  <span class="count" id="railCount"></span>
+</div></div>
+<div class="toast" id="toast">Copied! ✓</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+$("themeBtn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+});
+
+/* ---------- Samples (with intentional bad rows) ---------- */
+const VALID_ROLES = ["system","user","assistant","tool","developer"];
+function ex(messages){ return JSON.stringify({messages}); }
+const TOPICS = ["summarize this email","explain recursion","translate to French","what is 2+2","write a haiku","debug this stack trace","name a color","draft a tweet","convert to json","fix the regex"];
+function makeValid(i){
+  const sys = i%3===0 ? {role:"system",content:"You are a concise, helpful assistant."} : null;
+  const u = {role:"user",content: TOPICS[i%TOPICS.length] + (i%4===0?" please":"")};
+  const a = {role:"assistant",content:"Here is a careful answer to: "+TOPICS[i%TOPICS.length].slice(0,18)+"."};
+  const msgs = sys ? [sys,u,a] : [u,a];
+  return JSON.stringify({messages:msgs});
+}
+const SAMPLES = {
+  tiny: [
+    JSON.stringify({messages:[{role:"system",content:"You are a helpful assistant."},{role:"user",content:"Hi"},{role:"assistant",content:"Hello!"}]}),
+    JSON.stringify({messages:[{role:"user",content:"What is 2+2?"},{role:"assistant",content:"4"}]}),
+    JSON.stringify({messages:[{role:"user",content:"Hi"},{role:"assistant",content:"Hello!"}]}).slice(0,-3), // truncated -> invalid JSON
+    JSON.stringify({messages:[{role:"user",content:"   "},{role:"assistant",content:"ok"}]}), // empty-ish user content
+    JSON.stringify({messages:[{role:"user",content:"Hi"},{role:"assistant",content:"Hello!"}]}), // duplicate of row 1
+    JSON.stringify({messages:[{role:"user",content:"bye"}]}), // no assistant message
+  ].join("\n"),
+  medium: (() => {
+    const rows = [];
+    for (let i=0;i<30;i++){
+      if (i===5) rows.push("not valid json {broken"); // invalid JSON
+      else if (i===11) rows.push(JSON.stringify({messages:[{role:"user",content:""},{role:"assistant",content:"x"}]})); // empty content
+      else if (i===17) rows.push(JSON.stringify({messages:"not-an-array"})); // wrong type
+      else if (i===22) rows.push(JSON.stringify({prompt:"old",completion:"format"})); // legacy shape
+      else rows.push(makeValid(i));
+    }
+    rows[27] = rows[1]; // inject a duplicate
+    return rows.join("\n");
+  })(),
+  stress: (() => {
+    const rows = [];
+    for (let i=0;i<412;i++){
+      if (i%50===7) rows.push(JSON.stringify({messages:[{role:"user",content:"oops"}]}).slice(0,-2));
+      else if (i%60===3) rows.push(JSON.stringify({messages:123}));
+      else rows.push(makeValid(i));
+    }
+    rows[300] = rows[2]; // duplicate
+    return rows.join("\n");
+  })(),
+};
+
+/* ---------- Validator ---------- */
+function approxTokens(text){
+  // OpenAI rule of thumb: ~4 chars/token for English. Labeled approximate.
+  return Math.max(1, Math.round(text.length / 4));
+}
+function normContent(c){
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) return c.map(p => (p && typeof p==="object" && (p.text||p.content)) || JSON.stringify(p)).join("");
+  return String(c==null?"":c);
+}
+function validateRow(obj){
+  const errors = [];
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)){ errors.push("not a JSON object"); return {errors}; }
+  // messages shape
+  if (!("messages" in obj)){ errors.push("missing 'messages' key"); return {errors}; }
+  const msgs = obj.messages;
+  if (!Array.isArray(msgs)){ errors.push("'messages' is not an array"); return {errors}; }
+  if (msgs.length === 0){ errors.push("'messages' is empty"); return {errors, hasAssistant:false, msgCount:0, roles:[]}; }
+  const roles = [];
+  let hasAssistant = false, totalChars = 0, firstContent = "";
+  msgs.forEach((m, idx) => {
+    if (!m || typeof m !== "object"){ errors.push("msg "+idx+" not an object"); return; }
+    const role = m.role;
+    if (typeof role !== "string" || role.length===0){ errors.push("msg "+idx+" missing role"); }
+    else if (!VALID_ROLES.includes(role)){ errors.push("msg "+idx+" unknown role '"+role+"'"); }
+    else { if(!roles.includes(role)) roles.push(role); }
+    const content = m.content;
+    if (content === undefined || content === null){ errors.push("msg "+idx+" missing 'content'"); }
+    else {
+      const txt = normContent(content);
+      if (txt.trim().length===0) errors.push("msg "+idx+" empty content");
+      totalChars += txt.length;
+      if (firstContent==="") firstContent = txt;
+    }
+    if (role === "assistant") hasAssistant = true;
+  });
+  if (!hasAssistant) errors.push("no assistant message");
+  return {errors, hasAssistant, msgCount:msgs.length, roles, approxTokens: approxTokens((""+JSON.stringify(msgs)).replace(/\s+/g,"")), firstContent};
+}
+
+/* ---------- Parser ---------- */
+function parseDataset(text){
+  const lines = text.split(/\r?\n/).map(l=>l).filter((l,i,arr)=> l.trim().length>0 || true).filter(l=>l.trim().length>0);
+  const rows = [];
+  const seen = new Map(); // normalized sig -> first index
+  lines.forEach((raw, idx) => {
+    const lineNo = idx+1;
+    let parsed = null, parseError = null;
+    try { parsed = JSON.parse(raw); } catch(e){ parseError = e.message; }
+    if (parseError || parsed===null){
+      rows.push({lineNo, status:"malformed", reason: parseError || "invalid JSON", raw, msgs:0, tokens:0, roles:[], preview: raw.slice(0,80)});
+      return;
+    }
+    const v = validateRow(parsed);
+    if (v.errors.length){
+      rows.push({lineNo, status:"malformed", reason: v.errors.join("; "), raw, msgs:v.msgCount||0, tokens:0, roles:v.roles||[], preview:(v.firstContent||raw.slice(0,80))});
+      return;
+    }
+    // normalized signature for dedupe
+    const sig = JSON.stringify(parsed.messages.map(m => ({role:m.role, content:normContent(m.content)})));
+    const dupOf = seen.has(sig) ? seen.get(sig)+1 : 0;
+    if (!seen.has(sig)) seen.set(sig, idx);
+    rows.push({
+      lineNo, status: dupOf>0 ? "duplicate" : "valid",
+      msgs: v.msgCount, tokens: v.approxTokens, roles: v.roles,
+      preview: v.firstContent.slice(0,80), dupOf, valid:true, raw
+    });
+  });
+  const valid = rows.filter(r=>r.status==="valid").length;
+  const bad = rows.filter(r=>r.status==="malformed").length;
+  const dup = rows.filter(r=>r.status==="duplicate").length;
+  const totalTokens = rows.reduce((s,r)=>s+(r.tokens||0),0);
+  // histogram of msgs per example (valid+duplicate rows)
+  const hist = [0,0,0,0,0,0]; // 1,2,3,4,5,6+
+  rows.filter(r=>r.valid).forEach(r=>{ const n=r.msgs; const b = n>=6?5:Math.max(0,n-1); hist[b]++; });
+  return {rows, lines:lines.length, valid, bad, dup, totalTokens, hist};
+}
+
+/* ---------- State ---------- */
+let STATE = {result:null, search:"", sortKey:"status", sortDir:-1, tokBudget:2000, priceSortKey:"name", priceDir:1};
+
+/* ---------- Price table (verified 2026-08-16) ---------- */
+const PRICE = [
+  {name:"Fine-tune Inspector (this tool)", price:"$0", unit:"local browser", free:"yes — full", tag:"accent"},
+  {name:"LangSmith", price:"$39/seat/mo", unit:"Plus plan", free:"Developer free (1 seat, 5k traces)", tag:"warn"},
+  {name:"Helicone", price:"$79/mo", unit:"Pro plan", free:"Hobby free (10k req/mo)", tag:"warn"},
+  {name:"Arize Phoenix", price:"paid to ~$1k/mo", unit:"AX plan", free:"open-source self-host free", tag:"warn"},
+];
+function renderPriceTable(){
+  const tb = $("priceTable").querySelector("tbody");
+  const dir = STATE.priceDir, key = STATE.priceSortKey;
+  const rows = [...PRICE].sort((a,b)=>{
+    let va=a[key], vb=b[key];
+    if (key==="price"){ va=parseFloat((a.price+"").replace(/[^0-9.]/g,""))||0; vb=parseFloat((b.price+"").replace(/[^0-9.]/g,""))||0; }
+    if (va<vb) return -1*dir; if (va>vb) return 1*dir; return 0;
+  });
+  tb.innerHTML = rows.map(r=>`<tr class="row-fade"><td><strong>${r.name}</strong></td><td class="mono">${r.price}</td><td class="dim mono">${r.unit}</td><td><span class="tag tag-ok">${r.free}</span></td></tr>`).join("");
+  $("priceTable").querySelectorAll("th").forEach(th=>{
+    th.classList.toggle("sorted", th.dataset.key===key);
+    const arr = th.querySelector(".arrow"); if(arr) arr.textContent = (th.dataset.key===key)?(dir===1?"↑":"↓"):"";
+  });
+}
+$("priceTable").querySelectorAll("th").forEach(th => th.addEventListener("click", ()=>{
+  const k=th.dataset.key;
+  if (STATE.priceSortKey===k) STATE.priceDir*=-1; else { STATE.priceSortKey=k; STATE.priceDir=(k==="name")?1:-1; }
+  renderPriceTable();
+}));
+
+/* ---------- Schema chart (valid row anatomy) ---------- */
+function renderSchemaChart(){
+  const svg = $("schemaChart");
+  const W=320,H=210;
+  svg.innerHTML = `
+    <rect x="10" y="14" width="300" height="182" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+    <text x="20" y="34" font-size="11" font-family="JetBrains Mono" fill="var(--text-dim)">{"messages":[ ... ]}</text>
+    <line x1="20" y1="44" x2="300" y2="44" stroke="var(--border)"/>
+    <text x="22" y="64" font-size="10" font-family="JetBrains Mono" fill="var(--info)">role: "system"</text>
+    <text x="22" y="80" font-size="10" font-family="JetBrains Mono" fill="var(--text-dim)">content: string</text>
+    <text x="22" y="102" font-size="10" font-family="JetBrains Mono" fill="var(--info)">role: "user"</text>
+    <text x="22" y="118" font-size="10" font-family="JetBrains Mono" fill="var(--text-dim)">content: string</text>
+    <text x="22" y="140" font-size="10" font-family="JetBrains Mono" fill="var(--ok)">role: "assistant"</text>
+    <text x="22" y="156" font-size="10" font-family="JetBrains Mono" fill="var(--text-dim)">content: string</text>
+    <text x="22" y="182" font-size="9" font-family="JetBrains Mono" fill="var(--text-mute)">1 JSON object per line · ≥1 assistant msg</text>`;
+}
+
+/* ---------- Flow ---------- */
+function setFlowStep(step){
+  const nodes = document.querySelectorAll("#flow .flow-node");
+  nodes.forEach((n,i)=>{ n.classList.remove("active","done"); if(i<step) n.classList.add("done"); if(i===step) n.classList.add("active"); });
+  const on1=$("flowLine1On"), on2=$("flowLine2On");
+  const v = reduce ? "0" : (step>=1?"0":"30");
+  const v2 = reduce ? "0" : (step>=2?"0":"30");
+  on1.style.strokeDashoffset = v; on2.style.strokeDashoffset = v2;
+}
+function rail(status, step, count){
+  const r=$("rail"); if(!status){ r.classList.remove("show"); return; }
+  r.classList.add("show"); $("railStatus").textContent=status; $("railCount").textContent=count||"";
+  const dots=$("railSteps").children;
+  for(let i=0;i<dots.length;i++){ dots[i].classList.remove("active","done"); if(i<step) dots[i].classList.add("done"); if(i===step) dots[i].classList.add("active"); }
+}
+
+/* ---------- Toast / copy ---------- */
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove("show"),1200); }
+function copyText(text, btn){
+  const done=()=>{ if(!btn) return toast("Copied! ✓"); const orig=btn.innerHTML; btn.innerHTML="Copied! ✓"; btn.disabled=true; setTimeout(()=>{btn.innerHTML=orig;btn.disabled=false;},1200); };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, ()=>fallbackCopy(text,done)); } else fallbackCopy(text,done);
+}
+function fallbackCopy(text, cb){ const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy"); cb();}catch(e){toast("Copy failed");} document.body.removeChild(ta); }
+
+/* ---------- Charts ---------- */
+function renderHist(){
+  const svg=$("histChart"); const data=STATE.result?STATE.result.hist:[0,0,0,0,0,0];
+  const labels=["1","2","3","4","5","6+"];
+  const W=420,H=220,pad=28,bw=44; const max=Math.max(1,...data);
+  const gap=(W-pad*2-bw*data.length)/(data.length-1);
+  let bars="";
+  data.forEach((d,i)=>{ const h=(d/max)*(H-pad-24); const x=pad+i*(bw+gap); const y=H-pad-h;
+    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3" fill="var(--accent)" opacity="${0.5+0.08*i}" style="transition:height .3s var(--ease-out),y .3s var(--ease-out)"><title>${labels[i]} msgs: ${d}</title></rect>`;
+    bars+=`<text x="${x+bw/2}" y="${y-5}" text-anchor="middle" font-size="10" font-family="JetBrains Mono" fill="var(--text-dim)">${d}</text>`;
+    bars+=`<text x="${x+bw/2}" y="${H-pad+13}" text-anchor="middle" font-size="9" font-family="JetBrains Mono" fill="var(--text-mute)">${labels[i]}</text>`;
+  });
+  svg.innerHTML=`<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--border)"/>${bars}<text x="6" y="14" font-size="9" font-family="JetBrains Mono" fill="var(--text-mute)">messages per example</text>`;
+}
+function renderDonut(){
+  const svg=$("donutChart");
+  if(!STATE.result){ svg.innerHTML=""; $("donutLegend").textContent=""; return; }
+  const ok=STATE.result.valid, bad=STATE.result.bad, dup=STATE.result.dup;
+  const total=ok+bad+dup||1; const cx=110,cy=110,r=78,ir=46; let a=-Math.PI/2; let paths="";
+  const segs=[{k:"valid",v:ok,c:"var(--ok)"},{k:"duplicate",v:dup,c:"var(--warn)"},{k:"malformed",v:bad,c:"var(--crit)"}];
+  segs.forEach(s=>{ if(!s.v) return; const frac=s.v/total; const a2=a+frac*Math.PI*2;
+    const x1=cx+r*Math.cos(a),y1=cy+r*Math.sin(a),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    const xi1=cx+ir*Math.cos(a2),yi1=cy+ir*Math.sin(a2),xi2=cx+ir*Math.cos(a),yi2=cy+ir*Math.sin(a);
+    const large=frac>0.5?1:0;
+    paths+=`<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${xi1} ${yi1} A ${ir} ${ir} 0 ${large} 0 ${xi2} ${yi2} Z" fill="${s.c}" opacity="0.92" style="transition:opacity .3s"><title>${s.k}: ${s.v}</title></path>`;
+    a=a2;
+  });
+  svg.innerHTML=`${paths}<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="22" font-family="JetBrains Mono" fill="var(--text)">${total}</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="9" font-family="JetBrains Mono" fill="var(--text-mute)">rows</text>`;
+  $("donutLegend").innerHTML = `<span style="color:var(--ok)">● valid ${ok}</span> &nbsp; <span style="color:var(--warn)">● duplicate ${dup}</span> &nbsp; <span style="color:var(--crit)">● malformed ${bad}</span>`;
+}
+
+/* ---------- Results table ---------- */
+function renderTable(){
+  const wrap=$("tableWrap"), empty=$("emptyState");
+  if(!STATE.result || !STATE.result.rows.length){ wrap.style.display="none"; empty.style.display="block"; return; }
+  empty.style.display="none"; wrap.style.display="block";
+  const budget=STATE.tokBudget;
+  let rows = STATE.result.rows.filter(r=> r.valid); // valid + duplicate rows
+  const q=STATE.search.trim().toLowerCase();
+  if(q) rows=rows.filter(r=> (r.preview||"").toLowerCase().includes(q));
+  const k=STATE.sortKey, dir=STATE.sortDir;
+  const statusRank={"valid":0,"duplicate":1,"malformed":2};
+  rows.sort((a,b)=>{
+    let va,vb;
+    if(k==="status"){ va=statusRank[a.status]; vb=statusRank[b.status]; }
+    else if(k==="msgs"){ va=a.msgs; vb=b.msgs; }
+    else if(k==="tokens"){ va=a.tokens; vb=b.tokens; }
+    else if(k==="rank"){ va=a.lineNo; vb=b.lineNo; }
+    else if(k==="roles"){ va=a.roles.length; vb=b.roles.length; }
+    else { va=a.preview||""; vb=b.preview||""; }
+    if(va<vb) return -1*dir; if(va>vb) return 1*dir; return 0;
+  });
+  const tb=$("resTable").querySelector("tbody");
+  tb.innerHTML = rows.map(r=>{
+    const over = r.tokens>budget;
+    const statusTag = r.status==="duplicate" ? `<span class="tag tag-dup">dupe of #${r.dupOf}</span>` : `<span class="tag tag-ok">valid</span>`;
+    return `<tr class="row-fade">
+      <td class="mono dim">${r.lineNo}</td>
+      <td>${statusTag}</td>
+      <td class="mono">${r.msgs}</td>
+      <td class="mono ${over?'style="color:var(--crit);font-weight:700"':''}">${r.tokens}${over?' ⚠':''}</td>
+      <td class="mono dim" style="font-size:.72rem">${r.roles.join(", ")||"—"}</td>
+      <td><span class="preview" title="${(r.preview||"").replace(/"/g,'&quot;')}">${r.preview||"—"}</span></td>
+    </tr>`;
+  }).join("");
+  $("resTable").querySelectorAll("th").forEach(th=>{
+    th.classList.toggle("sorted", th.dataset.key===k);
+    const arr=th.querySelector(".arrow"); if(arr) arr.textContent = th.dataset.key===k ? (dir===1?"↑":"↓") : "";
+  });
+}
+
+/* ---------- Malformed table ---------- */
+function renderBad(){
+  const card=$("badCard"); const tb=$("badTable").querySelector("tbody");
+  if(!STATE.result || !STATE.result.bad){ card.style.display="none"; return; }
+  const bad = STATE.result.rows.filter(r=>r.status==="malformed");
+  card.style.display="block";
+  tb.innerHTML = bad.map(r=>`<tr class="row-fade"><td class="mono">${r.lineNo}</td><td class="dim mono" style="font-size:.74rem">${r.reason}</td><td><span class="preview">${(r.raw||"").slice(0,90)}</span></td></tr>`).join("");
+}
+
+/* ---------- Stats + count-up ---------- */
+function ease(t){ return 1-Math.pow(1-t,3); }
+function countUp(el, target, suffix){
+  if(reduce){ el.textContent = target.toLocaleString()+suffix; return; }
+  const start=parseFloat(el.dataset.cur||"0"); const dur=600; const t0=performance.now();
+  function frame(now){ const p=Math.min(1,(now-t0)/dur); const v=start+(target-start)*ease(p);
+    el.textContent=Math.round(v).toLocaleString()+suffix; if(p<1) requestAnimationFrame(frame); else el.dataset.cur=target; }
+  requestAnimationFrame(frame);
+}
+function renderStats(){
+  if(!STATE.result){ ["statRows","statValid","statBad","statDup","statTokens"].forEach(id=>$(id).textContent="0"); return; }
+  const r=STATE.result;
+  countUp($("statRows"), r.lines, "");
+  countUp($("statValid"), r.valid, "");
+  countUp($("statBad"), r.bad, "");
+  countUp($("statDup"), r.dup, "");
+  countUp($("statTokens"), r.totalTokens, "");
+  const sv=$("statValid").parentElement; sv.classList.remove("save-pulse"); void sv.offsetWidth; if(!reduce) sv.classList.add("save-pulse");
+}
+function renderAll(){ renderStats(); renderHist(); renderDonut(); renderTable(); renderBad(); }
+
+/* ---------- Run ---------- */
+function run(){
+  const text=$("logInput").value; STATE.raw=text;
+  $("lineBadge").textContent=(text?text.split(/\r?\n/).filter(l=>l.trim()).length:0)+" rows";
+  if(!text.trim()){ STATE.result=null; setFlowStep(0); rail("empty — paste JSONL or click a sample",0); renderAll(); return; }
+  setFlowStep(1); rail("parsing & validating…",1, text.split(/\r?\n/).filter(l=>l.trim()).length+" rows");
+  setTimeout(()=>{
+    const result=parseDataset(text); STATE.result=result;
+    setFlowStep(2); rail(`done — ${result.valid} valid, ${result.bad} malformed, ${result.dup} dupes`,2);
+    renderAll(); microCelebrate();
+  }, reduce?0:220);
+}
+let celebrated=false;
+function microCelebrate(){ if(celebrated||reduce) return; celebrated=true; const sv=$("statValid"); sv.style.transition="color .3s"; sv.style.color="var(--accent)"; setTimeout(()=>sv.style.color="",600); }
+
+/* ---------- Samples ---------- */
+document.querySelectorAll(".chip[data-sample]").forEach(c=>c.addEventListener("click",()=>{
+  $("logInput").value=SAMPLES[c.dataset.sample];
+  $("logInput").style.transition="background .3s var(--ease-out)"; $("logInput").style.background="var(--accent-soft)";
+  setTimeout(()=>$("logInput").style.background="",300); run();
+}));
+
+/* ---------- Dropzone ---------- */
+const dz=$("dropzone");
+["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("over");}));
+dz.addEventListener("drop",e=>{ const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{$("logInput").value=r.result; run();}; r.readAsText(f); });
+
+/* ---------- Import ---------- */
+const iz=$("importZone");
+["dragenter","dragover"].forEach(ev=>iz.addEventListener(ev,e=>{e.preventDefault();iz.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>iz.addEventListener(ev,e=>{e.preventDefault();iz.classList.remove("over");}));
+iz.addEventListener("drop",e=>{ const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>tryImport(r.result); r.readAsText(f); });
+iz.addEventListener("click",()=>{ const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json"; inp.onchange=()=>{ if(inp.files[0]){ const r=new FileReader(); r.onload=()=>tryImport(r.result); r.readAsText(inp.files[0]); } }; inp.click(); });
+function tryImport(jsonStr){ let obj; try{obj=JSON.parse(jsonStr);}catch{ toast("not valid JSON"); return; }
+  if(!obj||obj.zcac!==true||obj.kind!=="ft-dataset"){ toast("unknown kind — ignored"); return; }
+  const d=obj.data; if(!d||!Array.isArray(d.rows)) return;
+  STATE.result={rows:d.rows, lines:d.lines, valid:d.valid, bad:d.bad, dup:d.dup, totalTokens:d.totalTokens, hist:d.hist};
+  setFlowStep(2); rail(`imported — ${d.valid} valid, ${d.bad} malformed`,2); renderAll(); toast("Imported ✓");
+}
+
+/* ---------- Export ---------- */
+function buildCleanedJsonl(){
+  if(!STATE.result) return "";
+  return STATE.result.rows.filter(r=>r.status==="valid")
+    .map(r=>r.raw)
+    .join("\n");
+}
+function buildExport(){
+  if(!STATE.result) return null;
+  return {zcac:true, kind:"ft-dataset", data:{lines:STATE.result.lines, rows:STATE.result.rows, valid:STATE.result.valid, bad:STATE.result.bad, dup:STATE.result.dup, totalTokens:STATE.result.totalTokens, hist:STATE.result.hist, generated:new Date().toISOString()}};
+}
+$("copyJson").addEventListener("click",e=>{ const obj=buildExport(); if(!obj){toast("nothing to copy");return;} copyText(JSON.stringify(obj,null,2), e.currentTarget); });
+$("exportJsonl").addEventListener("click",()=>{
+  const txt=buildCleanedJsonl(); if(!txt){toast("nothing to export");return;}
+  const blob=new Blob([txt],{type:"application/jsonl"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="cleaned.jsonl"; a.click(); URL.revokeObjectURL(url); toast("Downloaded ✓");
+});
+
+/* ---------- Share ---------- */
+const LINK=location.href;
+$("shareCopy").addEventListener("click",e=>copyText(LINK,e.currentTarget));
+$("shareX").addEventListener("click",e=>{ const url="https://twitter.com/intent/tweet?text="+encodeURIComponent("Validate & inspect a fine-tuning JSONL before upload — free, in-browser, no API key")+"&url="+encodeURIComponent(LINK); window.open(url,"_blank","noopener"); copyText(LINK,e.currentTarget); });
+
+/* ---------- Prompt pack copy buttons ---------- */
+document.querySelectorAll("[data-copy-target]").forEach(btn=>{
+  if(btn.id==="shareCopy"||btn.id==="shareX") return;
+  btn.addEventListener("click",e=>{ const el=$(btn.dataset.copyTarget); if(!el) return; copyText(el.innerText, btn); });
+});
+document.querySelectorAll("#promptTabs .tab").forEach(tab=>tab.addEventListener("click",()=>{
+  document.querySelectorAll("#promptTabs .tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+  tab.classList.add("active"); document.querySelector(`.tab-panel[data-panel="${tab.dataset.tab}"]`).classList.add("active");
+}));
+
+/* ---------- Live Scrub: token budget ---------- */
+const tokSlider=$("tokSlider"), tokLabel=$("tokLabel");
+tokSlider.addEventListener("input",()=>{ STATE.tokBudget=parseInt(tokSlider.value,10); tokLabel.textContent="≤ "+STATE.tokBudget+" tok"; renderTable(); });
+
+/* ---------- Table search + sort ---------- */
+$("tableSearch").addEventListener("input",e=>{ STATE.search=e.target.value; renderTable(); });
+$("resTable").querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{ const k=th.dataset.key; if(!k) return; if(STATE.sortKey===k) STATE.sortDir*=-1; else {STATE.sortKey=k; STATE.sortDir=(k==="rank")?1:-1;} renderTable(); }));
+
+/* ---------- Buttons ---------- */
+$("runBtn").addEventListener("click",run);
+$("clearBtn").addEventListener("click",()=>{ $("logInput").value=""; STATE.result=null; $("lineBadge").textContent="0 rows"; setFlowStep(0); rail(null); renderAll(); });
+$("logInput").addEventListener("input",e=>{ $("lineBadge").textContent=(e.target.value?e.target.value.split(/\r?\n/).filter(l=>l.trim()).length:0)+" rows"; });
+
+/* ---------- Stagger ---------- */
+if(!reduce){ document.querySelectorAll(".card").forEach((c,i)=>{ c.classList.add("stagger"); c.style.animationDelay=(i*40)+"ms"; }); }
+
+/* ---------- Init ---------- */
+renderPriceTable(); renderSchemaChart(); setFlowStep(0); rail("ready — paste JSONL or click a sample",0); renderAll();
+</script>
+</body>
+</html>
