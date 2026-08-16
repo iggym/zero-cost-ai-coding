@@ -8,6 +8,31 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "log-noise-collapser",
+  "slug": "log-noise-collapser",
+  "title": "Log Noise Collapser",
+  "hook": "Paste a log dump, get back the handful of distinct failures underneath it. The embedding model runs in your browser tab, so no key, no upload, no quota.",
+  "path": "tools/log-noise-collapser.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Inference runs client-side via Transformers.js (Apache-2.0) on the visitor's own CPU/GPU, so there is no API and no per-request quota. The only network cost is a one-time ~22 MB model download (Xenova/all-MiniLM-L6-v2, q8 ONNX) from the Hugging Face Hub, which is free and rate-limited for anonymous users to 3,000 file-resolve requests per 5-minute window per IP; the browser caches the weights afterwards.",
+  "source_url": "https://huggingface.co/docs/transformers.js/en/guides/webgpu",
+  "produces": [
+    "clustered log groups with counts, masked templates, severity level and example lines",
+    "JSON export: {\"zcac\":true,\"kind\":\"log-clusters\",\"data\":{...}}",
+    "markdown summary of the distinct failures"
+  ],
+  "accepts": [
+    "pasted, typed or dropped raw log text (.log, .txt, .json, .ndjson), up to 20,000 lines",
+    "JSON import: {\"zcac\":true,\"kind\":\"log-clusters\",\"data\":{...}}"
+  ],
+  "tags": ["logs", "debugging", "embeddings", "transformers-js", "webgpu", "clustering", "offline", "observability"],
+  "reading_time_minutes": 4,
+  "pinned": false,
+  "verified": "2026-08-16"
+},{
   "id": "0012",
   "slug": "ci-log-triage",
   "title": "CI Log Triage",
