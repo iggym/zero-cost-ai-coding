@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log Noise Collapser — zero-cost-ai-coding</title>
+<meta name="description" content="Paste a log dump, get back the distinct failures. Embeddings run in your browser with Transformers.js — no key, no upload, no server.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0f0e; --panel:#141816; --panel2:#1b201d; --line:#262d29;
+  --fg:#dfe5e1; --dim:#8b968f; --accent:#3ddc84; --accent-dim:#1f6b42;
+  --warn:#e0a34a; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --body:"Inter",system-ui,-apple-system,sans-serif;
+}
+html[data-theme="light"]{
+  --bg:#f7f9f7; --panel:#fff; --panel2:#eef2ef; --line:#d8e0da;
+  --fg:#121714; --dim:#5c6862; --accent:#128b4a; --accent-dim:#a9e3c3;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+h1,h2,h3{font-family:var(--mono);font-weight:700;line-height:1.25;margin:0 0 .5rem}
+h1{font-size:1.65rem;letter-spacing:-.02em}
+h2{font-size:1.05rem;margin-top:2.4rem;padding-top:1.1rem;border-top:1px solid var(--line)}
+h3{font-size:.88rem;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:1.4rem}
+code,pre,.mono{font-family:var(--mono)}
+/* top bar */
+.bar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;padding:.6rem 1.1rem;background:color-mix(in srgb,var(--bg) 92%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar a.home{font-family:var(--mono);font-size:.8rem;color:var(--dim);text-decoration:none;white-space:nowrap}
+.bar a.home:hover{color:var(--accent)}
+.bar .right{display:flex;align-items:center;gap:.7rem}
+.bar .tt{font-family:var(--mono);font-size:.8rem;font-weight:700;color:var(--fg)}
+button,.btn{font-family:var(--mono);font-size:.78rem;cursor:pointer;border:1px solid var(--line);
+  background:var(--panel2);color:var(--fg);padding:.4rem .7rem;border-radius:5px}
+button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:#07120c;border-color:var(--accent);font-weight:700}
+html[data-theme="light"] button.primary{color:#fff}
+button.primary:hover:not(:disabled){opacity:.88;color:#07120c}
+html[data-theme="light"] button.primary:hover:not(:disabled){color:#fff}
+main{max-width:860px;margin:0 auto;padding:1.6rem 1.1rem 4rem}
+.lede{font-size:1.02rem}
+.limit{font-family:var(--mono);font-size:.78rem;color:var(--dim);border-left:2px solid var(--accent-dim);
+  padding:.45rem .8rem;margin:1rem 0;background:var(--panel)}
+.limit b{color:var(--accent);font-weight:500}
+.share{display:flex;gap:.5rem;margin:1rem 0 0}
+/* tool */
+.tool{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:1.1rem;margin:1.4rem 0}
+textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;
+  font-family:var(--mono);font-size:12px;line-height:1.55;padding:.7rem;resize:vertical}
+#logInput{min-height:190px}
+.row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:.7rem}
+.row .sp{flex:1}
+label.drop{border:1px dashed var(--line);border-radius:5px;padding:.4rem .7rem;font-family:var(--mono);
+  font-size:.78rem;color:var(--dim);cursor:pointer}
+label.drop:hover{border-color:var(--accent);color:var(--accent)}
+#logInput.dragover{border-color:var(--accent)}
+.status{font-family:var(--mono);font-size:.76rem;color:var(--dim);margin-top:.7rem;min-height:1.2em}
+.status b{color:var(--accent);font-weight:500}
+.err{color:var(--warn)!important}
+.prog{height:3px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:.5rem;display:none}
+.prog.on{display:block}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s linear}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}*{scroll-behavior:auto!important}}
+/* readout */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:.6rem;margin-top:1rem}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:.6rem .7rem}
+.stat .n{font-family:var(--mono);font-size:1.3rem;font-weight:700;color:var(--accent);line-height:1.1}
+.stat .l{font-size:.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-top:.15rem}
+.assume{font-size:.72rem;color:var(--dim);margin-top:.55rem;font-style:italic}
+/* flow bar: before/after of the visitor's own input */
+.flow{display:none;margin-top:1rem}
+.flow.on{display:block}
+.flowlab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.68rem;color:var(--dim);margin-bottom:.2rem}
+.flowbar{height:9px;border-radius:2px;background:var(--panel2);overflow:hidden;border:1px solid var(--line)}
+.flowbar i{display:block;height:100%;background:var(--accent)}
+/* clusters */
+.cl{border:1px solid var(--line);border-radius:6px;margin-top:.6rem;background:var(--panel2);overflow:hidden}
+.clh{display:flex;gap:.6rem;align-items:baseline;padding:.55rem .7rem;cursor:pointer;user-select:none}
+.clh:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.cnt{font-family:var(--mono);font-size:.75rem;font-weight:700;color:#07120c;background:var(--accent);
+  border-radius:3px;padding:.05rem .4rem;flex-shrink:0}
+html[data-theme="light"] .cnt{color:#fff}
+.cnt.one{background:var(--panel);color:var(--dim);border:1px solid var(--line)}
+.clt{font-family:var(--mono);font-size:.76rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.lvl{font-family:var(--mono);font-size:.65rem;padding:.05rem .3rem;border-radius:3px;border:1px solid var(--line);color:var(--dim);flex-shrink:0}
+.lvl.ERROR,.lvl.FATAL{color:#ff7b6b;border-color:#5c2a24}
+.lvl.WARN{color:var(--warn);border-color:#5c4524}
+.clb{display:none;padding:.1rem .7rem .7rem;border-top:1px solid var(--line)}
+.clb.on{display:block}
+.clb pre{margin:.45rem 0 0;font-size:11px;color:var(--dim);white-space:pre-wrap;word-break:break-all;line-height:1.5}
+.clb .tpl{color:var(--fg);border-left:2px solid var(--accent-dim);padding-left:.5rem}
+/* code blocks */
+.cb{position:relative;margin:.6rem 0}
+.cb pre{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:.8rem;
+  overflow-x:auto;font-size:11.5px;line-height:1.55;margin:0;white-space:pre}
+.cb button{position:absolute;top:.45rem;right:.45rem;font-size:.7rem;padding:.22rem .5rem}
+ol,ul{padding-left:1.15rem}
+li{margin:.28rem 0}
+table{width:100%;border-collapse:collapse;font-size:.85rem;margin:.7rem 0}
+td,th{border:1px solid var(--line);padding:.4rem .6rem;text-align:left}
+th{font-family:var(--mono);font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+footer{border-top:1px solid var(--line);margin-top:2.5rem;padding-top:.9rem;font-size:.75rem;color:var(--dim);font-family:var(--mono)}
+footer a{color:var(--dim)}
+.small{font-size:.8rem;color:var(--dim)}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">&larr; zero-cost-ai-coding</a>
+  <div class="right">
+    <button id="theme" title="Toggle light/dark">◐</button>
+    <span class="tt">Log Noise Collapser</span>
+  </div>
+</div>
+
+<main>
+
+<h1>Log Noise Collapser</h1>
+
+<p class="lede">Paste a log dump (or drop a <code>.log</code> file) and it collapses thousands of near-identical
+lines into the handful of <em>distinct</em> failures underneath. Variable parts — timestamps, UUIDs, IPs, hex
+addresses, line numbers — get masked, then a 22&nbsp;MB sentence-embedding model runs
+<strong>inside your browser tab</strong> and groups what's left by meaning, so
+<code>reading&nbsp;'id'</code> and <code>reading&nbsp;'email'</code> from the same broken handler land in one
+group instead of two.</p>
+
+<div class="limit">
+Free tier: <b>your own CPU/GPU does the inference</b> — there is no API and no key, so there is no
+per-request quota to run out of. The one network call is the initial ~22&nbsp;MB model download from the
+Hugging Face Hub, which for anonymous users is rate-limited to
+<b>3,000 file-resolve requests per 5-minute window per IP</b> (this tool uses ~6 of them, once, then the
+browser caches it). Logs never leave the tab.
+</div>
+
+<div class="share">
+  <button id="shareX">Share on X</button>
+  <button id="shareLink">Copy link</button>
+</div>
+
+<h2>The tool</h2>
+
+<div class="tool">
+  <textarea id="logInput" spellcheck="false" aria-label="Paste log lines here"></textarea>
+  <div class="row">
+    <button class="primary" id="run">Collapse</button>
+    <label class="drop" for="file">Drop / choose a log file</label>
+    <input type="file" id="file" accept=".log,.txt,.json,.ndjson,text/*" style="display:none">
+    <span class="sp"></span>
+    <label class="small" for="thr">similarity</label>
+    <input type="range" id="thr" min="0.60" max="0.95" step="0.01" value="0.80" style="width:100px">
+    <span class="mono small" id="thrv">0.80</span>
+    <button id="clear">Clear</button>
+  </div>
+  <div class="prog" id="prog"><i></i></div>
+  <div class="status" id="status">Model loads on first run (~22 MB, cached by the browser afterwards).</div>
+
+  <div class="stats" id="stats" style="display:none">
+    <div class="stat"><div class="n" id="sLines">0</div><div class="l">lines in</div></div>
+    <div class="stat"><div class="n" id="sGroups">0</div><div class="l">distinct groups</div></div>
+    <div class="stat"><div class="n" id="sDrop">0%</div><div class="l">less to read</div></div>
+    <div class="stat"><div class="n" id="sTime">0m</div><div class="l">triage time saved</div></div>
+  </div>
+  <div class="assume" id="assume" style="display:none"></div>
+
+  <div class="flow" id="flow">
+    <div class="flowlab"><span id="flowA">raw lines</span><span id="flowB">groups</span></div>
+    <div class="flowbar"><i id="flowBar" style="width:100%"></i></div>
+  </div>
+
+  <div id="out"></div>
+
+  <div class="row" id="exportRow" style="display:none">
+    <button id="copyJson">Copy as JSON</button>
+    <button id="dlJson">Download JSON</button>
+    <button id="copyMd">Copy as summary</button>
+  </div>
+</div>
+
+<h3>Import (optional)</h3>
+<p class="small">Paste a <code>zcac</code> JSON blob to reload a previous run's groups without re-embedding.
+Accepts <code>kind: "log-clusters"</code>. Anything else is ignored with a message.</p>
+<textarea id="importBox" rows="2" spellcheck="false" placeholder='{"zcac":true,"kind":"log-clusters","data":{...}}'></textarea>
+<div class="row"><button id="importBtn">Import JSON</button><span class="status" id="importStatus"></span></div>
+
+<h2>What it replaces</h2>
+<p>Grouping repeated log lines into distinct patterns is a paid feature in log platforms. Datadog's Log
+Management prices <strong>Standard Indexing at $1.70 per million log events per month</strong> (15-day
+retention, billed annually; $2.55 on-demand) — indexing is what makes logs searchable and pattern-groupable
+there, and it's billed on top of $0.10/GB ingestion
+(<a href="https://www.datadoghq.com/pricing/?product=log-management" target="_blank" rel="noopener">datadoghq.com/pricing</a>).
+Sentry's free Developer plan caps at <strong>5,000 errors/month with 1 user</strong>; Team is
+<strong>$26/mo</strong> for 50,000 errors
+(<a href="https://sentry.io/pricing/" target="_blank" rel="noopener">sentry.io/pricing</a>).</p>
+<p class="small">Those products do considerably more than this page does — ingestion, retention, alerting,
+dashboards. This replaces one narrow slice of them: the "what are the actual distinct failures in this dump"
+question, for a log file already sitting on your disk.</p>
+
+<h2>How to use it</h2>
+<ol>
+  <li>Paste log lines into the box, or drop a file on it. The prefilled sample is there to be replaced —
+      delete it and use your own.</li>
+  <li>Hit <strong>Collapse</strong>. First run downloads the model (~22 MB) and takes a few seconds;
+      later runs on the same browser reuse the cached copy.</li>
+  <li>Read the groups top-down — they're sorted by how many raw lines each one absorbed. Click a group to see
+      its masked template and up to 5 real examples.</li>
+  <li>Drag <strong>similarity</strong> down to merge more aggressively, up to split more finely, and re-run.
+      0.80 is the default.</li>
+</ol>
+
+<h2>What breaks</h2>
+<ul>
+  <li><strong>The cap is your machine, not a quota.</strong> Embedding is O(lines), clustering is
+      O(templates²). Input is capped at <strong>20,000 lines</strong> here; past a few thousand
+      <em>distinct</em> templates the clustering pass gets slow. Highly repetitive logs stay fast at any size
+      because identical templates are deduplicated before embedding.</li>
+  <li><strong>Model download needs network once.</strong> If the Hub is unreachable or you're rate-limited
+      (429), the first run fails — the page reports the error rather than showing fake output. After the first
+      success it works offline.</li>
+  <li><strong>WebGPU if available, CPU otherwise.</strong> Falls back to WASM automatically, which is slower
+      but works everywhere.</li>
+  <li><strong>The masking is regex, so it's approximate.</strong> An unusual ID format it doesn't recognize
+      stays in the text and can split one real group into several. The similarity model catches many of these
+      anyway, but not all.</li>
+  <li><strong>Grouping is semantic, not causal.</strong> Two unrelated errors phrased similarly can land
+      together, and the group counts tell you what's loud, not what's important.</li>
+</ul>
+
+<h2>Build this yourself</h2>
+<p class="small">Two prompts. The first sets up an LLM to build this <em>class</em> of tool — a browser-only
+analyzer for repetitive machine-generated text. The second is a real, runnable tool-calling example using the
+same library this page uses.</p>
+
+<h3>1. Harness prompt</h3>
+<div class="cb">
+<button data-copy="p1">Copy</button>
+<pre id="p1">You are building a single-file, offline-capable browser tool that finds the distinct
+signals inside a large volume of repetitive, machine-generated text (logs, stack traces,
+crash reports, linter output, test failures). No backend, no API keys, no uploads. It must
+be one HTML file that runs from file:// or static hosting.
+
+Stack constraints:
+- Inference: @huggingface/transformers (Transformers.js) loaded as an ES module from a CDN.
+- Model: a small sentence-embedding model (e.g. Xenova/all-MiniLM-L6-v2, 384 dims, ~22MB
+  at q8). Try device:'webgpu' and fall back to WASM on failure.
+- No frameworks, no build step, no npm.
+
+CONTEXT MANAGEMENT — this is the part that decides whether the tool works:
+The input is far too big to hand to a model whole, but it is also extremely redundant, and
+that redundancy is the thing to exploit. Do NOT chunk-and-summarize, and do NOT feed raw
+text to a generative model. Use mask -> deduplicate -> embed -> cluster:
+
+  1. MASK the variable parts of each line with regex (timestamps, UUIDs, IPs, hex, hashes,
+     file paths, line:col, byte/ms quantities, quoted values, bare integers). This turns
+     each line into a stable template string. It is the highest-leverage step: it usually
+     removes 80-99% of the apparent variety before any model runs.
+  2. DEDUPLICATE on the masked template with a Map, keeping the count and the indices of the
+     original lines. Only distinct templates go forward. Discard nothing else — keep the
+     originals addressable so the user can always see real examples.
+  3. EMBED only the distinct templates, batched. This is the only model call, and its cost
+     is proportional to template variety, not to input size.
+  4. CLUSTER the embeddings with a single greedy pass over a running centroid list
+     (cosine >= threshold joins, else start a new cluster; renormalize the centroid on join).
+     Keep only centroids and member indices in memory — never a full N-by-N matrix.
+
+Why this shape and not the alternatives: summarization would destroy the exact strings a
+developer needs to grep for, and retrieval assumes you already know the query. Here the goal
+is coverage of what is present, so aggregation-by-similarity is the right primitive, and
+masking makes it cheap.
+
+Requirements:
+- Process the user's own pasted or dropped input. A prefilled sample is fine only as an
+  editable starting point.
+- Stream progress; never block the main thread without feedback.
+- Show the masked template alongside real examples so the user can audit the grouping.
+- Expose the similarity threshold as a control — the right value is data-dependent.
+- Fail loudly and honestly if the model can't load. Never render placeholder results.
+- Export structured JSON so the output can feed another tool.</pre>
+</div>
+
+<h3>2. Tool-calling prompt</h3>
+<p class="small">Transformers.js does support structured tool-calling: <code>apply_chat_template</code> takes a
+<code>tools</code> array of JSON-schema function definitions and renders them through the model's own chat
+template (verified in <code>@huggingface/transformers@4.2.0</code>). The catch worth knowing: <em>the
+template</em> handles tools, so this only works with a model whose chat template was written for tool use —
+here, Qwen2.5-Coder-1.5B-Instruct. The model emits a tool call as text that you parse and execute yourself;
+there is no server-side executor.</p>
+<div class="cb">
+<button data-copy="p2">Copy</button>
+<pre id="p2">Write a single HTML file that runs a tool-calling loop fully in the browser with
+Transformers.js. Use exactly this API shape — it is the current one for
+@huggingface/transformers v4:
+
+&lt;script type="module"&gt;
+import { AutoTokenizer, AutoModelForCausalLM }
+  from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0";
+
+const id = "onnx-community/Qwen2.5-Coder-1.5B-Instruct";
+const tokenizer = await AutoTokenizer.from_pretrained(id);
+const model = await AutoModelForCausalLM.from_pretrained(id, {
+  dtype: "q4f16", device: "webgpu",
+});
+
+// Tool definitions are plain JSON Schema objects.
+const tools = [{
+  type: "function",
+  function: {
+    name: "count_log_pattern",
+    description: "Count how many lines in the loaded log match a regex pattern.",
+    parameters: {
+      type: "object",
+      properties: {
+        pattern: { type: "string", description: "JavaScript regex source" },
+        flags:   { type: "string", description: "Regex flags, e.g. 'i'" },
+      },
+      required: ["pattern"],
+    },
+  },
+}];
+
+// Your real local implementations, keyed by tool name.
+const impls = {
+  count_log_pattern: ({ pattern, flags = "" }) =>
+    LOG_LINES.filter(l =&gt; new RegExp(pattern, flags).test(l)).length,
+};
+
+const messages = [
+  { role: "system", content: "You answer questions about a log file by calling tools." },
+  { role: "user",   content: "How many lines mention a database timeout?" },
+];
+
+async function step() {
+  // tools + add_generation_prompt are passed to apply_chat_template directly.
+  const inputs = tokenizer.apply_chat_template(messages, {
+    tools,
+    add_generation_prompt: true,
+    return_dict: true,
+  });
+  const out = await model.generate({ ...inputs, max_new_tokens: 256, do_sample: false });
+  const text = tokenizer.decode(
+    out.slice(null, [inputs.input_ids.dims.at(-1), null])[0],
+    { skip_special_tokens: true },
+  );
+
+  // Qwen2.5 emits tool calls wrapped in &lt;tool_call&gt;...&lt;/tool_call&gt; as JSON.
+  const m = text.match(/&lt;tool_call&gt;([\s\S]*?)&lt;\/tool_call&gt;/);
+  if (!m) return text;                       // plain answer, done
+
+  const call = JSON.parse(m[1].trim());      // { name, arguments }
+  messages.push({ role: "assistant", tool_calls: [{ type: "function", function: call }] });
+  const result = impls[call.name](call.arguments);
+  messages.push({ role: "tool", name: call.name, content: String(result) });
+  return step();                             // let the model use the result
+}
+console.log(await step());
+&lt;/script&gt;
+
+Requirements:
+- Parse the tool call defensively: models emit malformed JSON sometimes. On a parse failure,
+  push a tool message describing the error and let the model retry, with a retry cap.
+- Cap the loop (e.g. 5 rounds) so a model that keeps calling tools cannot spin forever.
+- Verify the model repo actually ships a tool-use chat template before swapping models —
+  if the template ignores `tools`, the definitions silently never reach the model, and it
+  will hallucinate answers instead of calling anything.</pre>
+</div>
+
+<h2>Composability</h2>
+<table>
+  <tr><th>Direction</th><th>Shape</th></tr>
+  <tr><td>Produces</td><td><code>{"zcac":true,"kind":"log-clusters","data":{...}}</code> — groups with counts, masked templates, level, and example lines</td></tr>
+  <tr><td>Accepts</td><td><code>log-clusters</code> — reload a previous run without re-embedding</td></tr>
+</table>
+
+<footer>
+Free-tier claims verified <span id="vdate">2026-08-16</span> against
+<a href="https://huggingface.co/docs/hub/en/rate-limits" target="_blank" rel="noopener">huggingface.co/docs/hub/en/rate-limits</a>
+(3,000 resolver req / 5 min, anonymous) ·
+prices from <a href="https://www.datadoghq.com/pricing/?product=log-management" target="_blank" rel="noopener">datadoghq.com/pricing</a>
+and <a href="https://sentry.io/pricing/" target="_blank" rel="noopener">sentry.io/pricing</a>.
+Runs on <a href="https://huggingface.co/docs/transformers.js" target="_blank" rel="noopener">Transformers.js</a> v4.2.0 + Xenova/all-MiniLM-L6-v2.
+</footer>
+
+</main>
+
+<script type="module">
+const $ = s => document.querySelector(s);
+
+/* ---------- theme ---------- */
+const root = document.documentElement;
+root.dataset.theme = localStorage.getItem('zcac-theme') || 'dark';
+$('#theme').onclick = () => {
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('zcac-theme', root.dataset.theme);
+};
+
+/* ---------- share ---------- */
+$('#shareX').onclick = () => {
+  const t = 'Log Noise Collapser — collapse a log dump into its distinct failures. Embeddings run in-browser, no key, no upload.';
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(t) + '&url=' + encodeURIComponent(location.href), '_blank', 'noopener');
+};
+async function copy(text, btn) {
+  const old = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; }
+  catch { 
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); btn.textContent = 'Copied'; } catch { btn.textContent = 'Copy failed'; }
+    ta.remove();
+  }
+  setTimeout(() => btn.textContent = old, 1400);
+}
+$('#shareLink').onclick = e => copy(location.href, e.target);
+document.querySelectorAll('.cb button[data-copy]').forEach(b => {
+  b.onclick = () => copy(document.getElementById(b.dataset.copy).textContent, b);
+});
+
+/* ---------- normalization: mask the variable parts ---------- */
+function normalize(s) {
+  return s
+    .replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g, '<TS>')
+    .replace(/\b\d{2}:\d{2}:\d{2}(?:[.,]\d+)?\b/g, '<TS>')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<UUID>')
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '<IP>')
+    .replace(/\b0x[0-9a-f]+\b/gi, '<HEX>')
+    .replace(/\b[0-9a-f]{16,}\b/gi, '<HASH>')
+    .replace(/([\/\w.-]*\/)[\w.-]+\.(js|ts|jsx|tsx|py|rb|go|java|rs|php|cs|cpp|c|swift|kt)/g, '<PATH>.$2')
+    .replace(/:\d+:\d+\b/g, ':<L>:<C>')
+    .replace(/\b\d+(?:\.\d+)?(ms|s|ns|us|kb|mb|gb|tb|%)\b/gi, '<NUM>$1')
+    .replace(/'[^']{1,40}'/g, "'<V>'")
+    .replace(/"[^"]{1,40}"/g, '"<V>"')
+    .replace(/\b\d+\b/g, '<N>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+const LEVELS = ['FATAL','ERROR','WARN','WARNING','INFO','DEBUG','TRACE','CRITICAL','SEVERE'];
+function levelOf(line) {
+  const u = line.toUpperCase();
+  for (const l of LEVELS) if (new RegExp('\\b' + l + '\\b').test(u)) return l === 'WARNING' ? 'WARN' : (l === 'CRITICAL' || l === 'SEVERE' ? 'ERROR' : l);
+  return '';
+}
+const cosine = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += a[i] * b[i]; return d; };
+
+/* ---------- sample (editable placeholder, replace it) ---------- */
+const SAMPLE = `2026-08-14T04:12:09.221Z ERROR [api] Connection timeout to postgres://db-3:5432 after 30000ms
+2026-08-14T04:12:10.004Z INFO  [api] Health check ok in 12ms
+2026-08-14T04:12:11.882Z ERROR [api] Connection timeout to postgres://db-7:5432 after 30000ms
+2026-08-14T04:13:02.004Z ERROR [worker] TypeError: Cannot read properties of undefined (reading 'id') at /srv/app/handlers/user.js:88:14
+2026-08-14T04:13:44.918Z WARN  [api] Retrying request 550e8400-e29b-41d4-a716-446655440000 (attempt 2)
+2026-08-14T04:14:01.113Z ERROR [worker] TypeError: Cannot read properties of undefined (reading 'email') at /srv/app/handlers/user.js:92:14
+2026-08-14T04:14:30.551Z INFO  [api] Health check ok in 9ms
+2026-08-14T04:15:19.777Z ERROR [api] Connection timeout to postgres://db-1:5432 after 30000ms
+2026-08-14T04:15:40.210Z ERROR [worker] TypeError: Cannot read properties of undefined (reading 'orgId') at /srv/app/handlers/org.js:12:9
+2026-08-14T04:16:02.010Z ERROR [auth] JWT signature verification failed for token 0xdeadbeef91ac
+2026-08-14T04:16:40.556Z WARN  [api] Retrying request 7c9e6679-7425-40de-944b-e07fc1f90ae7 (attempt 3)
+2026-08-14T04:17:00.001Z ERROR [auth] JWT signature verification failed for token 0xfeedface22b1
+2026-08-14T04:17:20.884Z INFO  [api] Health check ok in 11ms
+2026-08-14T04:18:22.900Z ERROR [worker] OOM killed: container exceeded 512mb memory limit
+2026-08-14T04:18:59.113Z WARN  [api] Retrying request 3f1a0c22-9d4e-4b71-8a0f-2c5e7d9b1a33 (attempt 2)
+2026-08-14T04:19:31.442Z ERROR [api] Connection timeout to postgres://db-5:5432 after 30000ms
+2026-08-14T04:20:02.771Z ERROR [s3] PutObject AccessDenied for bucket prod-assets key uploads/9f2b1c.png
+2026-08-14T04:20:44.019Z ERROR [auth] JWT signature verification failed for token 0xbadc0ffee0dd
+2026-08-14T04:21:10.660Z INFO  [api] Health check ok in 14ms
+2026-08-14T04:21:55.301Z ERROR [s3] PutObject AccessDenied for bucket prod-assets key uploads/3a7e2d.png`;
+$('#logInput').value = SAMPLE;
+
+/* ---------- input plumbing ---------- */
+const MAX_LINES = 20000;
+const ta = $('#logInput');
+$('#thr').oninput = e => $('#thrv').textContent = (+e.target.value).toFixed(2);
+$('#clear').onclick = () => { ta.value = ''; reset(); ta.focus(); };
+$('#file').onchange = e => { const f = e.target.files[0]; if (f) readFile(f); };
+['dragover','dragenter'].forEach(ev => ta.addEventListener(ev, e => { e.preventDefault(); ta.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev => ta.addEventListener(ev, () => ta.classList.remove('dragover')));
+ta.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+function readFile(f) {
+  const r = new FileReader();
+  r.onload = () => { ta.value = r.result; reset(); setStatus('Loaded <b>' + f.name + '</b> (' + fmt(r.result.split(/\r?\n/).length) + ' lines). Hit Collapse.'); };
+  r.readAsText(f);
+}
+const fmt = n => n.toLocaleString('en-US');
+function setStatus(html, isErr) { const s = $('#status'); s.innerHTML = html; s.classList.toggle('err', !!isErr); }
+function reset() {
+  $('#stats').style.display = 'none'; $('#assume').style.display = 'none';
+  $('#flow').classList.remove('on'); $('#out').innerHTML = ''; $('#exportRow').style.display = 'none';
+  lastResult = null;
+}
+
+/* ---------- model ---------- */
+let extractor = null, backend = '';
+async function getExtractor() {
+  if (extractor) return extractor;
+  setStatus('Loading Transformers.js…');
+  const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+  env.allowLocalModels = false;
+  const onProgress = p => {
+    if (p.status === 'progress' && p.total) {
+      const pct = Math.round(p.loaded / p.total * 100);
+      bar(pct); setStatus('Downloading model… <b>' + pct + '%</b> (' + (p.file || '') + ')');
+    } else if (p.status === 'ready' || p.status === 'done') { /* noop */ }
+  };
+  const MODEL = 'Xenova/all-MiniLM-L6-v2';
+  try {
+    extractor = await pipeline('feature-extraction', MODEL, { dtype: 'q8', device: 'webgpu', progress_callback: onProgress });
+    backend = 'WebGPU';
+  } catch (e) {
+    setStatus('WebGPU unavailable — falling back to CPU (WASM)…');
+    extractor = await pipeline('feature-extraction', MODEL, { dtype: 'q8', progress_callback: onProgress });
+    backend = 'CPU (WASM)';
+  }
+  return extractor;
+}
+function bar(pct) { const p = $('#prog'); p.classList.add('on'); p.firstElementChild.style.width = pct + '%'; }
+function barOff() { const p = $('#prog'); p.classList.remove('on'); p.firstElementChild.style.width = '0'; }
+const idle = () => new Promise(r => setTimeout(r, 0));
+
+/* ---------- main ---------- */
+let lastResult = null;
+const SEC_PER_LINE = 15; // stated assumption, shown in the UI
+
+$('#run').onclick = async () => {
+  const btn = $('#run');
+  const raw = ta.value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!raw.length) { setStatus('Nothing to process — paste some log lines first.', true); return; }
+  if (raw.length > MAX_LINES) { setStatus('Input is ' + fmt(raw.length) + ' lines; this page caps at ' + fmt(MAX_LINES) + '. Trim it and retry.', true); return; }
+
+  btn.disabled = true; reset();
+  try {
+    // 1. mask + dedupe
+    const map = new Map();
+    for (let i = 0; i < raw.length; i++) {
+      const t = normalize(raw[i]);
+      let e = map.get(t);
+      if (!e) { e = { tpl: t, idx: [] }; map.set(t, e); }
+      e.idx.push(i);
+    }
+    const items = [...map.values()];
+    setStatus(fmt(raw.length) + ' lines &rarr; <b>' + fmt(items.length) + '</b> distinct templates after masking. Loading model…');
+    await idle();
+
+    // 2. embed distinct templates only
+    const ex = await getExtractor();
+    barOff();
+    const vecs = [];
+    const B = 64;
+    for (let i = 0; i < items.length; i += B) {
+      const batch = items.slice(i, i + B).map(x => x.tpl);
+      const out = await ex(batch, { pooling: 'mean', normalize: true });
+      const list = out.tolist();
+      for (const v of list) vecs.push(Float32Array.from(v));
+      bar(Math.round(Math.min(i + B, items.length) / items.length * 100));
+      setStatus('Embedding templates on ' + backend + '… <b>' + fmt(Math.min(i + B, items.length)) + '/' + fmt(items.length) + '</b>');
+      await idle();
+    }
+    barOff();
+
+    // 3. greedy single-pass clustering on running centroids
+    const thr = +$('#thr').value;
+    const clusters = [];
+    for (let i = 0; i < items.length; i++) {
+      let best = -1, bs = thr;
+      for (let c = 0; c < clusters.length; c++) {
+        const s = cosine(vecs[i], clusters[c].centroid);
+        if (s >= bs) { bs = s; best = c; }
+      }
+      if (best < 0) clusters.push({ members: [i], centroid: Float32Array.from(vecs[i]) });
+      else {
+        const c = clusters[best]; c.members.push(i);
+        const n = c.members.length, ct = c.centroid; let m = 0;
+        for (let k = 0; k < ct.length; k++) { ct[k] = (ct[k] * (n - 1) + vecs[i][k]) / n; m += ct[k] * ct[k]; }
+        m = Math.sqrt(m) || 1;
+        for (let k = 0; k < ct.length; k++) ct[k] /= m;
+      }
+    }
+
+    // 4. shape the result
+    const groups = clusters.map(c => {
+      const lineIdx = [];
+      for (const m of c.members) lineIdx.push(...items[m].idx);
+      lineIdx.sort((a, b) => a - b);
+      const rep = items[c.members.reduce((a, b) => items[a].idx.length >= items[b].idx.length ? a : b)];
+      return {
+        count: lineIdx.length,
+        template: rep.tpl,
+        level: levelOf(raw[lineIdx[0]]),
+        variants: c.members.length,
+        examples: lineIdx.slice(0, 5).map(i => raw[i]),
+      };
+    }).sort((a, b) => b.count - a.count);
+
+    lastResult = { lines_in: raw.length, templates: items.length, groups: groups.length, threshold: thr, model: 'Xenova/all-MiniLM-L6-v2', clusters: groups };
+    render(groups, raw.length, items.length, thr);
+    setStatus('Done on ' + backend + ' — <b>' + fmt(raw.length) + '</b> lines collapsed to <b>' + fmt(groups.length) + '</b> groups (threshold ' + thr.toFixed(2) + ').');
+  } catch (err) {
+    barOff();
+    console.error(err);
+    setStatus('Failed: ' + (err && err.message ? err.message : String(err)) + ' — no results shown. If this is a 429, the Hugging Face Hub rate-limited the model download; wait a few minutes and retry.', true);
+  } finally { btn.disabled = false; }
+};
+
+function render(groups, lines, templates, thr) {
+  // savings readout, from a visible assumption
+  const saved = Math.max(0, lines - groups.length) * SEC_PER_LINE;
+  $('#sLines').textContent = fmt(lines);
+  $('#sGroups').textContent = fmt(groups.length);
+  $('#sDrop').textContent = lines ? Math.round((1 - groups.length / lines) * 100) + '%' : '0%';
+  $('#sTime').textContent = saved >= 3600 ? (saved / 3600).toFixed(1) + 'h' : Math.round(saved / 60) + 'm';
+  $('#stats').style.display = 'grid';
+  const a = $('#assume');
+  a.textContent = 'Assumption: ~' + SEC_PER_LINE + " sec to eyeball and triage one log line by hand. Saved = (" +
+    fmt(lines) + ' lines − ' + fmt(groups.length) + ' groups) × ' + SEC_PER_LINE + ' sec. ' +
+    'Masking alone removed ' + fmt(lines - templates) + ' exact duplicates; the model merged ' + fmt(templates - groups.length) + ' more.';
+  a.style.display = 'block';
+
+  $('#flowA').textContent = fmt(lines) + ' raw lines';
+  $('#flowB').textContent = fmt(groups.length) + ' groups to read';
+  $('#flowBar').style.width = Math.max(0.6, groups.length / Math.max(1, lines) * 100) + '%';
+  $('#flow').classList.add('on');
+
+  const out = $('#out');
+  out.innerHTML = '';
+  groups.forEach((g, i) => {
+    const d = document.createElement('div'); d.className = 'cl';
+    const h = document.createElement('div'); h.className = 'clh';
+    const c = document.createElement('span'); c.className = 'cnt' + (g.count === 1 ? ' one' : ''); c.textContent = g.count + '\u00d7';
+    h.appendChild(c);
+    if (g.level) { const l = document.createElement('span'); l.className = 'lvl ' + g.level; l.textContent = g.level; h.appendChild(l); }
+    const t = document.createElement('span'); t.className = 'clt'; t.textContent = g.examples[0]; h.appendChild(t);
+    const b = document.createElement('div'); b.className = 'clb';
+    const tp = document.createElement('pre'); tp.className = 'tpl'; tp.textContent = 'template: ' + g.template;
+    b.appendChild(tp);
+    if (g.variants > 1) { const v = document.createElement('pre'); v.textContent = g.variants + ' distinct templates merged into this group'; b.appendChild(v); }
+    g.examples.forEach(e => { const p = document.createElement('pre'); p.textContent = e; b.appendChild(p); });
+    if (g.count > g.examples.length) { const p = document.createElement('pre'); p.textContent = '… and ' + fmt(g.count - g.examples.length) + ' more'; b.appendChild(p); }
+    h.onclick = () => b.classList.toggle('on');
+    d.appendChild(h); d.appendChild(b); out.appendChild(d);
+  });
+  $('#exportRow').style.display = 'flex';
+}
+
+/* ---------- export ---------- */
+const payload = () => JSON.stringify({ zcac: true, kind: 'log-clusters', data: lastResult }, null, 2);
+$('#copyJson').onclick = e => { if (lastResult) copy(payload(), e.target); };
+$('#dlJson').onclick = () => {
+  if (!lastResult) return;
+  const b = new Blob([payload()], { type: 'application/json' });
+  const u = URL.createObjectURL(b);
+  const a = document.createElement('a'); a.href = u; a.download = 'log-clusters.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(u), 1000);
+};
+$('#copyMd').onclick = e => {
+  if (!lastResult) return;
+  const md = lastResult.clusters.map(g => '- **' + g.count + '\u00d7** ' + (g.level ? '`' + g.level + '` ' : '') + g.examples[0]).join('\n');
+  copy('Collapsed ' + fmt(lastResult.lines_in) + ' log lines into ' + lastResult.clusters.length + ' distinct groups:\n\n' + md, e.target);
+};
+
+/* ---------- import ---------- */
+$('#importBtn').onclick = () => {
+  const s = $('#importStatus'); const txt = $('#importBox').value.trim();
+  if (!txt) { s.textContent = 'Paste some JSON first.'; s.classList.add('err'); return; }
+  let j;
+  try { j = JSON.parse(txt); } catch { s.textContent = 'Not valid JSON.'; s.classList.add('err'); return; }
+  if (!j || j.zcac !== true || typeof j.kind !== 'string') { s.textContent = 'Not recognized — expected a zcac envelope.'; s.classList.add('err'); return; }
+  if (j.kind !== 'log-clusters') { s.textContent = 'Not recognized: kind "' + j.kind + '" — this tool only reads "log-clusters".'; s.classList.add('err'); return; }
+  const d = j.data;
+  if (!d || !Array.isArray(d.clusters)) { s.textContent = 'Envelope ok, but data.clusters is missing.'; s.classList.add('err'); return; }
+  lastResult = d;
+  render(d.clusters, d.lines_in || d.clusters.reduce((a, g) => a + (g.count || 0), 0), d.templates || d.clusters.length, d.threshold || 0.8);
+  s.classList.remove('err');
+  s.textContent = 'Imported ' + d.clusters.length + ' groups.';
+  setStatus('Loaded from imported JSON — no model run needed.');
+};
+</script>
+</body>
+</html>
