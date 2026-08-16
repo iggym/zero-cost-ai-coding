@@ -8,6 +8,26 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "1046",
+  "slug": "browser-rag-vector-harness",
+  "title": "AI Engineering: Client-Side RAG Vector Indexer & Search Engine",
+  "hook": "Chunk text documents, compute local vector index space, and execute cosine similarity top-K retrieval in pure JS.",
+  "path": "tools/browser-rag-vector-harness.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "100% Client-Side Native Web Standard JS with zero server or vector database dependencies",
+  "source_url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/sqrt",
+  "produces": "top-k-rag-chunks",
+  "accepts": ["text/plain"],
+  "tags": ["ai-engineering", "rag", "vector-search", "cosine-similarity", "zero-cost"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "visuals": ["chunk-index-board", "similarity-scores"],
+  "prompt_targets": ["gemini", "claude-code", "open-weight"]
+},{
   "id": "0144",
   "slug": "rag-chunk-lab",
   "title": "RAG Chunk Lab",
