@@ -8,6 +8,27 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "0418",
+  "slug": "invisible-ink",
+  "title": "Invisible Ink",
+  "hook": "Your model reads characters your screen refuses to draw — paste a RAG chunk, watch the hidden order appear.",
+  "path": "tools/invisible-ink.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "No provider in the loop: the scanner is vanilla JS using code-point iteration and Unicode regex property escapes, so there is no key, no quota and no request to exhaust — it works offline",
+  "source_url": "https://unicode.org/reports/tr51/",
+  "produces": "invisible-ink",
+  "accepts": ["invisible-ink"],
+  "tags": ["ai-engineering", "prompt-injection", "llm-security", "unicode", "rag", "owasp-llm01", "browser-native"],
+  "reading_time_minutes": 4,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "visuals": ["why-chart", "why-table", "how-flow", "utility-dashboard", "sortable-table"],
+  "prompt_targets": ["openai", "anthropic", "google", "open-weight"]
+}
+,{
   "id": "0429",
   "slug": "promptmatrix-zero",
   "title": "PromptMatrix Zero — Prompts break silently. Test like code.",
