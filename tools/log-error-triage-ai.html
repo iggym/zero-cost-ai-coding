@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Cost AI: Log Error Triage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d1117;
+            --bg-light: #f6f8fa;
+            --text: #c9d1d9;
+            --text-light: #1f2328;
+            --accent: #2ea043;
+            --accent-hover: #46c45e;
+            --border: #30363d;
+            --border-light: #d0d7de;
+            --card-bg: #161b22;
+            --card-bg-light: #ffffff;
+            --danger: #f85149;
+            --warning: #d29922;
+            --info: #58a6ff;
+            --ease-out: cubic-bezier(.16,1,.3,1);
+            --ease-in-out: cubic-bezier(.65,0,.35,1);
+            --dur-fast: 150ms;
+            --dur-med: 300ms;
+            --dur-slow: 500ms;
+        }
+
+        [data-theme="light"] {
+            --bg: var(--bg-light);
+            --text: var(--text-light);
+            --border: var(--border-light);
+            --card-bg: var(--card-bg-light);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            transition: background-color var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out);
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        nav a { color: var(--text); text-decoration: none; font-size: 0.9rem; }
+        nav a:hover { color: var(--accent); }
+        nav .title { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1rem; }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        main { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+
+        section { margin-bottom: 4rem; opacity: 0; transform: translateY(20px); }
+        @media (prefers-reduced-motion: no-preference) {
+            section { transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
+            section.visible { opacity: 1; transform: translateY(0); }
+        }
+        section.visible { opacity: 1; transform: translateY(0); }
+
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; line-height: 1.1; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+        h2 { font-size: 1.5rem; margin-bottom: 1.5rem; font-family: 'JetBrains Mono', monospace; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        h3 { font-size: 1.1rem; margin-bottom: 1rem; }
+        p { margin-bottom: 1rem; }
+
+        .pitch { font-size: 1.2rem; color: var(--accent); margin-bottom: 2rem; display: inline-block; border-bottom: 1px dashed var(--border); padding-bottom: 0.5rem; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+        }
+        .card:hover { border-color: var(--accent); }
+        
+        .badge {
+            display: inline-block;
+            background: rgba(46, 160, 67, 0.1);
+            color: var(--accent);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            border: 1px solid var(--accent);
+            margin-bottom: 1rem;
+        }
+
+        .chart-container { position: relative; width: 100%; height: 250px; }
+        svg { width: 100%; height: 100%; overflow: visible; }
+        .bar { transition: opacity var(--dur-fast) var(--ease-out); cursor: pointer; }
+        .bar:hover { opacity: 0.8; }
+        .axis { stroke: var(--border); stroke-width: 1; }
+        .axis-text { fill: var(--text); font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+
+        .flow-step { display: flex; align-items: center; margin-bottom: 1rem; position: relative; }
+        .flow-circle {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--card-bg); border: 2px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'JetBrains Mono', monospace; font-weight: 700;
+            z-index: 2; transition: border-color var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out);
+        }
+        .flow-line { position: absolute; left: 20px; top: 40px; height: 100%; width: 2px; background: var(--border); z-index: 1; }
+        .flow-step.active .flow-circle { border-color: var(--accent); color: var(--accent); }
+        .flow-step.active .flow-line { background: var(--accent); }
+        .flow-content { margin-left: 1rem; }
+        
+        .tool-input {
+            width: 100%; min-height: 150px;
+            background: var(--bg); color: var(--text);
+            border: 1px solid var(--border);
+            padding: 1rem; border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;
+            resize: vertical; transition: border-color var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out);
+        }
+        .tool-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46, 160, 67, 0.2); }
+        .tool-input.dragover { border-color: var(--accent); box-shadow: 0 0 20px rgba(46, 160, 67, 0.4); transform: scale(1.01); }
+
+        .btn {
+            background: var(--accent); color: #fff;
+            border: none; padding: 0.75rem 1.5rem;
+            border-radius: 6px; font-family: 'JetBrains Mono', monospace;
+            font-weight: 700; cursor: pointer;
+            transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+        }
+        .btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+        .example-chips { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .chip {
+            font-size: 0.75rem; padding: 0.3rem 0.6rem;
+            border: 1px solid var(--border); border-radius: 12px;
+            cursor: pointer; transition: all var(--dur-fast) var(--ease-out);
+            background: var(--card-bg);
+        }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        .results-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-top: 2rem; }
+        @media (max-width: 768px) { .results-grid { grid-template-columns: 1fr; } }
+
+        .donut-center { fill: var(--text); font-family: 'JetBrains Mono', monospace; font-weight: 700; text-anchor: middle; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+        th:hover { color: var(--accent); }
+        td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+        tr { transition: opacity var(--dur-fast) var(--ease-out); }
+        
+        .pill { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
+        .pill-critical { background: rgba(248, 81, 73, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .pill-warning { background: rgba(210, 153, 34, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+        .pill-info { background: rgba(88, 166, 255, 0.2); color: var(--info); border: 1px solid var(--info); }
+
+        .copy-btn {
+            float: right; font-size: 0.75rem; cursor: pointer;
+            background: transparent; border: 1px solid var(--border);
+            padding: 0.2rem 0.5rem; border-radius: 4px; color: var(--text);
+            transition: all var(--dur-fast) var(--ease-out);
+        }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .tab-container { border-bottom: 1px solid var(--border); margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .tab { padding: 0.5rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--dur-fast) var(--ease-out); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+        .tab:hover { color: var(--accent); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .tab-content { display: none; background: var(--bg); border: 1px solid var(--border); padding: 1rem; border-radius: 6px; position: relative; overflow-x: auto; }
+        .tab-content.active { display: block; animation: fadeIn var(--dur-med) var(--ease-out); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) { .tab-content.active { animation: none; } }
+
+        pre { white-space: pre-wrap; word-wrap: break-word; font-size: 0.8rem; }
+        code { font-family: 'JetBrains Mono', monospace; }
+
+        .progress-rail {
+            position: fixed; right: 20px; bottom: 20px;
+            background: var(--card-bg); border: 1px solid var(--border);
+            padding: 1rem; border-radius: 8px; min-width: 200px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 1000;
+            display: none; opacity: 0; transition: opacity var(--dur-med) var(--ease-out);
+        }
+        .progress-rail.visible { display: block; opacity: 1; }
+        .progress-bar-bg { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 0.5rem; }
+        .progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width var(--dur-med) var(--ease-out); }
+
+        .count-up { font-size: 2rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+        .assumption { font-size: 0.8rem; color: var(--text); opacity: 0.7; margin-top: 0.5rem; }
+
+        .share-btns { margin-top: 1rem; display: flex; gap: 0.5rem; }
+        
+        .micro-celebrate { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; opacity: 0; }
+        @keyframes checkDraw { 0% { stroke-dashoffset: 100; opacity: 0; } 20% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+        
+        .footer { border-top: 1px solid var(--border); margin-top: 4rem; padding: 2rem; text-align: center; font-size: 0.8rem; opacity: 0.7; }
+        .footer a { color: var(--accent); text-decoration: none; }
+
+        .state-hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="https://iggym.github.io/zero-cost-ai-coding/" class="mono">⟵ zero-cost-ai-coding</a>
+        <span class="title">Log Triage AI</span>
+        <button class="theme-toggle mono" onclick="toggleTheme()">THEME</button>
+    </nav>
+
+    <main>
+        <section id="hero">
+            <div class="badge">SOLUTION MODE: CONNECTOR (BYOK)</div>
+            <h1>Stop reading logs. Start fixing them.</h1>
+            <p class="pitch">Drop a stack trace. Watch errors cluster.</p>
+            <div class="share-btns">
+                <button class="btn btn-secondary mono" onclick="shareOnX()">Share on X</button>
+                <button class="btn btn-secondary mono" id="copyLinkBtn" onclick="copyLink()">Copy Link</button>
+            </div>
+        </section>
+
+        <section id="why">
+            <h2>1. The Problem: Time Sink</h2>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Where Dev Time Goes</h3>
+                    <p>Developers spend nearly half their time maintaining and debugging code rather than writing new features.</p>
+                    <div class="chart-container">
+                        <svg id="whyChart" viewBox="0 0 300 200"></svg>
+                    </div>
+                    <div class="assumption">Source: Stripe Developer Coefficient Report</div>
+                </div>
+                <div class="card">
+                    <h3>Paid Alternatives</h3>
+                    <p>If you want automated log triage, you usually pay per machine or per gigabyte.</p>
+                    <table>
+                        <thead>
+                            <tr><th>Tool</th><th>Starting Price</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Datadog</td><td>$31/host/mo</td></tr>
+                            <tr><td>Sentry</td><td>$26/mo</td></tr>
+                            <tr><td>LogTail</td><td>$14/mo</td></tr>
+                            <tr><td style="color:var(--accent)">This Tool</td><td style="color:var(--accent)">$0 (Groq Free Tier)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="how">
+            <h2>2. How It Works</h2>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="flow-step" id="step1">
+                        <div class="flow-circle">1</div>
+                        <div class="flow-line"></div>
+                        <div class="flow-content"><strong>Paste Log</strong><br><span class="assumption">Provide a raw error or stack trace.</span></div>
+                    </div>
+                    <div class="flow-step" id="step2">
+                        <div class="flow-circle">2</div>
+                        <div class="flow-line"></div>
+                        <div class="flow-content"><strong>AI Triage</strong><br><span class="assumption">Llama 3 70B extracts structure via Groq.</span></div>
+                    </div>
+                    <div class="flow-step" id="step3">
+                        <div class="flow-circle">3</div>
+                        <div class="flow-content"><strong>Explore Output</strong><br><span class="assumption">Filter, sort, and visualize the errors.</span></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <svg id="howFlow" viewBox="0 0 300 200">
+                        <path d="M 20 100 L 150 100 L 150 50 L 280 50" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="400" stroke-dashoffset="400" id="flowPath"/>
+                        <circle cx="20" cy="100" r="8" fill="var(--accent)"/>
+                        <circle cx="150" cy="100" r="8" fill="var(--accent)"/>
+                        <circle cx="280" cy="50" r="8" fill="var(--accent)"/>
+                        <text x="20" y="120" fill="var(--text)" font-size="10" text-anchor="middle" class="mono">INPUT</text>
+                        <text x="150" y="120" fill="var(--text)" font-size="10" text-anchor="middle" class="mono">PROCESS</text>
+                        <text x="280" y="70" fill="var(--text)" font-size="10" text-anchor="middle" class="mono">OUTPUT</text>
+                    </svg>
+                    <div class="badge">FREE TIER LIMIT: 30 RPM / 14,400 REQ/DAY</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tool">
+            <h2>3. The Tool</h2>
+            <div class="card">
+                <div style="margin-bottom: 1rem;">
+                    <label class="mono" style="font-size:0.8rem; display:block; margin-bottom:0.5rem;">GROQ API KEY (Stored locally in browser only)</label>
+                    <input type="password" id="apiKey" class="tool-input" style="min-height: auto; padding: 0.5rem;" placeholder="gsk_...">
+                </div>
+                
+                <div class="example-chips">
+                    <span class="chip mono" onclick="loadExample('node')">Node.js Crash</span>
+                    <span class="chip mono" onclick="loadExample('python')">Python Traceback</span>
+                    <span class="chip mono" onclick="loadExample('generic')">Generic 500 Error</span>
+                </div>
+                
+                <textarea id="logInput" class="tool-input" placeholder="Paste your error log or stack trace here..."></textarea>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; align-items: center;">
+                    <button class="btn" id="runBtn" onclick="runTriage()">TRIAGE LOG</button>
+                    <button class="btn btn-secondary" onclick="exportJSON()">Download JSON</button>
+                </div>
+            </div>
+
+            <div id="resultsContainer" class="state-hidden">
+                <div class="results-grid">
+                    <div class="card">
+                        <h3>Severity Breakdown</h3>
+                        <div class="chart-container" style="height: 200px;">
+                            <svg id="donutChart" viewBox="0 0 100 100"></svg>
+                        </div>
+                        <div style="margin-top:1rem; text-align:center;">
+                            <div class="count-up" id="savedCount">0</div>
+                            <div class="assumption">~15 min saved per manual dive</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Extracted Errors <button class="copy-btn" onclick="copyTable()">Copy</button></h3>
+                        <input type="text" id="tableSearch" class="tool-input" style="min-height: auto; margin-bottom: 1rem; padding: 0.5rem;" placeholder="Filter errors..." onkeyup="filterTable()">
+                        <table id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortTable(0)">Line #</th>
+                                    <th onclick="sortTable(1)">Severity</th>
+                                    <th onclick="sortTable(2)">Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="utility">
+            <h2>4. Build It Yourself: Prompt Pack</h2>
+            <p>This tool is built using parameterized prompts. Copy the template for your preferred AI model to build a similar tool for any problem.</p>
+            
+            <div class="tab-container">
+                <div class="tab active" onclick="switchTab(event, 'howto')">How to use this</div>
+                <div class="tab" onclick="switchTab(event, 'chatbot')">Chatbot</div>
+                <div class="tab" onclick="switchTab(event, 'code')">Code / API</div>
+                <div class="tab" onclick="switchTab(event, 'openweight')">Open-Weight</div>
+            </div>
+
+            <div id="howto" class="tab-content active card">
+                <h3>Instructions</h3>
+                <p><strong>1. For chatbots:</strong> Pick your model tab (Chatbot), click Copy, paste into ChatGPT/Claude/Gemini, replace <code class="mono">{{variables}}</code>, send.</p>
+                <p><strong>2. For code:</strong> Use the Code tab — it's a ready JSON payload for OpenAI/Anthropic/Google APIs. Replace <code class="mono">{{variables}}</code> programmatically.</p>
+                <p><strong>3. All prompts</strong> are parameterized with <code class="mono">{{double-curly}}</code> variables you must fill. Never hardcode the example problem.</p>
+            </div>
+
+            <div id="chatbot" class="tab-content card">
+                <button class="copy-btn" onclick="copyText('chatbotText')">Copy</button>
+                <pre id="chatbotText">
+PARAMETERS:
+temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+
+SYSTEM PROMPT (Anthropic / Claude 3.5 Sonnet):
+You are a tool builder AI. Your task is to generate a zero-cost, single-file HTML tool that solves a real developer problem.
+Audience: {{AUDIENCE}}
+Date: {{DATE}}
+Solution Mode: {{SOLUTION_MODE}}
+You must use {{FREE_SERVICE}} (Free Tier Limit: {{FREE_TIER_LIMIT}}, URL: {{FREE_TIER_URL}}).
+Verify all limits. Do not use external libraries. Use vanilla JS and inline SVG for visuals.
+Visual Style: {{VISUAL_STYLE}}
+
+USER PROMPT:
+Build a tool for this problem: {{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Input Example: {{INPUT_EXAMPLE}}
+Output Kind: {{OUTPUT_KIND}}
+
+Use the `extract_data` tool to return the HTML structure.
+
+TOOL DEFINITION (Messages API):
+{
+  "name": "extract_data",
+  "description": "Extracts the generated HTML tool content.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "html_content": { "type": "string", "description": "The full single-file HTML code" },
+      "explanation": { "type": "string", "description": "Brief explanation of how it works" }
+    },
+    "required": ["html_content", "explanation"]
+  }
+}
+                </pre>
+            </div>
+
+            <div id="code" class="tab-content card">
+                <button class="copy-btn" onclick="copyText('codeText')">Copy</button>
+                <pre id="codeText">
+// OpenAI GPT-4o Ready Payload
+const payload = {
+  "model": "gpt-4o",
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a tool builder AI. Audience: {{AUDIENCE}}. Date: {{DATE}}. Build a {{SOLUTION_MODE}} tool using {{FREE_SERVICE}} ({{FREE_TIER_URL}}). Visuals: {{VISUAL_STYLE}}. Vanilla JS + inline SVG only."
+    },
+    {
+      "role": "user",
+      "content": "Problem: {{PROBLEM}}\nEvidence: {{EVIDENCE_SOURCE}}\nInput: {{INPUT_EXAMPLE}}\nOutput: {{OUTPUT_KIND}}"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "generate_tool",
+        "description": "Generates the single-file HTML tool",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "html": { "type": "string" },
+            "summary": { "type": "string" }
+          },
+          "required": ["html"]
+        }
+      }
+    }
+  ],
+  "tool_choice": {"name": "generate_tool"}
+};
+
+// fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: {...}, body: JSON.stringify(payload) })
+                </pre>
+            </div>
+
+            <div id="openweight" class="tab-content card">
+                <button class="copy-btn" onclick="copyText('openweightText')">Copy</button>
+                <pre id="openweightText">
+// For Llama 3.1 70B / Mistral Large / Qwen2 (Local/Ollama/vLLM)
+// Uses strict JSON output schema instead of native tool wrappers.
+
+SYSTEM:
+You are a tool builder AI. Build a zero-cost, single-file HTML tool.
+Audience: {{AUDIENCE}}. Date: {{DATE}}. Solution Mode: {{SOLUTION_MODE}}.
+Use {{FREE_SERVICE}} (Limit: {{FREE_TIER_LIMIT}}). Visuals: {{VISUAL_STYLE}}.
+Vanilla JS + inline SVG only. No external libraries.
+
+USER:
+Problem: {{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Input: {{INPUT_EXAMPLE}}
+Output: {{OUTPUT_KIND}}
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "html": "string (full single-file HTML code)",
+  "summary": "string (brief explanation)"
+}
+                </pre>
+            </div>
+        </section>
+    </main>
+
+    <div class="progress-rail" id="progressRail">
+        <div class="mono" style="font-size:0.8rem; color:var(--accent);">PROCESSING...</div>
+        <div id="progressStatus" class="mono" style="font-size:0.75rem; opacity:0.7; margin-top:0.2rem;">Connecting to Groq...</div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    </div>
+
+    <svg class="micro-celebrate" id="celebrateCheck" width="100" height="100" viewBox="0 0 100 100">
+        <path d="M 20 50 L 45 75 L 80 25" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" style="stroke-dasharray: 100; stroke-dashoffset: 100;"/>
+    </svg>
+
+    <footer class="footer mono">
+        Free-tier verified: Groq API — <a href="https://console.groq.com/docs/rate-limits" target="_blank">console.groq.com/docs/rate-limits</a> — 2026-08-16
+    </footer>
+
+    <script>
+        // Theme Toggle
+        function toggleTheme() {
+            const body = document.body;
+            const current = body.getAttribute('data-theme');
+            if (current === 'light') {
+                body.removeAttribute('data-theme');
+            } else {
+                body.setAttribute('data-theme', 'light');
+            }
+        }
+
+        // Scroll Reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('section').forEach(s => observer.observe(s));
+
+        // SVG Chart: Why Chart (Bar)
+        function drawWhyChart() {
+            const svg = document.getElementById('whyChart');
+            const data = [
+                {label: 'Features', val: 30, color: 'var(--info)'},
+                {label: 'Meetings', val: 20, color: 'var(--warning)'},
+                {label: 'Debugging', val: 35, color: 'var(--danger)'},
+                {label: 'Other', val: 15, color: 'var(--text)'}
+            ];
+            const max = 40;
+            const barWidth = 50;
+            const gap = 20;
+            let x = 20;
+            
+            data.forEach(d => {
+                const h = (d.val / max) * 150;
+                const y = 180 - h;
+                svg.innerHTML += `<rect class="bar" x="${x}" y="${y}" width="${barWidth}" height="${h}" fill="${d.color}" rx="4">
+                    <title>${d.label}: ${d.val}%</title>
+                </rect>`;
+                svg.innerHTML += `<text class="axis-text" x="${x + barWidth/2}" y="195" text-anchor="middle">${d.label}</text>`;
+                svg.innerHTML += `<text class="axis-text" x="${x + barWidth/2}" y="${y - 5}" text-anchor="middle">${d.val}%</text>`;
+                x += barWidth + gap;
+            });
+            svg.innerHTML += `<line class="axis" x1="10" y1="180" x2="290" y2="180"/>`;
+        }
+        drawWhyChart();
+
+        // SVG Chart: How Flow
+        function animateFlow() {
+            const path = document.getElementById('flowPath');
+            const length = path.getTotalLength();
+            path.style.transition = 'none';
+            path.style.strokeDasharray = length;
+            path.style.strokeDashoffset = length;
+            setTimeout(() => {
+                path.style.transition = 'stroke-dashoffset 1.5s var(--ease-out)';
+                path.style.strokeDashoffset = '0';
+            }, 500);
+        }
+        animateFlow();
+
+        // Tool Logic
+        const examples = {
+            node: `Error: Cannot read properties of undefined (reading 'id')\n    at UserProfile.render (/app/src/components/User.js:45:22)\n    at ReactRenderer.commitUpdate (/app/node_modules/react-dom/cjs/react-dom.development.js:528:12)\n    at Object.invokeGuardedCallbackDev (react-dom.development.js:421:25)`,
+            python: `Traceback (most recent call last):\n  File "/app/main.py", line 12, in <module>\n    db.connect()\n  File "/usr/local/lib/python3.9/site-packages/pymongo/mongo_client.py", line 800, in connect\n    raise ConnectionFailure(str(e))\npymongo.errors.ConnectionFailure: ServerSelectionTimeoutError: localhost:27017: [Errno 111] Connection refused`,
+            generic: `2026-08-16T10:24:12Z [ERROR] Failed to process request 9843. Reason: Database timeout. Retry attempt 3 failed.`
+        };
+
+        function loadExample(type) {
+            const input = document.getElementById('logInput');
+            input.value = examples[type];
+            input.classList.add('dragover');
+            setTimeout(() => input.classList.remove('dragover'), 300);
+        }
+
+        // Drag & Drop
+        const dropZone = document.getElementById('logInput');
+        ['dragenter', 'dragover'].forEach(e => {
+            dropZone.addEventListener(e, (ev) => {
+                ev.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(e => {
+            dropZone.addEventListener(e, (ev) => {
+                ev.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+        });
+        dropZone.addEventListener('drop', (ev) => {
+            const file = ev.dataTransfer.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => dropZone.value = e.target.result;
+                reader.readAsText(file);
+            }
+        });
+
+        let extractedData = null;
+
+        async function runTriage() {
+            const key = document.getElementById('apiKey').value;
+            const log = document.getElementById('logInput').value;
+            const btn = document.getElementById('runBtn');
+
+            if (!key || !log) {
+                document.getElementById('progressStatus').innerText = "Missing API Key or Log Input.";
+                document.getElementById('progressRail').classList.add('visible');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "ANALYZING...";
+            document.getElementById('progressRail').classList.add('visible');
+            document.getElementById('progressFill').style.width = '30%';
+            document.getElementById('step2').classList.add('active');
+            document.getElementById('progressStatus').innerText = "Querying Llama 3 70B...";
+
+            const systemPrompt = `You are a debugging assistant. Analyze the provided error log or stack trace. 
+            Extract the key error points. Categorize severity as Critical, Warning, or Info. 
+            Respond ONLY with valid JSON in this format: 
+            {"results": [{"line": number, "severity": "Critical", "reason": "string"}], "summary": "string"}`;
+            
+            try {
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${key}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'llama3-70b-8192',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: log }
+                        ],
+                        response_format: { type: "json_object" },
+                        temperature: 0.4
+                    })
+                });
+
+                if (!res.ok) throw new Error(`API Error: ${res.status}`);
+                
+                document.getElementById('progressFill').style.width = '70%';
+                document.getElementById('progressStatus').innerText = "Parsing results...";
+
+                const data = await res.json();
+                extractedData = JSON.parse(data.choices[0].message.content);
+
+                document.getElementById('progressFill').style.width = '100%';
+                document.getElementById('step3').classList.add('active');
+                document.getElementById('progressStatus').innerText = "Done!";
+                
+                renderResults(extractedData);
+                celebrate();
+
+                setTimeout(() => {
+                    document.getElementById('progressRail').classList.remove('visible');
+                    document.getElementById('progressFill').style.width = '0%';
+                }, 1500);
+
+            } catch (err) {
+                document.getElementById('progressStatus').innerText = "Error: " + err.message;
+                document.getElementById('progressFill').style.width = '0%';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "TRIAGE LOG";
+            }
+        }
+
+        function renderResults(data) {
+            document.getElementById('resultsContainer').classList.remove('state-hidden');
+            document.getElementById('resultsBody').innerHTML = '';
+            
+            const severityCounts = { Critical: 0, Warning: 0, Info: 0 };
+            
+            data.results.forEach((r, i) => {
+                severityCounts[r.severity] = (severityCounts[r.severity] || 0) + 1;
+                const row = `<tr style="opacity:0; animation: fadeIn 0.3s ${i*0.05}s forwards;">
+                    <td class="mono">${r.line || 'N/A'}</td>
+                    <td><span class="pill pill-${r.severity.toLowerCase()}">${r.severity}</span></td>
+                    <td>${r.reason}</td>
+                </tr>`;
+                document.getElementById('resultsBody').innerHTML += row;
+            });
+
+            drawDonut(severityCounts);
+            animateCountUp(15);
+        }
+
+        function drawDonut(counts) {
+            const svg = document.getElementById('donutChart');
+            const total = counts.Critical + counts.Warning + counts.Info || 1;
+            const colors = { Critical: 'var(--danger)', Warning: 'var(--warning)', Info: 'var(--info)' };
+            let offset = 0;
+            const radius = 30;
+            const circumference = 2 * Math.PI * radius;
+            
+            svg.innerHTML = `<circle cx="50" cy="50" r="${radius}" fill="none" stroke="var(--border)" stroke-width="15"/>`;
+            
+            Object.entries(counts).forEach(([key, val]) => {
+                if (val === 0) return;
+                const dash = (val / total) * circumference;
+                svg.innerHTML += `<circle cx="50" cy="50" r="${radius}" fill="none" stroke="${colors[key]}" stroke-width="15" 
+                    stroke-dasharray="${dash} ${circumference}" stroke-dashoffset="${-offset}" 
+                    transform="rotate(-90 50 50)" style="transition: stroke-dasharray 0.5s var(--ease-out);"/>`;
+                offset += dash;
+            });
+            
+            svg.innerHTML += `<text x="50" y="48" class="donut-center" font-size="14">${total}</text>
+                             <text x="50" y="60" class="donut-center" font-size="6" style="opacity:0.7">ERRORS</text>`;
+        }
+
+        function animateCountUp(target) {
+            const el = document.getElementById('savedCount');
+            let current = 0;
+            const step = target / 30;
+            const timer = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                el.innerText = Math.floor(current) + " min";
+            }, 30);
+        }
+
+        // Table Sort/Filter
+        let sortDir = 1;
+        function sortTable(col) {
+            if(!extractedData) return;
+            extractedData.results.sort((a, b) => {
+                const av = col === 0 ? a.line : col === 1 ? a.severity : a.reason;
+                const bv = col === 0 ? b.line : col === 1 ? b.severity : b.reason;
+                if (av < bv) return -1 * sortDir;
+                if (av > bv) return 1 * sortDir;
+                return 0;
+            });
+            sortDir *= -1;
+            renderResults(extractedData);
+        }
+
+        function filterTable() {
+            const filter = document.getElementById('tableSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('#resultsBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+
+        function copyTable() {
+            const text = document.getElementById('resultsBody').innerText;
+            navigator.clipboard.writeText(text);
+        }
+
+        function exportJSON() {
+            if (!extractedData) return;
+            const blob = new Blob([JSON.stringify({"zcac":true,"kind":"log-triage","data":extractedData}, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'triage_output.json';
+            a.click();
+        }
+
+        function celebrate() {
+            const check = document.getElementById('celebrateCheck');
+            const path = check.querySelector('path');
+            path.style.animation = 'none';
+            void path.offsetWidth; // reflow
+            path.style.animation = 'checkDraw 0.6s var(--ease-out) forwards';
+        }
+
+        // Tabs
+        function switchTab(evt, id) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            evt.target.classList.add('active');
+            document.getElementById(id).classList.add('active');
+        }
+
+        function copyText(id) {
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text.trim()).then(() => {
+                const btn = event.target;
+                const orig = btn.innerText;
+                btn.innerText = "Copied! ✓";
+                btn.style.color = 'var(--accent)';
+                btn.style.borderColor = 'var(--accent)';
+                setTimeout(() => {
+                    btn.innerText = orig;
+                    btn.style.color = '';
+                    btn.style.borderColor = '';
+                }, 1200);
+            });
+        }
+
+        // Share
+        function shareOnX() {
+            window.open(`https://twitter.com/intent/tweet?text=Check out this zero-cost AI Log Triage tool&url=${window.location.href}`, '_blank');
+        }
+        function copyLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const btn = document.getElementById('copyLinkBtn');
+                const orig = btn.innerText;
+                btn.innerText = "Copied! ✓";
+                setTimeout(() => btn.innerText = orig, 1200);
+            });
+        }
+    </script>
+</body>
+</html>
