@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Cluster — Zero-Cost Error Triage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0a;--bg-el:#141414;--bg-card:#1a1a1a;--fg:#e5e5e5;--fg-muted:#888;
+  --accent:#00ff88;--accent-dim:#00cc6a;--accent-bg:rgba(0,255,136,.08);
+  --border:#2a2a2a;--error:#ff4757;--warn:#ffa502;--info:#3498db;
+  --radius:8px;--font-m:'JetBrains Mono',monospace;--font-b:'Inter',sans-serif;
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-io:cubic-bezier(.65,0,.35,1);
+  --dur-f:150ms;--dur-m:300ms;--dur-s:500ms;
+}
+.light{
+  --bg:#f8f8f5;--bg-el:#fff;--bg-card:#fff;--fg:#1a1a1a;--fg-muted:#666;
+  --accent:#00aa55;--accent-dim:#008844;--accent-bg:rgba(0,170,85,.06);
+  --border:#e0e0e0;--error:#d63031;--warn:#e67e22;--info:#2980b9;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--bg);color:var(--fg);font-family:var(--font-b)}
+body{line-height:1.6;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Top bar */
+.topbar{position:sticky;top:0;z-index:90;background:var(--bg-el);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:48px;font-family:var(--font-m);font-size:13px}
+.topbar a{color:var(--fg-muted);font-weight:400}
+.topbar a:hover{color:var(--accent);text-decoration:none}
+.topbar .title{color:var(--fg);font-weight:700}
+.theme-btn{background:none;border:1px solid var(--border);color:var(--fg-muted);border-radius:6px;
+  padding:4px 10px;cursor:pointer;font-size:14px;font-family:var(--font-m);transition:color var(--dur-f),border-color var(--dur-f)}
+.theme-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Sections */
+.section{padding:48px 20px;max-width:860px;margin:0 auto}
+.section+.section{border-top:1px solid var(--border)}
+h1{font-family:var(--font-m);font-size:clamp(24px,5vw,36px);font-weight:700;line-height:1.2;margin-bottom:8px}
+h2{font-family:var(--font-m);font-size:22px;font-weight:700;margin-bottom:16px}
+h3{font-family:var(--font-m);font-size:14px;font-weight:700;margin-bottom:12px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.5px}
+.subtitle{color:var(--fg-muted);font-size:15px;max-width:600px;margin-bottom:20px}
+
+/* Share row */
+.share-row{display:flex;gap:8px;margin-bottom:24px}
+.share-btn{background:var(--bg-card);border:1px solid var(--border);color:var(--fg-muted);border-radius:6px;
+  padding:5px 12px;font-size:12px;font-family:var(--font-m);cursor:pointer;transition:all var(--dur-f)}
+.share-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Evidence grid */
+.evidence-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.evidence-grid{grid-template-columns:1fr}}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.source{font-size:11px;color:var(--fg-muted);margin-top:8px;font-family:var(--font-m)}
+
+/* Pricing table */
+.pricing-table{width:100%;border-collapse:collapse;font-size:13px}
+.pricing-table th,.pricing-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.pricing-table th{color:var(--fg-muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.pricing-table tr.highlight{background:var(--accent-bg)}
+.pricing-table tr.highlight td{color:var(--accent);font-weight:600}
+.pricing-table .price{text-align:right;font-family:var(--font-m);white-space:nowrap}
+
+/* Free badge */
+.free-badge{display:inline-flex;align-items:center;gap:6px;background:var(--accent-bg);color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:20px;
+  padding:6px 14px;font-size:12px;font-family:var(--font-m);margin-top:16px}
+
+/* Flow SVG */
+.flow-wrap{margin:24px 0;overflow-x:auto}
+.flow-wrap svg{display:block;margin:0 auto}
+.flow-step-text{fill:var(--fg-muted);font-family:var(--font-m);font-size:11px;text-anchor:middle}
+.flow-step-num{fill:var(--bg-card);font-family:var(--font-m);font-size:12px;font-weight:700;text-anchor:middle}
+.flow-connector{stroke:var(--border);stroke-width:2;fill:none;stroke-dasharray:80;stroke-dashoffset:80;transition:stroke-dashoffset .6s var(--ease-out)}
+.flow-connector.active{stroke:var(--accent);stroke-dashoffset:0}
+.flow-circle{fill:var(--bg-card);stroke:var(--border);stroke-width:2;transition:stroke var(--dur-m),fill var(--dur-m)}
+.flow-circle.active{stroke:var(--accent);fill:var(--accent-bg)}
+
+/* Drop zone */
+.drop-zone{position:relative;border:2px dashed var(--border);border-radius:var(--radius);
+  background:var(--bg-card);transition:border-color var(--dur-f),box-shadow var(--dur-f),transform var(--dur-f)}
+.drop-zone.drag-over{border-color:var(--accent);box-shadow:0 0 24px rgba(0,255,136,.15);transform:scale(1.005)}
+#log-input{width:100%;min-height:160px;background:transparent;border:none;color:var(--fg);
+  font-family:var(--font-m);font-size:12px;padding:16px;resize:vertical;outline:none;line-height:1.7}
+#log-input::placeholder{color:var(--fg-muted)}
+
+/* Chips */
+.chip-row{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+.chip-label{font-size:12px;color:var(--fg-muted);font-family:var(--font-m)}
+.chip{background:var(--bg-card);border:1px solid var(--border);color:var(--fg-muted);border-radius:6px;
+  padding:4px 12px;font-size:12px;font-family:var(--font-m);cursor:pointer;transition:all var(--dur-f)}
+.chip:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-bg)}
+
+/* Buttons */
+.primary-btn{margin-top:16px;background:var(--accent);color:#0a0a0a;border:none;border-radius:6px;
+  padding:10px 24px;font-family:var(--font-m);font-size:13px;font-weight:700;cursor:pointer;
+  transition:opacity var(--dur-f),transform var(--dur-f)}
+.primary-btn:hover{opacity:.9;transform:translateY(-1px)}
+.primary-btn:active{transform:translateY(0);opacity:1}
+.secondary-btn{background:var(--bg-card);border:1px solid var(--border);color:var(--fg-muted);border-radius:6px;
+  padding:6px 14px;font-size:12px;font-family:var(--font-m);cursor:pointer;transition:all var(--dur-f)}
+.secondary-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* Process steps */
+.process-steps{display:flex;flex-direction:column;gap:4px;padding:16px 0;font-family:var(--font-m);font-size:12px}
+.process-steps .step{color:var(--fg-muted);opacity:0;transform:translateX(-8px);
+  transition:opacity var(--dur-m) var(--ease-out),transform var(--dur-m) var(--ease-out)}
+.process-steps .step.visible{opacity:1;transform:translateX(0)}
+.process-steps .step.done{color:var(--accent)}
+.process-steps .step.active{color:var(--fg)}
+
+/* Controls */
+.controls{padding:16px 0;display:flex;align-items:center;gap:12px;font-family:var(--font-m);font-size:13px}
+.controls label{color:var(--fg-muted);white-space:nowrap}
+.controls label span{color:var(--accent);font-weight:700}
+#min-count{flex:1;max-width:240px;accent-color:var(--accent);cursor:pointer}
+
+/* Chart wrap */
+.chart-wrap{padding:8px 0 16px}
+.chart-wrap canvas{width:100%;display:block}
+
+/* Table */
+.table-wrap{padding:8px 0 16px}
+.table-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.table-header h3{margin-bottom:0}
+#table-search{background:var(--bg-card);border:1px solid var(--border);color:var(--fg);border-radius:6px;
+  padding:5px 12px;font-size:12px;font-family:var(--font-m);outline:none;width:200px;transition:border-color var(--dur-f)}
+#table-search:focus{border-color:var(--accent)}
+.table-scroll{overflow-x:auto;max-height:400px;overflow-y:auto}
+#clusters-table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--font-m)}
+#clusters-table th{position:sticky;top:0;background:var(--bg-card);color:var(--fg-muted);font-weight:600;
+  font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;text-align:left;
+  border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;
+  transition:color var(--dur-f)}
+#clusters-table th:hover{color:var(--accent)}
+#clusters-table th .sort-arrow{margin-left:4px;opacity:.4;font-size:10px}
+#clusters-table th.sorted .sort-arrow{opacity:1;color:var(--accent)}
+#clusters-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;max-width:320px}
+#clusters-table tr{transition:opacity var(--dur-f) var(--ease-out),transform var(--dur-f) var(--ease-out)}
+#clusters-table tr.row-hidden{opacity:0;max-height:0;overflow:hidden;padding:0;border:none}
+#clusters-table .level-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.level-error{background:rgba(255,71,87,.15);color:var(--error)}
+.level-warn{background:rgba(255,165,2,.15);color:var(--warn)}
+.level-info{background:rgba(52,152,219,.15);color:var(--info)}
+.level-other{background:var(--border);color:var(--fg-muted)}
+.pattern-cell{word-break:break-all;font-size:11px;color:var(--fg-muted)}
+.sample-cell{font-size:11px;color:var(--fg-muted);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Savings row */
+.savings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;
+  border-top:1px solid var(--border);flex-wrap:wrap}
+.savings-label{font-size:12px;color:var(--fg-muted);display:block}
+.savings-value{font-family:var(--font-m);font-size:24px;font-weight:700;color:var(--accent);display:block}
+.savings-assumption{font-size:11px;color:var(--fg-muted);display:block;margin-top:2px}
+.export-btns{display:flex;gap:8px}
+
+/* Limits */
+.limits{padding:12px 16px;background:color-mix(in srgb,var(--warn) 6%,transparent);border:1px solid color-mix(in srgb,var(--warn) 20%,transparent);
+  border-radius:var(--radius);font-size:12px;color:var(--warn);margin-top:12px;line-height:1.5}
+
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--fg-muted);font-size:14px}
+
+/* Celebration */
+.celebration-sweep{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:var(--radius)}
+.celebration-sweep::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,var(--accent) 50%,transparent 100%);opacity:0}
+
+/* Hidden helper */
+.hidden{display:none!important}
+
+/* Feedback rail */
+.feedback-rail{position:fixed;bottom:0;left:0;right:0;height:3px;background:var(--border);z-index:100;
+  transition:height var(--dur-m) var(--ease-out)}
+.feedback-rail.active{height:28px}
+.rail-progress{height:3px;background:var(--accent);width:0%;transition:width var(--dur-m) var(--ease-out)}
+.rail-status{position:absolute;top:5px;left:12px;font-size:11px;color:var(--fg-muted);font-family:var(--font-m);opacity:0;transition:opacity var(--dur-m)}
+.feedback-rail.active .rail-status{opacity:1}
+.rail-count{position:absolute;top:5px;right:12px;font-size:11px;color:var(--accent);font-family:var(--font-m);font-weight:700;opacity:0;transition:opacity var(--dur-m)}
+.feedback-rail.active .rail-count{opacity:1}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;margin-bottom:16px;-webkit-overflow-scrolling:touch}
+.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--fg-muted);
+  padding:10px 16px;font-size:13px;font-family:var(--font-m);cursor:pointer;white-space:nowrap;
+  transition:color var(--dur-f),border-color var(--dur-f)}
+.tab:hover{color:var(--fg)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{position:relative;min-height:100px}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+.prompt-block{position:relative;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;margin-bottom:12px;overflow-x:auto}
+.prompt-block pre{font-family:var(--font-m);font-size:12px;line-height:1.7;color:var(--fg);white-space:pre-wrap;word-break:break-word;margin:0}
+.prompt-block .copy-btn{position:absolute;top:8px;right:8px;background:var(--bg-el);border:1px solid var(--border);
+  color:var(--fg-muted);border-radius:4px;padding:3px 10px;font-size:11px;font-family:var(--font-m);cursor:pointer;
+  transition:all var(--dur-f)}
+.prompt-block .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
+.prompt-block .copy-btn.copied{color:var(--accent);border-color:var(--accent)}
+.prompt-block-label{font-size:11px;color:var(--fg-muted);font-family:var(--font-m);margin-bottom:6px;font-weight:600}
+
+/* Footer */
+footer{max-width:860px;margin:0 auto;padding:24px 20px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--fg-muted);font-family:var(--font-m);text-align:center}
+footer a{color:var(--fg-muted)}
+footer a:hover{color:var(--accent)}
+
+/* Output panel relative for celebration */
+.output-panel{position:relative}
+
+/* Animations — only for users who prefer motion */
+@media(prefers-reduced-motion:no-preference){
+  .flow-connector{transition:stroke-dashoffset .6s var(--ease-out),stroke var(--dur-m)}
+  .flow-circle{transition:stroke var(--dur-m),fill var(--dur-m)}
+  .celebration-sweep.fire::after{animation:sweep .6s var(--ease-out) forwards}
+  @keyframes sweep{0%{opacity:.25;transform:translateX(-100%)}100%{opacity:0;transform:translateX(100%)}}
+  .card,.drop-zone{animation:fadeUp .5s var(--ease-out) both}
+  .card:nth-child(2){animation-delay:60ms}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+}
+@media(prefers-reduced-motion:reduce){
+  .flow-connector{stroke-dashoffset:0!important;transition:none}
+  .process-steps .step{opacity:1;transform:none;transition:none}
+}
+
+/* Responsive */
+@media(max-width:640px){
+  .section{padding:32px 16px}
+  .savings-row{flex-direction:column;align-items:flex-start}
+  .controls{flex-direction:column;align-items:flex-start}
+  #min-count{max-width:100%}
+  #table-search{width:140px}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">&larr; zero-cost-ai-coding</a>
+  <span class="title">Log Cluster</span>
+  <button class="theme-btn" id="theme-toggle" aria-label="Toggle light mode">☀</button>
+</header>
+
+<main>
+<!-- WHY -->
+<section class="section" id="why-section">
+  <h1>Drop a log. Watch errors cluster.</h1>
+  <p class="subtitle">Paste or drop server logs. Fingerprint and group errors by pattern — runs entirely in your browser, no API key, no server.</p>
+  <div class="share-row">
+    <button class="share-btn" id="share-x">Share on X</button>
+    <button class="share-btn" id="share-link">Copy link</button>
+  </div>
+  <div class="evidence-grid">
+    <div class="card">
+      <h3>How common is this problem?</h3>
+      <canvas id="why-chart"></canvas>
+      <p class="source">source: stackoverflow.com/tags &mdash; Aug 2026</p>
+    </div>
+    <div class="card">
+      <h3>Paid alternatives</h3>
+      <table class="pricing-table">
+        <thead><tr><th>Tool</th><th class="price">Price</th><th>Key feature</th></tr></thead>
+        <tbody>
+          <tr><td>Sentry</td><td class="price">$26/mo</td><td>Error grouping + alerts</td></tr>
+          <tr><td>Datadog</td><td class="price">$15/host/mo</td><td>Full observability stack</td></tr>
+          <tr><td>Rollbar</td><td class="price">$24/mo</td><td>Error tracking + deploys</td></tr>
+          <tr class="highlight"><td>Log Cluster</td><td class="price">$0</td><td>Local log clustering</td></tr>
+        </tbody>
+      </table>
+      <p class="source">prices from provider sites &mdash; Aug 2026</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW -->
+<section class="section" id="how-section">
+  <h2>How it works</h2>
+  <div class="flow-wrap">
+    <svg id="flow-svg" width="420" height="90" viewBox="0 0 420 90">
+      <line class="flow-connector" id="fc1" x1="76" y1="36" x2="176" y2="36"/>
+      <line class="flow-connector" id="fc2" x1="244" y1="36" x2="344" y2="36"/>
+      <circle class="flow-circle" id="fc0" cx="60" cy="36" r="16"/>
+      <text class="flow-step-num" x="60" y="40">1</text>
+      <circle class="flow-circle" id="fc1c" cx="210" cy="36" r="16"/>
+      <text class="flow-step-num" x="210" y="40">2</text>
+      <circle class="flow-circle" id="fc2c" cx="360" cy="36" r="16"/>
+      <text class="flow-step-num" x="360" y="40">3</text>
+      <text class="flow-step-text" x="60" y="72">Drop / Paste</text>
+      <text class="flow-step-text" x="210" y="72">Fingerprint</text>
+      <text class="flow-step-text" x="360" y="72">Explore</text>
+    </svg>
+  </div>
+  <div class="free-badge">Browser-Native &mdash; No limits, no API key, no server</div>
+</section>
+
+<!-- TOOL -->
+<section class="section" id="tool-section">
+  <div class="drop-zone" id="drop-zone">
+    <textarea id="log-input" placeholder="Paste logs here or drop a .log / .txt file..." spellcheck="false"></textarea>
+  </div>
+  <div class="chip-row">
+    <span class="chip-label">Try:</span>
+    <button class="chip" data-size="tiny">Tiny (15 lines)</button>
+    <button class="chip" data-size="medium">Medium (50 lines)</button>
+    <button class="chip" data-size="stress">Stress test (200 lines)</button>
+  </div>
+  <button class="primary-btn" id="parse-btn">Parse &amp; Cluster</button>
+
+  <div class="output-panel" id="output-panel" style="margin-top:24px">
+    <div id="process-steps" class="process-steps hidden">
+      <div class="step" data-step="read">Reading input...</div>
+      <div class="step" data-step="parse">Parsing entries...</div>
+      <div class="step" data-step="fingerprint">Fingerprinting messages...</div>
+      <div class="step" data-step="cluster">Clustering by pattern...</div>
+      <div class="step" data-step="done">Done.</div>
+    </div>
+    <div id="controls" class="controls hidden">
+      <label>Min occurrences: <span id="min-count-val">1</span></label>
+      <input type="range" id="min-count" min="1" max="50" value="1">
+    </div>
+    <div id="histogram-wrap" class="chart-wrap hidden">
+      <h3>Error distribution</h3>
+      <canvas id="histogram"></canvas>
+    </div>
+    <div id="table-wrap" class="table-wrap hidden">
+      <div class="table-header">
+        <h3>Clusters</h3>
+        <input type="text" id="table-search" placeholder="Filter patterns...">
+      </div>
+      <div class="table-scroll">
+        <table id="clusters-table">
+          <thead><tr>
+            <th data-sort="count">Count <span class="sort-arrow">&darr;</span></th>
+            <th data-sort="level">Level <span class="sort-arrow"></span></th>
+            <th data-sort="pattern">Pattern <span class="sort-arrow"></span></th>
+            <th>Sample</th>
+          </tr></thead>
+          <tbody id="clusters-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="savings-row" class="savings-row hidden">
+      <div class="savings">
+        <span class="savings-label">Estimated time saved</span>
+        <span class="savings-value" id="savings-value">0 min</span>
+        <span class="savings-assumption">(~15 sec/entry reviewed by hand)</span>
+      </div>
+      <div class="export-btns">
+        <button class="secondary-btn" id="copy-json-btn">Copy as JSON</button>
+        <button class="secondary-btn" id="download-json-btn">Download JSON</button>
+      </div>
+    </div>
+    <div id="limits" class="limits hidden">
+      Hash-based clustering catches structurally identical errors but won't merge semantically similar ones with different text. Logs &gt;5MB may lag. Results aren't persisted across refreshes.
+    </div>
+    <div id="celebration" class="celebration-sweep"></div>
+  </div>
+  <div id="empty-state" class="empty-state">
+    <p>Drop a log file above or click a "Try" chip to see it in action.</p>
+  </div>
+</section>
+
+<!-- PROMPT PACK -->
+<section class="section" id="prompts-section">
+  <h2>Build This Yourself</h2>
+  <p class="subtitle">Parameterized prompts for every major model. Replace <code style="color:var(--accent);font-family:var(--font-m);font-size:13px">{{variables}}</code> with your problem.</p>
+  <div class="tabs" id="prompt-tabs">
+    <button class="tab active" data-tab="how-to">How to use this</button>
+    <button class="tab" data-tab="openai">OpenAI</button>
+    <button class="tab" data-tab="anthropic">Anthropic</button>
+    <button class="tab" data-tab="google">Google</button>
+    <button class="tab" data-tab="open-weight">Open-Weight</button>
+  </div>
+  <div class="tab-content" id="tab-content"></div>
+</section>
+</main>
+
+<footer>
+  Free-tier verified: Browser-Native (Web APIs) &mdash; <a href="https://developer.mozilla.org/en-US/docs/Web/API">developer.mozilla.org/en-US/docs/Web/API</a> &mdash; 2026-08-16
+</footer>
+
+<div id="feedback-rail" class="feedback-rail">
+  <div class="rail-progress" id="rail-progress"></div>
+  <span class="rail-status" id="rail-status"></span>
+  <span class="rail-count" id="rail-count"></span>
+</div>
+
+<script>
+/* ===== STATE ===== */
+let clusters = [];
+let totalEntries = 0;
+let sortCol = 'count';
+let sortDir = -1; // -1 = desc
+let celebrated = false;
+let searchQuery = '';
+
+/* ===== HELPERS ===== */
+function $(s){ return document.querySelector(s) }
+function $$(s){ return document.querySelectorAll(s) }
+function isLight(){ return document.documentElement.classList.contains('light') }
+function setupCanvas(cvs, w, h){
+  const d = window.devicePixelRatio || 1;
+  cvs.width = w * d; cvs.height = h * d;
+  cvs.style.width = w + 'px'; cvs.style.height = h + 'px';
+  const ctx = cvs.getContext('2d'); ctx.scale(d, d); return ctx;
+}
+
+/* ===== THEME ===== */
+ $('#theme-toggle').addEventListener('click', () => {
+  document.documentElement.classList.toggle('light');
+  $('#theme-toggle').textContent = isLight() ? '🌙' : '☀';
+  drawWhyChart();
+  if(clusters.length) drawHistogram();
+});
+// Check system preference
+if(window.matchMedia('(prefers-color-scheme:light)').matches){
+  document.documentElement.classList.add('light');
+  $('#theme-toggle').textContent = '🌙';
+}
+
+/* ===== SHARE ===== */
+ $('#share-x').addEventListener('click', () => {
+  const t = encodeURIComponent('Drop a log. Watch errors cluster. — zero-cost-ai-coding');
+  window.open('https://twitter.com/intent/tweet?text='+t+'&url='+encodeURIComponent(location.href),'_blank');
+});
+ $('#share-link').addEventListener('click', function(){
+  navigator.clipboard.writeText(location.href);
+  morphCopy(this);
+});
+
+/* ===== COPY MORPH ===== */
+function morphCopy(btn){
+  const orig = btn.textContent;
+  btn.textContent = 'Copied! ✓';
+  btn.classList.add('copied');
+  setTimeout(()=>{ btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+}
+
+/* ===== WHY CHART ===== */
+function drawWhyChart(){
+  const cvs = $('#why-chart');
+  const w = cvs.parentElement.clientWidth - 40;
+  const h = 170;
+  const ctx = setupCanvas(cvs, w, h);
+  const data = [
+    {label:'[logging]',val:203000,disp:'203K'},
+    {label:'[error-handling]',val:82000,disp:'82K'},
+    {label:'[log4j]',val:28000,disp:'28K'},
+    {label:'[syslog]',val:12000,disp:'12K'},
+    {label:'[logback]',val:8500,disp:'8.5K'}
+  ];
+  const max = data[0].val;
+  const bh = 22, gap = 10, lw = 120, vw = 48;
+  const bw = w - lw - vw - 16;
+  const dark = !isLight();
+  const accent = dark ? '#00ff88' : '#00aa55';
+  const fg = dark ? '#e5e5e5' : '#1a1a1a';
+  const muted = dark ? '#888' : '#666';
+  const barBg = dark ? '#222' : '#eaeaea';
+  ctx.clearRect(0,0,w,h);
+  ctx.font = '12px "JetBrains Mono", monospace';
+  data.forEach((d,i) => {
+    const y = i * (bh + gap) + 8;
+    ctx.fillStyle = fg; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(d.label, 0, y + bh/2);
+    ctx.fillStyle = barBg;
+    roundRect(ctx, lw, y, bw, bh, 4); ctx.fill();
+    const fw = Math.max((d.val / max) * bw, 4);
+    ctx.fillStyle = accent; ctx.globalAlpha = .8;
+    roundRect(ctx, lw, y, fw, bh, 4); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fg; ctx.fillText(d.disp, lw + bw + 8, y + bh/2);
+  });
+}
+function roundRect(ctx,x,y,w,h,r){
+  if(typeof r === 'number') r = [r,r,r,r];
+  ctx.beginPath();
+  ctx.moveTo(x+r[0],y);
+  ctx.lineTo(x+w-r[1],y); ctx.arcTo(x+w,y,x+w,y+r[1],r[1]);
+  ctx.lineTo(x+w,y+h-r[2]); ctx.arcTo(x+w,y+h,x+w-r[2],y+h,r[2]);
+  ctx.lineTo(x+r[3],y+h); ctx.arcTo(x,y+h,x,y+h-r[3],r[3]);
+  ctx.lineTo(x,y+r[0]); ctx.arcTo(x,y,x+r[0],y,r[0]);
+  ctx.closePath();
+}
+drawWhyChart();
+window.addEventListener('resize', () => { drawWhyChart(); if(clusters.length) drawHistogram(); });
+
+/* ===== FLOW DIAGRAM STATE ===== */
+function setFlowState(step){
+  // step: 0=empty, 1=reading, 2=fingerprinting, 3=done
+  const c0=$('#fc0'),c1=$('#fc1c'),c2=$('#fc2c'),l1=$('#fc1'),l2=$('#fc2');
+  [c0,c1,c2].forEach(c=>c.classList.remove('active'));
+  [l1,l2].forEach(l=>l.classList.remove('active'));
+  if(step>=1) c0.classList.add('active');
+  if(step>=2){ l1.classList.add('active'); c1.classList.add('active'); }
+  if(step>=3){ l2.classList.add('active'); c2.classList.add('active'); }
+}
+
+/* ===== DROP ZONE ===== */
+const dz = $('#drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const txt = ev.target.result;
+    // Check for zcac JSON import
+    try {
+      const j = JSON.parse(txt);
+      if(j.zcac && j.kind === 'log-clusters' && j.data){
+        clusters = j.data.clusters || [];
+        totalEntries = j.data.total_entries || clusters.reduce((s,c)=>s+c.count,0);
+        showResults();
+        setFlowState(3);
+        return;
+      }
+    } catch(_){}
+    $('#log-input').value = txt;
+    runParse();
+  };
+  reader.readAsText(file);
+});
+
+/* ===== EXAMPLE DATA ===== */
+function genLogs(size){
+  const patterns = [
+    {lv:'ERROR',t:'Connection refused to {ip}:{port}',w:30,ips:['10.0.1.45','10.0.1.46','192.168.0.12','172.16.0.8'],ports:['5432','6379','3306','27017']},
+    {lv:'WARN',t:'Slow query: {q} took {ms}ms',w:20,qs:['SELECT * FROM users WHERE id = {n}','SELECT * FROM orders WHERE user_id = {n}','SELECT * FROM products WHERE category_id = {n}','SELECT * FROM sessions WHERE expired = {n}']},
+    {lv:'ERROR',t:'Failed to connect to Redis at {ip}:{port}',w:15,ips:['127.0.0.1','10.0.1.50'],ports:['6379','6380']},
+    {lv:'ERROR',t:'Unhandled promise rejection: {err}',w:10,errs:['Cannot read property "id" of undefined','TypeError: Cannot set property "status" of null','ECONNREFUSED','ETIMEDOUT']},
+    {lv:'WARN',t:'Rate limit exceeded for user {n}',w:8},
+    {lv:'ERROR',t:'ECONNRESET: socket hang up from {ip}',w:7,ips:['203.0.113.42','198.51.100.7','192.0.2.1']},
+    {lv:'WARN',t:'Memory usage at {pct}%, threshold is 80%',w:5,pcts:['81','85','92','78','88']},
+    {lv:'ERROR',t:'Certificate expired for {domain}',w:3,doms:['api.example.com','cdn.service.io','auth.app.net']},
+    {lv:'INFO',t:'Request processed in {ms}ms',w:2},
+  ];
+  const lines = [];
+  const base = new Date('2024-03-15T08:12:00');
+  let totalW = patterns.reduce((s,p)=>s+p.w,0);
+  for(let i=0;i<size;i++){
+    const ts = new Date(base.getTime() + i * 2300 + Math.random()*800);
+    const tsStr = ts.toISOString().replace('T',' ').substring(0,19);
+    let r = Math.random()*totalW, pat = patterns[0];
+    for(const p of patterns){ r-=p.w; if(r<=0){pat=p;break;} }
+    let msg = pat.t;
+    msg = msg.replace('{ip}', (pat.ips||[])[Math.floor(Math.random()*(pat.ips||[]).length)] || '0.0.0.0');
+    msg = msg.replace('{port}', (pat.ports||[])[Math.floor(Math.random()*(pat.ports||[]).length)] || '8080');
+    msg = msg.replace('{q}', (pat.qs||[])[Math.floor(Math.random()*(pat.qs||[]).length)] || 'SELECT 1');
+    msg = msg.replace('{ms}', Math.floor(500+Math.random()*9500));
+    msg = msg.replace('{n}', Math.floor(Math.random()*99999));
+    msg = msg.replace('{err}', (pat.errs||[])[Math.floor(Math.random()*(pat.errs||[]).length)] || 'Unknown');
+    msg = msg.replace('{pct}', (pat.pcts||[])[Math.floor(Math.random()*(pat.pcts||[]).length)] || '85');
+    msg = msg.replace('{domain}', (pat.doms||[])[Math.floor(Math.random()*(pat.doms||[]).length)] || 'example.com');
+    lines.push(tsStr+' '+pat.lv+' '+msg);
+  }
+  return lines.join('\n');
+}
+const tinyExample = `2024-03-15 08:12:03 ERROR Connection refused to 10.0.1.45:5432
+2024-03-15 08:12:03 INFO Server started on port 8080
+2024-03-15 08:12:05 ERROR Connection refused to 10.0.1.45:5432
+2024-03-15 08:12:07 WARN Slow query: SELECT * FROM users WHERE id = 9923 took 3400ms
+2024-03-15 08:12:10 ERROR Connection refused to 10.0.1.45:5432
+2024-03-15 08:12:12 INFO Request processed in 45ms
+2024-03-15 08:12:15 ERROR Connection refused to 10.0.1.45:5432
+2024-03-15 08:12:18 WARN Slow query: SELECT * FROM orders WHERE user_id = 4451 took 5200ms
+2024-03-15 08:12:20 ERROR Connection refused to 10.0.1.45:5432
+2024-03-15 08:12:22 INFO Health check passed
+2024-03-15 08:12:25 WARN Slow query: SELECT * FROM products WHERE category_id = 7 took 2800ms
+2024-03-15 08:12:27 ERROR Connection refused to 10.0.1.45:5432
+2024-03-15 08:12:30 INFO Request processed in 12ms
+2024-03-15 08:12:33 WARN Slow query: SELECT * FROM sessions WHERE expired = 1 took 4100ms
+2024-03-15 08:12:35 ERROR Connection refused to 10.0.1.45:5432`;
+
+ $$('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const size = chip.dataset.size;
+    const txt = size === 'tiny' ? tinyExample : genLogs(size === 'medium' ? 50 : 200);
+    $('#log-input').value = txt;
+    // Morph animation
+    dz.style.transition = 'box-shadow .3s var(--ease-out)';
+    dz.style.boxShadow = '0 0 20px rgba(0,255,136,.12)';
+    setTimeout(()=>{ dz.style.boxShadow = 'none'; }, 400);
+    runParse();
+  });
+});
+
+/* ===== PARSE BUTTON ===== */
+ $('#parse-btn').addEventListener('click', runParse);
+
+function runParse(){
+  const raw = $('#log-input').value.trim();
+  if(!raw){ showRail('No input',0); return; }
+  // Check for zcac JSON paste
+  try{
+    const j = JSON.parse(raw);
+    if(j.zcac && j.kind === 'log-clusters' && j.data){
+      clusters = j.data.clusters || [];
+      totalEntries = j.data.total_entries || clusters.reduce((s,c)=>s+c.count,0);
+      showResults(); setFlowState(3); return;
+    }
+  } catch(_){}
+
+  setFlowState(1);
+  const steps = $('#process-steps');
+  steps.classList.remove('hidden');
+  $$('.process-steps .step').forEach(s => { s.classList.remove('visible','done','active'); });
+
+  showRail('Reading input...',0);
+
+  setTimeout(()=> showStep('read'), 50);
+  setTimeout(()=> { showStep('parse'); showRail('Parsing entries...',20); }, 200);
+
+  setTimeout(()=>{
+    const entries = parseLog(raw);
+    totalEntries = entries.length;
+    showStep('fingerprint');
+    showRail('Fingerprinting...',50);
+
+    setTimeout(()=>{
+      clusters = clusterEntries(entries);
+      showStep('cluster');
+      showRail('Clustering...',80);
+
+      setTimeout(()=>{
+        showStep('done');
+        setFlowState(3);
+        showRail(totalEntries+' entries → '+clusters.length+' clusters', 100);
+        showResults();
+      }, 150);
+    }, 150);
+  }, 250);
+}
+
+function showStep(name){
+  const el = $(`.process-steps .step[data-step="${name}"]`);
+  if(!el) return;
+  // Mark previous as done
+  $$('.process-steps .step.active').forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
+  el.classList.add('visible','active');
+}
+
+/* ===== RAIL ===== */
+function showRail(text, pct){
+  const rail = $('#feedback-rail');
+  rail.classList.add('active');
+  $('#rail-status').textContent = text;
+  $('#rail-progress').style.width = pct + '%';
+  if(pct >= 100){
+    $('#rail-count').textContent = clusters.length + ' clusters';
+    setTimeout(()=> rail.classList.remove('active'), 4000);
+  }
+}
+
+/* ===== LOG PARSING ===== */
+const LOG_RE = [
+  /^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL|CRITICAL)\s+(.+)$/i,
+  /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL|CRITICAL)\s+(.+)$/i,
+  /^\[([^\]]+)\]\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL|CRITICAL)\s*[:\s]?(.+)$/i,
+  /^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+\S+\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL|CRITICAL)\s*[:\s]?(.+)$/i,
+  /^(?:\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL|CRITICAL)\]|(ERROR|WARN|WARNING|INFO|DEBUG|TRACE|FATAL|CRITICAL)\s*[:\-])\s*(.+)$/i,
+];
+
+function parseLog(raw){
+  const lines = raw.split('\n').filter(l => l.trim());
+  const entries = [];
+  for(const line of lines){
+    let ts = '', level = 'UNKNOWN', msg = line;
+    for(const re of LOG_RE){
+      const m = line.match(re);
+      if(m){
+        if(m[1] && !re.source.startsWith('\\[') && !re.source.startsWith('(?:')) ts = m[1];
+        level = (m[2] || m[1] || '').toUpperCase();
+        msg = m[m.length - 1];
+        break;
+      }
+    }
+    if(level === 'UNKNOWN' && /ERROR|FATAL|CRITICAL/i.test(line)) level = 'ERROR';
+    else if(level === 'UNKNOWN' && /WARN/i.test(line)) level = 'WARN';
+    else if(level === 'UNKNOWN' && /INFO/i.test(line)) level = 'INFO';
+    entries.push({ ts, level: normalizeLevel(level), msg: msg.trim(), raw: line.trim() });
+  }
+  return entries;
+}
+function normalizeLevel(l){
+  if(['ERROR','FATAL','CRITICAL'].includes(l)) return 'ERROR';
+  if(['WARN','WARNING'].includes(l)) return 'WARN';
+  if(l === 'INFO') return 'INFO';
+  return 'OTHER';
+}
+
+/* ===== FINGERPRINTING ===== */
+function fingerprint(msg){
+  return msg
+    .replace(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?/g, '<IP>')
+    .replace(/\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[\d:.Z+-]*\b/g, '<TS>')
+    .replace(/\b0x[0-9a-fA-F]+\b/g, '<HEX>')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<UUID>')
+    .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/g, '<EMAIL>')
+    .replace(/\/[^\s"')\]]+/g, '<PATH>')
+    .replace(/\b\d+\b/g, '<N>')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+function hashStr(s){
+  let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i); h|=0; } return h;
+}
+
+/* ===== CLUSTERING ===== */
+function clusterEntries(entries){
+  const map = new Map();
+  for(const e of entries){
+    const fp = fingerprint(e.msg);
+    const h = hashStr(fp);
+    if(!map.has(h)) map.set(h, { fingerprint:fp, count:0, level:e.level, firstSeen:e.ts, samples:[] });
+    const c = map.get(h);
+    c.count++;
+    if(!c.firstSeen && e.ts) c.firstSeen = e.ts;
+    if(c.samples.length < 3) c.samples.push(e.raw);
+  }
+  return Array.from(map.values()).sort((a,b)=>b.count-a.count);
+}
+
+/* ===== SHOW RESULTS ===== */
+function showResults(){
+  $('#empty-state').classList.add('hidden');
+  $('#controls').classList.remove('hidden');
+  $('#histogram-wrap').classList.remove('hidden');
+  $('#table-wrap').classList.remove('hidden');
+  $('#savings-row').classList.remove('hidden');
+  $('#limits').classList.remove('hidden');
+
+  const maxCount = Math.max(...clusters.map(c=>c.count), 1);
+  $('#min-count').max = Math.min(maxCount, 50);
+  $('#min-count').value = 1;
+  $('#min-count-val').textContent = '1';
+
+  drawHistogram();
+  renderTable();
+  animateSavings();
+
+  if(!celebrated){
+    celebrated = true;
+    const cel = $('#celebration');
+    cel.classList.add('fire');
+    setTimeout(()=> cel.classList.remove('fire'), 700);
+  }
+}
+
+/* ===== HISTOGRAM ===== */
+function drawHistogram(){
+  const cvs = $('#histogram');
+  const w = cvs.parentElement.clientWidth - 40;
+  const h = 200;
+  const ctx = setupCanvas(cvs, w, h);
+  const minC = parseInt($('#min-count').value) || 1;
+  const filtered = clusters.filter(c => c.count >= minC).slice(0, 12);
+  const dark = !isLight();
+  const fg = dark ? '#e5e5e5' : '#1a1a1a';
+  const muted = dark ? '#666' : '#999';
+  ctx.clearRect(0,0,w,h);
+  if(!filtered.length){
+    ctx.fillStyle = muted; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No clusters match the current threshold', w/2, h/2);
+    return;
+  }
+  const maxVal = filtered[0].count;
+  const bw = Math.min(36, (w-60)/filtered.length - 6);
+  const ch = h - 55;
+  const bottom = h - 38;
+  const totalBarSpace = filtered.length * (bw + 6) - 6;
+  const startX = (w - totalBarSpace) / 2;
+  const levelColors = {ERROR:'#ff4757',WARN:'#ffa502',INFO:'#3498db',OTHER:'#888'};
+  filtered.forEach((c,i) => {
+    const bh = Math.max((c.count/maxVal)*ch, 2);
+    const x = startX + i*(bw+6);
+    const y = bottom - bh;
+    ctx.fillStyle = levelColors[c.level] || '#888';
+    ctx.globalAlpha = .85;
+    roundRect(ctx, x, y, bw, bh, [3,3,0,0]); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fg; ctx.font = '11px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText(c.count.toString(), x+bw/2, y-6);
+    ctx.fillStyle = muted; ctx.font = '9px "JetBrains Mono", monospace';
+    const lbl = c.fingerprint.length > 18 ? c.fingerprint.substring(0,17)+'…' : c.fingerprint;
+    ctx.save(); ctx.translate(x+bw/2, bottom+8); ctx.rotate(-.45); ctx.textAlign='right';
+    ctx.fillText(lbl, 0, 0); ctx.restore();
+  });
+}
+
+/* ===== TABLE ===== */
+function renderTable(){
+  const minC = parseInt($('#min-count').value) || 1;
+  const tbody = $('#clusters-tbody');
+  let filtered = clusters.filter(c => c.count >= minC);
+  if(searchQuery) filtered = filtered.filter(c => c.fingerprint.includes(searchQuery.toLowerCase()));
+  filtered.sort((a,b) => {
+    let va, vb;
+    if(sortCol === 'count'){ va=a.count; vb=b.count; }
+    else if(sortCol === 'level'){ va=a.level; vb=b.level; }
+    else { va=a.fingerprint; vb=b.fingerprint; }
+    if(typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+  // Build rows
+  const fragment = document.createDocumentFragment();
+  filtered.forEach(c => {
+    const tr = document.createElement('tr');
+    const lc = c.level === 'ERROR' ? 'level-error' : c.level === 'WARN' ? 'level-warn' : c.level === 'INFO' ? 'level-info' : 'level-other';
+    tr.innerHTML = `<td style="font-weight:700;color:var(--fg)">${c.count}</td>
+      <td><span class="level-badge ${lc}">${c.level}</span></td>
+      <td class="pattern-cell">${esc(c.fingerprint)}</td>
+      <td class="sample-cell" title="${esc(c.samples[0]||'')}">${esc(c.samples[0]||'')}</td>`;
+    fragment.appendChild(tr);
+  });
+  tbody.innerHTML = '';
+  tbody.appendChild(fragment);
+  // Update header sort indicators
+  $$('#clusters-table th[data-sort]').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.sort === sortCol);
+    const arrow = th.querySelector('.sort-arrow');
+    if(th.dataset.sort === sortCol) arrow.textContent = sortDir === -1 ? '↓' : '↑';
+    else arrow.textContent = '';
+  });
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Sort
+ $$('#clusters-table th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if(sortCol === col) sortDir *= -1;
+    else { sortCol = col; sortDir = col === 'count' ? -1 : 1; }
+    renderTable();
+  });
+});
+
+// Search
+ $('#table-search').addEventListener('input', e => {
+  searchQuery = e.target.value;
+  renderTable();
+});
+
+// Slider (Live Scrub)
+ $('#min-count').addEventListener('input', e => {
+  $('#min-count-val').textContent = e.target.value;
+  drawHistogram();
+  renderTable();
+});
+
+/* ===== SAVINGS COUNT-UP ===== */
+function animateSavings(){
+  const el = $('#savings-value');
+  const targetSec = totalEntries * 15;
+  const targetMin = targetSec / 60;
+  const start = performance.now();
+  const dur = 800;
+  function tick(now){
+    const t = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    const val = targetMin * ease;
+    el.textContent = val < 1 ? (targetSec * ease).toFixed(0) + ' sec' : val.toFixed(1) + ' min';
+    if(t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ===== EXPORT ===== */
+function buildJSON(){
+  return JSON.stringify({
+    zcac: true,
+    kind: 'log-clusters',
+    data: {
+      total_entries: totalEntries,
+      clusters: clusters.map(c => ({
+        fingerprint: c.fingerprint,
+        count: c.count,
+        level: c.level,
+        first_seen: c.firstSeen,
+        sample: c.samples[0] || null
+      }))
+    }
+  }, null, 2);
+}
+ $('#copy-json-btn').addEventListener('click', function(){
+  navigator.clipboard.writeText(buildJSON());
+  morphCopy(this);
+});
+ $('#download-json-btn').addEventListener('click', () => {
+  const blob = new Blob([buildJSON()], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'log-clusters.json';
+  a.click(); URL.revokeObjectURL(a.href);
+});
+
+/* ===== PROMPT PACK ===== */
+const P = {
+  PROBLEM: 'Parse, fingerprint, and cluster error logs into groups by pattern similarity, with live histogram and sortable table output',
+  AUDIENCE: 'Developers and indie builders who want real tools at genuine $0 cost — no card, no trial-that-converts',
+  DATE: '2026-08-16',
+  FREE_SERVICE: 'Browser-Native Web APIs',
+  FREE_TIER_LIMIT: 'Unlimited — runs entirely client-side with no API calls',
+  FREE_TIER_URL: 'https://developer.mozilla.org/en-US/docs/Web/API',
+  SOLUTION_MODE: 'Browser-Native',
+  INPUT_EXAMPLE: '2024-03-15 08:12:03 ERROR Connection refused to 10.0.1.45:5432\\n2024-03-15 08:12:07 WARN Slow query: SELECT * FROM users WHERE id = 9923 took 3400ms',
+  OUTPUT_KIND: 'JSON with clustered log entries (fingerprint, count, level, sample)',
+  VISUAL_STYLE: 'Dark bg with signal-green accent, bar chart histogram, sortable table, slider for threshold control',
+  EVIDENCE_SOURCE: 'Stack Overflow [logging] tag: ~203K questions, [error-handling]: ~82K questions. Paid alternatives: Sentry $26/mo, Datadog $15/host/mo.'
+};
+
+const sysPrompt = `You build zero-cost browser-native tools for {{AUDIENCE}}. Today is {{DATE}}. Solution mode: {{SOLUTION_MODE}}.
+
+Build a SINGLE complete HTML file (one <style>, one <script>, no frameworks, no build tools). Google Fonts OK. The tool must work on the visitor's own input via paste/drop/form — not locked to sample data. Include a clickable pre-filled example that auto-runs.
+
+Design: Dark bg (#0a0a0a) + light-mode toggle, JetBrains Mono for code/headings, Inter for body, signal-green (#00ff88) accent. Respect prefers-reduced-motion. Animate only transform+opacity. Wrap ALL motion in @media (prefers-reduced-motion: no-preference).
+
+Every price/limit/capability must be traceable to a real, current source. State gaps honestly ("limit not published") over inventing numbers. No AI cliché visuals (no robot heads, circuit boards, brain icons, purple gradients).`;
+
+const userTemplate = `Build a tool that: {{PROBLEM}}
+
+Evidence: {{EVIDENCE_SOURCE}}
+Free service: {{FREE_SERVICE}} — {{FREE_TIER_LIMIT}}
+Verified at: {{FREE_TIER_URL}}
+
+Example input:
+{{INPUT_EXAMPLE}}
+
+Output kind: {{OUTPUT_KIND}}
+Visual style: {{VISUAL_STYLE}}
+
+Include ALL of these (functional, not mock):
+1. Evidence chart (WHY) — inline SVG or Canvas bar chart with real data
+2. Animated 3-step flow diagram (HOW) — SVG with stroke-dashoffset
+3. Live histogram + sortable/filterable table (UTILITY) — driven by visitor input
+4. Savings counter with visible assumption
+5. Export as JSON with {"zcac":true,"kind":"...","data":{...}} shape
+6. Import: drag zcac JSON → load directly
+7. Process reveal steps, Live Scrub slider, Output Playground table
+8. Sticky top bar linking to https://iggym.github.io/zero-cost-ai-coding/`;
+
+function fill(t){ return t.replace(/\{\{(\w+)\}\}/g, (_,k) => P[k] || '{{'+k+'}}'); }
+
+const promptTabs = {
+  'how-to': {
+    label: 'How to use this',
+    html: `<div class="prompt-block-label">Instructions</div>
+<div class="prompt-block"><pre>1. Pick your model tab (OpenAI, Anthropic, Google, or Open-Weight).
+2. Click "Copy" on the System Prompt block — paste it as the system message.
+3. Click "Copy" on the User Template block — replace all {{variables}} with your specific problem, then paste as the user message.
+4. For code use: copy the API Payload block — it's a ready JSON object for fetch(). Replace {{variables}} programmatically.
+5. For Open-Weight (local/vLLM/Ollama): copy the plain System + User blocks. No tool wrappers needed.
+6. Variables to fill: {{PROBLEM}}, {{AUDIENCE}}, {{DATE}}, {{FREE_SERVICE}}, {{FREE_TIER_LIMIT}}, {{FREE_TIER_URL}}, {{SOLUTION_MODE}}, {{INPUT_EXAMPLE}}, {{OUTPUT_KIND}}, {{VISUAL_STYLE}}, {{EVIDENCE_SOURCE}}</pre></div>`
+  },
+  'openai': {
+    label: 'OpenAI',
+    blocks: [
+      {label:'System Prompt', text: fill(sysPrompt)},
+      {label:'User Template', text: fill(userTemplate)},
+      {label:'API Payload (GPT-4o / GPT-4o-mini)', text: JSON.stringify({
+        model: "gpt-4o",
+        temperature: 0.4,
+        top_p: 0.9,
+        max_tokens: 4096,
+        messages: [
+          {role:"system", content: fill(sysPrompt)},
+          {role:"user", content: fill(userTemplate)}
+        ],
+        tools: [{
+          type:"function",
+          function:{
+            name:"render_tool",
+            description:"Return the complete single-file HTML tool as a string",
+            parameters:{
+              type:"object",
+              properties:{ html:{type:"string",description:"Complete HTML file content"} },
+              required:["html"]
+            }
+          }
+        }]
+      }, null, 2)},
+      {label:'Filled Example', text: `// Using the log clustering problem as a demo:
+{
+  "model": "gpt-4o",
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "max_tokens": 4096,
+  "messages": [
+    {"role":"system","content":"You build zero-cost browser-native tools for Developers and indie builders who want real tools at genuine $0 cost. Today is 2026-08-16. Solution mode: Browser-Native.\\n\\nBuild a SINGLE complete HTML file..."},
+    {"role":"user","content":"Build a tool that: Parse, fingerprint, and cluster error logs into groups by pattern similarity..."}
+  ],
+  "tools": [{"type":"function","function":{"name":"render_tool","description":"Return the complete single-file HTML tool","parameters":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}}]
+}`}
+    ]
+  },
+  'anthropic': {
+    label: 'Anthropic',
+    blocks: [
+      {label:'System Prompt', text: fill(sysPrompt)},
+      {label:'User Template', text: fill(userTemplate)},
+      {label:'API Payload (Claude 3.5 Sonnet / Claude 4)', text: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        temperature: 0.4,
+        top_p: 0.9,
+        system: fill(sysPrompt),
+        messages: [
+          {role:"user", content: fill(userTemplate)}
+        ],
+        tools: [{
+          name: "render_tool",
+          description: "Return the complete single-file HTML tool as a string",
+          input_schema: {
+            type: "object",
+            properties: { html: {type:"string", description:"Complete HTML file content"} },
+            required: ["html"]
+          }
+        }]
+      }, null, 2)},
+      {label:'Filled Example', text: `// Claude API uses "system" as a top-level string, and "input_schema" instead of "parameters":
+{
+  "model": "claude-sonnet-4-20250514",
+  "max_tokens": 4096,
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "system": "You build zero-cost browser-native tools for Developers...",
+  "messages": [{"role":"user","content":"Build a tool that: Parse, fingerprint, and cluster error logs..."}],
+  "tools": [{"name":"render_tool","description":"Return the complete single-file HTML tool","input_schema":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}]
+}`}
+    ]
+  },
+  'google': {
+    label: 'Google',
+    blocks: [
+      {label:'System Prompt', text: fill(sysPrompt)},
+      {label:'User Template', text: fill(userTemplate)},
+      {label:'API Payload (Gemini 1.5 Pro / 2.0 Flash)', text: JSON.stringify({
+        contents: [
+          {role:"user", parts:[{text: fill(sysPrompt) + '\\n\\n' + fill(userTemplate)}]}
+        ],
+        tools: [{
+          functionDeclarations: [{
+            name: "render_tool",
+            description: "Return the complete single-file HTML tool as a string",
+            parameters: {
+              type: "OBJECT",
+              properties: { html: {type:"STRING", description:"Complete HTML file content"} },
+              required: ["html"]
+            }
+          }]
+        }],
+        generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 4096 }
+      }, null, 2)},
+      {label:'Filled Example', text: `// Gemini uses "contents" array and "functionDeclarations" (not "tools[].function"):
+{
+  "contents": [{"role":"user","parts":[{"text":"You build zero-cost browser-native tools...\\n\\nBuild a tool that: Parse, fingerprint, and cluster error logs..."}]}],
+  "tools": [{"functionDeclarations":[{"name":"render_tool","description":"Return the complete single-file HTML tool","parameters":{"type":"OBJECT","properties":{"html":{"type":"STRING"}},"required":["html"]}}]}],
+  "generationConfig": {"temperature":0.4,"topP":0.9,"maxOutputTokens":4096}
+}
+
+// Note: Gemini combines system+user into a single user message since the API
+// does not have a separate system field in the REST endpoint.`}
+    ]
+  },
+  'open-weight': {
+    label: 'Open-Weight',
+    blocks: [
+      {label:'System Prompt (plain — no tool wrappers)', text: fill(sysPrompt) + '\n\nIMPORTANT: You have no tool/function calling capability. Output ONLY valid JSON in this exact schema, with no markdown fences, no commentary, no extra text:\n\n{\n  "html": "<complete HTML file as escaped string>",\n  "kind": "{{OUTPUT_KIND}}"\n}\n\nThe "html" field must contain the entire working HTML file, with all CSS in <style> and all JS in <script>. Ensure all quotes and special characters within the HTML are properly escaped for JSON.'},
+      {label:'User Template', text: fill(userTemplate)},
+      {label:'Filled Example', text: `// For Llama 3.1 70B/405B, Mistral Large, Qwen2 72B via Ollama/vLLM:
+// No tool wrappers — just system + user messages, expect strict JSON output.
+
+// System:
+"You build zero-cost browser-native tools for Developers and indie builders who want real tools at genuine $0 cost. Today is 2026-08-16. Solution mode: Browser-Native. ...IMPORTANT: Output ONLY valid JSON..."
+
+// User:
+"Build a tool that: Parse, fingerprint, and cluster error logs into groups by pattern similarity..."
+
+// Expected output (raw JSON, no fences):
+{
+  "html": "<!DOCTYPE html>\\n<html>...",
+  "kind": "JSON with clustered log entries"
+}
+
+// Parse the response as JSON, extract .html, write to a .html file, open in browser.`}
+    ]
+  }
+};
+
+function renderPromptTab(key){
+  const tab = promptTabs[key];
+  if(tab.html) return tab.html;
+  return tab.blocks.map(b =>
+    `<div class="prompt-block-label">${b.label}</div>` +
+    `<div class="prompt-block"><pre>${esc(b.text)}</pre>` +
+    `<button class="copy-btn" onclick="copyBlock(this)">Copy</button></div>`
+  ).join('');
+}
+
+function copyBlock(btn){
+  const pre = btn.parentElement.querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent);
+  morphCopy(btn);
+}
+
+// Init tabs
+function initTabs(){
+  const container = $('#tab-content');
+  // Render all panes
+  Object.keys(promptTabs).forEach(key => {
+    const div = document.createElement('div');
+    div.className = 'tab-pane' + (key === 'how-to' ? ' active' : '');
+    div.id = 'pane-' + key;
+    div.innerHTML = renderPromptTab(key);
+    container.appendChild(div);
+  });
+  // Wire tab buttons
+  $$('#prompt-tabs .tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('#prompt-tabs .tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      $$('.tab-pane').forEach(p => p.classList.remove('active'));
+      $('#pane-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+}
+initTabs();
+</script>
+</body>
+</html>
