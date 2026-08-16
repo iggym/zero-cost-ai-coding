@@ -8,6 +8,26 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "0043",
+  "slug": "prompt-armor-vulnerability-scanner",
+  "title": "Prompt Armor: Vulnerability Scanner",
+  "hook": "Paste your system prompt. Watch injection vectors bypass it.",
+  "path": "tools/prompt-armor-vulnerability-scanner.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Transformers.js (MobileBERT MNLI) running locally via WASM. Zero API keys, zero limits. Prompt Pack uses Groq Free Tier (14.4k req/day).",
+  "source_url": "https://console.groq.com/docs/rate-limits",
+  "produces": "prompt-vulnerability-report",
+  "accepts": ["prompt-vulnerability-report"],
+  "tags": ["ai-engineering", "prompt-injection", "security", "llm", "red-teaming"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "visuals": ["why-chart","how-flow","utility-dashboard","sortable-table"],
+  "prompt_targets": ["openai","anthropic","google","open-weight"]
+},{
   "id": "0417",
   "slug": "ci-minute-audit",
   "title": "CI Minute Audit",
