@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CI Log Triage — Zero Cost AI Coding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #171717;
+      --text: #e5e5e5;
+      --text-muted: #a3a3a3;
+      --accent: #22c55e;
+      --border: #262626;
+      --error: #ef4444;
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --surface: #f5f5f5;
+      --text: #171717;
+      --text-muted: #525252;
+      --border: #e5e5e5;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .home-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .tool-title {
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: var(--font-mono);
+      margin-top: 2rem;
+    }
+
+    .pitch p {
+      font-size: 1.25rem;
+      color: var(--text);
+    }
+
+    button, input, textarea {
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      padding: 0.75rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .prompt-block {
+      position: relative;
+      background: var(--surface);
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 2rem;
+    }
+
+    .prompt-block pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .prompt-block button {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: auto;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      margin: 0;
+    }
+
+    .limit-badge {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      margin-bottom: 1rem;
+    }
+
+    .results {
+      background: var(--surface);
+      padding: 1.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+
+    .error {
+      color: var(--error);
+    }
+
+    .share-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .share-buttons button, .share-buttons a {
+      width: auto;
+      padding: 0.5rem 1rem;
+      text-decoration: none;
+      font-size: 0.9rem;
+      display: inline-block;
+      margin-bottom: 0;
+    }
+
+    .share-buttons a {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .hidden { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" class="home-link">← Zero Cost AI Coding</a>
+    <div class="title-right" style="display: flex; gap: 1rem; align-items: center;">
+       <span class="tool-title">CI Log Triage</span>
+       <button id="theme-toggle" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.9rem; margin: 0; background: transparent; border: 1px solid var(--border); color: var(--text);">☀️</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="pitch">
+      <h1>CI Log Triage</h1>
+      <p>Extracts the root cause from massive 10,000-line CI/CD logs by finding the failure context and summarizing it with an LLM, using OpenRouter's free tier (50 requests/day on free models without adding credits).</p>
+      <div class="share-buttons">
+        <button id="copy-link">Copy Link</button>
+        <a href="https://twitter.com/intent/tweet?text=Extract%20root%20causes%20from%20massive%20CI%20logs%20for%20$0%20with%20this%20browser-native%20tool%3A&url=https%3A%2F%2Figgym.github.io%2Fzero-cost-ai-coding%2Ftools%2Fci-log-triage.html" target="_blank">Share on X</a>
+      </div>
+    </section>
+
+    <section class="replaces">
+      <h2>What it replaces</h2>
+      <p>BuildPulse charges $99/month for CI observability and test analytics, and Datadog CI Visibility is a paid per-committer add-on to their enterprise platform.</p>
+    </section>
+
+    <section class="how-to">
+      <h2>How to use it</h2>
+      <ol>
+        <li>Get a free OpenRouter API key at <code>openrouter.ai/keys</code> (no credit card required).</li>
+        <li>Paste your key into the input below (stored only in your browser's <code>localStorage</code>).</li>
+        <li>Paste your GitHub Actions, GitLab CI, or Jenkins log into the text area.</li>
+        <li>Click "Triage Log". The tool extracts the failure block client-side and asks the LLM to summarize it.</li>
+      </ol>
+    </section>
+
+    <section class="breaks">
+      <h2>What breaks</h2>
+      <p>The free tier limit is 50 requests per day and 20 requests per minute. If you hit the limit, you'll get a 429 rate limit error. Also, if the log doesn't contain standard failure keywords (like <code>FAIL</code>, <code>Error:</code>, <code>##[error]</code>), the heuristic extractor might grab the wrong context.</p>
+    </section>
+
+    <section class="tool">
+      <div class="limit-badge">OpenRouter Free Tier: 50 req/day (no credits needed)</div>
+      <div class="tool-controls">
+        <label for="api-key" style="font-family: var(--font-mono); font-size: 0.9rem;">OpenRouter API Key</label>
+        <input type="password" id="api-key" placeholder="sk-or-v1-...">
+
+        <label for="log-input" style="font-family: var(--font-mono); font-size: 0.9rem;">Paste CI Log</label>
+        <textarea id="log-input" placeholder="Paste your 10,000 line CI log here..." rows="10"></textarea>
+
+        <button id="triage-btn">Triage Log</button>
+        <div id="savings-readout" style="font-size: 0.85rem; color: var(--text-muted); margin-top: -0.5rem;"></div>
+      </div>
+
+      <div id="results" class="results hidden">
+        <h3 style="margin-top: 0;">Triaged Output</h3>
+        <div id="output-content"></div>
+        <div class="actions" style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button id="copy-json">Copy JSON</button>
+          <button id="download-json">Download JSON</button>
+        </div>
+      </div>
+
+      <div class="import-box" style="margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 2rem;">
+        <h3 style="margin-top: 0;">Import Previous Triage</h3>
+        <textarea id="import-input" placeholder='Paste {"zcac": true, "kind": "zcac_ci_log_triage", ...}' rows="4"></textarea>
+        <button id="import-btn">Load Triage</button>
+        <div id="import-error" class="error" style="font-size: 0.85rem;"></div>
+      </div>
+    </section>
+
+    <section class="build-yourself">
+      <h2>Build This Yourself</h2>
+      
+      <h3>The Harness Prompt</h3>
+      <div class="prompt-block">
+        <pre id="harness-prompt">You are an expert DevOps engineer and LLM architect. We are building a CI/CD log triage tool.
+The core problem is context window limits and cost: CI logs are often 10,000+ lines, but the actual failure is usually confined to a single stack trace or test output block near the end of the log.
+
+Your task is to manage context for this specific problem shape using a "heuristic pre-filtering" pattern:
+1. Do not send the raw log to the LLM.
+2. Write a client-side function that scans the log from bottom-to-top looking for terminal failure markers (e.g., `##[error]`, `Traceback`, `FAIL`, `panic:`, `Exception:`).
+3. Once the last terminal marker is found, extract a sliding window of context (e.g., 30 lines before the marker, 10 lines after) to capture the setup and the immediate fallout.
+4. Pass ONLY this extracted context window to the LLM for summarization.
+5. If no markers are found, fallback to sending the last 150 lines of the log to catch generic exit-code failures.
+
+Maintain this pre-filtering logic strictly on the client side to minimize token usage and avoid hitting API rate limits on free tiers.</pre>
+        <button data-copy="harness-prompt">Copy</button>
+      </div>
+
+      <h3>The Tool-Calling Prompt</h3>
+      <div class="prompt-block">
+        <pre id="tool-prompt">// OpenRouter uses the standard OpenAI-compatible chat completions format.
+// To force a structured JSON response for log triage, use the `tools` and `tool_choice` parameters.
+// Endpoint: POST https://openrouter.ai/api/v1/chat/completions
+
+const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+    "Content-Type": "application/json",
+    "HTTP-Referer": "https://iggym.github.io/zero-cost-ai-coding/",
+    "X-Title": "CI Log Triage"
+  },
+  body: JSON.stringify({
+    "model": "meta-llama/llama-3.3-70b-instruct:free",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a senior Dev engineer. Analyze the provided CI/CD log context and identify the exact root cause of the failure."
+      },
+      {
+        "role": "user",
+        "content": `Here is the relevant excerpt from a failing CI log:\n\n${extractedLogContext}`
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "extract_root_cause",
+          "description": "Extracts the root cause, failing command, and fix suggestion from the CI log.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "root_cause": {
+                "type": "string",
+                "description": "The exact technical reason the build failed (e.g., missing dependency, syntax error, network timeout)."
+              },
+              "failing_command": {
+                "type": "string",
+                "description": "The specific command, script, or test that triggered the failure."
+              },
+              "fix_suggestion": {
+                "type": "string",
+                "description": "Actionable steps to fix the issue."
+              }
+            },
+            "required": ["root_cause", "failing_command", "fix_suggestion"]
+          }
+        }
+      }
+    ],
+    "tool_choice": {
+      "type": "function",
+      "function": {
+        "name": "extract_root_cause"
+      }
+    }
+  })
+});</pre>
+        <button data-copy="tool-prompt">Copy</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Free-tier limits verified on <a href="https://openrouter.ai/docs/api_reference/limits" target="_blank">OpenRouter Docs</a> on August 16, 2026.
+  </footer>
+
+  <script>
+    const apiKeyInput = document.getElementById('api-key');
+    const logInput = document.getElementById('log-input');
+    const triageBtn = document.getElementById('triage-btn');
+    const resultsDiv = document.getElementById('results');
+    const outputContent = document.getElementById('output-content');
+    const savingsReadout = document.getElementById('savings-readout');
+    const themeToggle = document.getElementById('theme-toggle');
+    const htmlEl = document.documentElement;
+
+    // Theme Toggle
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = htmlEl.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      htmlEl.setAttribute('data-theme', newTheme);
+      themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('theme', newTheme);
+    });
+
+    // Load from localStorage
+    apiKeyInput.value = localStorage.getItem('openrouter_key') || '';
+    apiKeyInput.addEventListener('change', (e) => {
+      localStorage.setItem('openrouter_key', e.target.value);
+    });
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      htmlEl.setAttribute('data-theme', savedTheme);
+      themeToggle.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    }
+
+    const KEYWORDS = ['##[error]', 'error:', 'exception', 'panic:', 'traceback', 'fail:', 'failed', 'fatal:', 'exit status', 'syntaxerror', 'referenceerror', 'typeerror', '##[warning]'];
+
+    function extractContext(log) {
+      const lines = log.split('\n');
+      let lastMatchIndex = -1;
+
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].toLowerCase();
+        if (KEYWORDS.some(kw => line.includes(kw))) {
+          lastMatchIndex = i;
+          break;
+        }
+      }
+
+      if (lastMatchIndex === -1) {
+        return lines.slice(Math.max(0, lines.length - 150)).join('\n');
+      }
+
+      const start = Math.max(0, lastMatchIndex - 30);
+      const end = Math.min(lines.length, lastMatchIndex + 15);
+      return lines.slice(start, end).join('\n');
+    }
+
+    triageBtn.addEventListener('click', async () => {
+      const apiKey = apiKeyInput.value.trim();
+      const log = logInput.value.trim();
+
+      if (!apiKey || !log) {
+        alert('Please enter both an API key and a log.');
+        return;
+      }
+
+      triageBtn.disabled = true;
+      triageBtn.textContent = 'Triaging...';
+
+      const context = extractContext(log);
+      
+      const totalLines = log.split('\n').length;
+      const minutesSaved = Math.max(1, Math.round(totalLines / 1000));
+      savingsReadout.textContent = `Saved ~${minutesSaved} min of scrolling (Assumption: 1 min per 1,000 lines scanned by eye)`;
+
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://iggym.github.io/zero-cost-ai-coding/",
+            "X-Title": "CI Log Triage"
+          },
+          body: JSON.stringify({
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "messages": [
+              {
+                "role": "system",
+                "content": "You are a senior Dev engineer. Analyze the provided CI/CD log context and identify the exact root cause of the failure."
+              },
+              {
+                "role": "user",
+                "content": `Here is the relevant excerpt from a failing CI log:\n\n${context}`
+              }
+            ],
+            "tools": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "extract_root_cause",
+                  "description": "Extracts the root cause, failing command, and fix suggestion from the CI log.",
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "root_cause": { "type": "string" },
+                      "failing_command": { "type": "string" },
+                      "fix_suggestion": { "type": "string" }
+                    },
+                    "required": ["root_cause", "failing_command", "fix_suggestion"]
+                  }
+                }
+              }
+            ],
+            "tool_choice": { "type": "function", "function": { "name": "extract_root_cause" } }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status} - ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.choices || !data.choices[0].message.tool_calls) {
+          throw new Error('Model did not return a structured tool call. Try a different log or try again later.');
+        }
+
+        const toolCall = data.choices[0].message.tool_calls[0];
+        const parsed = JSON.parse(toolCall.function.arguments);
+
+        const resultData = {
+          zcac: true,
+          kind: "zcac_ci_log_triage",
+          data: {
+            original_log_length: totalLines,
+            extracted_context_lines: context.split('\n').length,
+            ...parsed,
+            timestamp: new Date().toISOString()
+          }
+        };
+
+        renderResult(resultData);
+        window.currentResult = resultData;
+
+      } catch (err) {
+        outputContent.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+        resultsDiv.classList.remove('hidden');
+      } finally {
+        triageBtn.disabled = false;
+        triageBtn.textContent = 'Triage Log';
+      }
+    });
+
+    function renderResult(resultData) {
+      const { root_cause, failing_command, fix_suggestion } = resultData.data;
+      outputContent.innerHTML = `
+        <h4 style="color: var(--accent);">Root Cause</h4>
+        <p>${root_cause}</p>
+        <h4 style="color: var(--accent);">Failing Command</h4>
+        <pre style="background: var(--bg); padding: 0.5rem; border-radius: 4px; overflow-x: auto;"><code>${failing_command}</code></pre>
+        <h4 style="color: var(--accent);">Fix Suggestion</h4>
+        <p>${fix_suggestion}</p>
+      `;
+      resultsDiv.classList.remove('hidden');
+    }
+
+    document.getElementById('copy-json').addEventListener('click', () => {
+      if (window.currentResult) {
+        navigator.clipboard.writeText(JSON.stringify(window.currentResult, null, 2));
+      }
+    });
+
+    document.getElementById('download-json').addEventListener('click', () => {
+      if (window.currentResult) {
+        const blob = new Blob([JSON.stringify(window.currentResult, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ci-triage.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    document.getElementById('import-btn').addEventListener('click', () => {
+      const val = document.getElementById('import-input').value.trim();
+      const errDiv = document.getElementById('import-error');
+      errDiv.textContent = '';
+      try {
+        const parsed = JSON.parse(val);
+        if (parsed.zcac && parsed.kind === 'zcac_ci_log_triage') {
+          window.currentResult = parsed;
+          renderResult(parsed);
+          savingsReadout.textContent = `Loaded imported triage (${parsed.data.original_log_length} lines originally)`;
+          resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          errDiv.textContent = 'Not recognized: invalid kind or missing zcac flag.';
+        }
+      } catch (e) {
+        errDiv.textContent = 'Not recognized: invalid JSON.';
+      }
+    });
+
+    document.getElementById('copy-link').addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href);
+      const btn = document.getElementById('copy-link');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = originalText; }, 2000);
+    });
+
+    document.querySelectorAll('[data-copy]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-copy');
+        const text = document.getElementById(targetId).innerText;
+        navigator.clipboard.writeText(text);
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = originalText; }, 2000);
+      });
+    });
+  </script>
+</body>
+</html>
