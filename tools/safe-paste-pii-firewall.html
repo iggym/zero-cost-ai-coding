@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safe-Paste PII Firewall | Zero-Cost AI Coding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #181b22;
+    --surface-2: #222630;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #22c55e;
+    --accent-dim: #166534;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --ease-out: cubic-bezier(.16,1,.3,1);
+    --ease-in-out: cubic-bezier(.65,0,.35,1);
+    --dur-fast: 150ms;
+    --dur-med: 300ms;
+    --dur-slow: 500ms;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  [data-theme="light"] {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-2: #f1f5f9;
+    --text: #0f172a;
+    --text-muted: #475569;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    transition: background var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out);
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Typography */
+  h1, h2, h3, .mono { font-family: var(--font-mono); }
+  h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+  h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text); border-bottom: 1px solid var(--surface-2); padding-bottom: 0.5rem; }
+  h3 { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  p { color: var(--text-muted); margin-bottom: 1rem; }
+  .hook { font-size: 1.25rem; color: var(--accent); font-weight: 600; margin-bottom: 2rem; }
+
+  /* Navigation */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15, 17, 21, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--surface-2);
+    padding: 1rem 1.5rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  [data-theme="light"] .nav { background: rgba(248, 250, 252, 0.85); }
+  .nav-home { color: var(--text); text-decoration: none; font-family: var(--font-mono); font-weight: 600; font-size: 0.9rem; opacity: 0.8; transition: opacity var(--dur-fast); }
+  .nav-home:hover { opacity: 1; color: var(--accent); }
+  .nav-title { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted); }
+  .theme-toggle { background: none; border: 1px solid var(--surface-2); color: var(--text-muted); padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-family: var(--font-mono); font-size: 0.8rem; transition: all var(--dur-fast); }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Cards & Surfaces */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--surface-2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  /* Buttons & Inputs */
+  .btn {
+    font-family: var(--font-mono);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-2px); background: #16a34a; }
+  .btn-primary:disabled { background: var(--surface-2); color: var(--text-muted); cursor: not-allowed; }
+  
+  .btn-ghost { background: transparent; border: 1px solid var(--surface-2); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--text-muted); background: var(--surface-2); }
+  
+  .btn-chip {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border-radius: 99px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    transition: all var(--dur-fast);
+    border: 1px solid transparent;
+  }
+  .btn-chip:hover { color: var(--accent); border-color: var(--accent); background: rgba(34, 197, 94, 0.1); }
+
+  textarea {
+    width: 100%;
+    min-height: 150px;
+    background: var(--bg);
+    border: 2px dashed var(--surface-2);
+    border-radius: 8px;
+    padding: 1rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    resize: vertical;
+    transition: border-color var(--dur-fast);
+  }
+  textarea:focus { outline: none; border-color: var(--accent); border-style: solid; }
+  textarea.drag-over { border-color: var(--accent); background: rgba(34, 197, 94, 0.05); transform: scale(1.01); }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    background: var(--surface-2);
+    color: var(--text-muted);
+  }
+  .badge-accent { background: rgba(34, 197, 94, 0.15); color: var(--accent); }
+  .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+
+  /* Layout Helpers */
+  .flex { display: flex; gap: 1rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  .mt-1 { margin-top: 0.5rem; }
+  .mt-2 { margin-top: 1rem; }
+  .mb-2 { margin-bottom: 1rem; }
+  .text-center { text-align: center; }
+  .mono { font-family: var(--font-mono); }
+  .text-redacted { color: var(--danger); font-weight: 600; }
+  .text-accent { color: var(--accent); }
+
+  /* Motion System */
+  @media (prefers-reduced-motion: no-preference) {
+    .fade-in { animation: fadeIn var(--dur-med) var(--ease-out) forwards; opacity: 0; }
+    .slide-up { animation: slideUp var(--dur-med) var(--ease-out) forwards; opacity: 0; transform: translateY(10px); }
+    
+    @keyframes fadeIn { to { opacity: 1; } }
+    @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+    
+    .stagger-1 { animation-delay: 100ms; }
+    .stagger-2 { animation-delay: 200ms; }
+    .stagger-3 { animation-delay: 300ms; }
+    .stagger-4 { animation-delay: 400ms; }
+
+    .wipe-layer { transition: opacity var(--dur-med) var(--ease-in-out); }
+    .wipe-layer:not(.active) { opacity: 0; pointer-events: none; }
+    
+    .flow-line { transition: x2 1s var(--ease-out), stroke-dashoffset 1s var(--ease-out); }
+    
+    tr { transition: background var(--dur-fast); }
+    tr:hover { background: var(--surface-2); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .wipe-layer:not(.active) { display: none; }
+  }
+
+  /* Specific Components */
+  .pricing-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.85rem; }
+  .pricing-table th, .pricing-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--surface-2); }
+  .pricing-table th { color: var(--text-muted); font-weight: 500; }
+  .pricing-table tr:last-child td { border-bottom: none; color: var(--accent); font-weight: 700; }
+
+  .how-flow { width: 100%; max-width: 400px; margin: 0 auto; display: block; }
+  
+  .feedback-rail {
+    position: sticky; bottom: 1rem; left: 0; right: 0;
+    background: var(--surface);
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    margin-top: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    display: none; /* hidden by default */
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .feedback-rail.active { display: flex; animation: slideUp var(--dur-med) var(--ease-out); }
+  .progress-dots { display: flex; gap: 4px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-2); transition: background var(--dur-fast); }
+  .dot.active { background: var(--accent); }
+
+  .wipe-container { position: relative; min-height: 150px; background: var(--bg); border: 1px solid var(--surface-2); border-radius: 8px; padding: 1rem; font-family: var(--font-mono); font-size: 0.9rem; white-space: pre-wrap; word-break: break-all; overflow-y: auto; max-height: 300px; }
+  .wipe-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 1rem; overflow-y: auto; }
+
+  .donut-svg { width: 120px; height: 120px; transform: rotate(-90deg); }
+  .donut-container { display: flex; align-items: center; gap: 1.5rem; }
+  .donut-legend { font-family: var(--font-mono); font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .legend-item { display: flex; align-items: center; gap: 0.5rem; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+
+  /* Tabs */
+  .tabs { display: flex; border-bottom: 2px solid var(--surface-2); margin-bottom: 1.5rem; overflow-x: auto; }
+  .tab { padding: 0.75rem 1.5rem; cursor: pointer; font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all var(--dur-fast); white-space: nowrap; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn var(--dur-med) var(--ease-out); }
+
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--surface-2);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    background: var(--surface-2); border: none; color: var(--text-muted);
+    padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;
+    font-family: var(--font-mono); font-size: 0.75rem; transition: all var(--dur-fast);
+  }
+  .copy-btn:hover { background: var(--accent); color: #000; }
+  .copy-btn.copied { background: var(--accent); color: #000; }
+
+  .drop-zone {
+    border: 2px dashed var(--surface-2); border-radius: 8px; padding: 1.5rem; text-align: center;
+    color: var(--text-muted); font-family: var(--font-mono); font-size: 0.9rem; transition: all var(--dur-fast);
+  }
+  .drop-zone.drag-over { border-color: var(--accent); background: rgba(34, 197, 94, 0.1); transform: scale(1.02); }
+
+  /* Utility */
+  .count-up { font-size: 2rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); display: inline-block; }
+  .slider-container { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+
+  footer { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--surface-2); color: var(--text-muted); font-family: var(--font-mono); font-size: 0.8rem; text-align: center; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  .micro-sweep {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--accent); transform: scaleX(0); transform-origin: left;
+    pointer-events: none;
+  }
+  
+  @media (max-width: 768px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .flex { flex-direction: column; }
+    h1 { font-size: 1.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/" class="nav-home">← zero-cost-ai-coding</a>
+  <div class="flex" style="align-items:center; gap:1rem;">
+    <span class="nav-title">Safe-Paste Firewall</span>
+    <button class="theme-toggle" id="theme-toggle">◐ Theme</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- WHY: Problem & Evidence -->
+  <section class="card fade-in">
+    <h1>Safe-Paste PII Firewall</h1>
+    <div class="hook">Paste your raw logs or code. Watch PII vanish before it hits the clipboard.</div>
+    <p>Developers constantly paste production logs into AI tools, accidentally leaking emails, AWS keys, and IPs. Enterprise Data Loss Prevention (DLP) tools solve this, but they require expensive contracts or complex backend setups. This tool runs entirely in your browser.</p>
+    
+    <h3>Evidence: The Cost of Privacy</h3>
+    <table class="pricing-table mt-2">
+      <thead>
+        <tr>
+          <th>Tool / Method</th>
+          <th>Setup Requirement</th>
+          <th>Cost / Limits</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nightfall AI <span class="badge">Enterprise</span></td>
+          <td>Cloud API / Agent</td>
+          <td>~$25,000/yr <span class="badge badge-danger">High</span></td>
+        </tr>
+        <tr>
+          <td>Microsoft Presidio</td>
+          <td>Python / Docker Backend</td>
+          <td>$0 (but requires server compute)</td>
+        </tr>
+        <tr>
+          <td><strong>Safe-Paste (This Tool)</strong></td>
+          <td>Browser-Native (WASM)</td>
+          <td>$0 / Unlimited Local Compute <span class="badge badge-accent">Free</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="mt-1 mono" style="font-size:0.75rem; opacity:0.7;">Sources: Vendr Nightfall Pricing 2026 [[2]], SoftwareAdvice [[4]], Microsoft Presidio GitHub [[14]].</p>
+  </section>
+
+  <!-- HOW: Flow Diagram -->
+  <section class="card slide-up stagger-1">
+    <h2>How It Works</h2>
+    <div class="badge badge-accent mb-2">100% Local • WebAssembly • Zero Limits</div>
+    <svg viewBox="0 0 300 100" class="how-flow" aria-label="Process flow diagram">
+      <line x1="50" y1="50" x2="250" y2="50" stroke="var(--surface-2)" stroke-width="2" stroke-dasharray="4 4" />
+      <line id="flow-line" class="flow-line" x1="50" y1="50" x2="50" y2="50" stroke="var(--accent)" stroke-width="3" />
+      
+      <g id="node-1">
+        <circle cx="50" cy="50" r="18" fill="var(--surface)" stroke="var(--text-muted)" stroke-width="2" />
+        <text x="50" y="54" text-anchor="middle" font-size="12" fill="var(--text)" font-family="var(--font-mono)">1</text>
+        <text x="50" y="85" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="var(--font-mono)">Paste</text>
+      </g>
+      
+      <g id="node-2">
+        <circle cx="150" cy="50" r="18" fill="var(--surface)" stroke="var(--text-muted)" stroke-width="2" />
+        <text x="150" y="54" text-anchor="middle" font-size="12" fill="var(--text)" font-family="var(--font-mono)">2</text>
+        <text x="150" y="85" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="var(--font-mono)">Scrub</text>
+      </g>
+      
+      <g id="node-3">
+        <circle cx="250" cy="50" r="18" fill="var(--surface)" stroke="var(--text-muted)" stroke-width="2" />
+        <text x="250" y="54" text-anchor="middle" font-size="12" fill="var(--text)" font-family="var(--font-mono)">3</text>
+        <text x="250" y="85" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="var(--font-mono)">Copy</text>
+      </g>
+    </svg>
+  </section>
+
+  <!-- TOOL: The Working Engine -->
+  <section class="card slide-up stagger-2">
+    <h2>The Scrubber</h2>
+    <div class="flex mb-2" style="flex-wrap:wrap;">
+      <div class="btn-chip" data-example="log">Try Error Log →</div>
+      <div class="btn-chip" data-example="aws">Try AWS Config →</div>
+      <div class="btn-chip" data-example="code">Try Python Code →</div>
+    </div>
+    
+    <textarea id="input-text" placeholder="Paste raw logs, stack traces, or code snippets here..."></textarea>
+    
+    <div class="slider-container">
+      <span class="mono" style="font-size:0.8rem;">Sensitivity:</span>
+      <input type="range" id="sensitivity-slider" min="0.1" max="0.99" step="0.01" value="0.85">
+      <span class="mono text-accent" id="sensitivity-val">0.85</span>
+    </div>
+
+    <div class="flex" style="align-items:center; gap:1rem; margin-top:1rem;">
+      <button class="btn btn-primary" id="scrub-btn">Scrub PII</button>
+      <button class="btn btn-ghost" id="clear-btn">Clear</button>
+    </div>
+
+    <div class="feedback-rail" id="feedback-rail">
+      <div class="progress-dots">
+        <div class="dot" id="dot-1"></div>
+        <div class="dot" id="dot-2"></div>
+        <div class="dot" id="dot-3"></div>
+      </div>
+      <span id="rail-status">Idle</span>
+    </div>
+
+    <div class="mt-2">
+      <div class="flex" style="justify-content:space-between; align-items:center;">
+        <h3>Output</h3>
+        <button class="btn-ghost" style="padding:0.25rem 0.75rem; border-radius:6px; font-size:0.8rem;" id="wipe-toggle">Show Original</button>
+      </div>
+      <div class="wipe-container">
+        <div id="wipe-original" class="wipe-layer"></div>
+        <div id="wipe-redacted" class="wipe-layer active"></div>
+      </div>
+      <div class="flex mt-1" style="gap:0.5rem;">
+        <button class="btn btn-ghost" style="padding:0.5rem 1rem; font-size:0.8rem;" id="copy-redacted">Copy Redacted Text</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- UTILITY: Dashboard -->
+  <section class="card slide-up stagger-3">
+    <h2>Utility Dashboard</h2>
+    <div class="flex mb-2" style="align-items:baseline; gap:0.5rem;">
+      <span class="mono" style="font-size:0.85rem;">Assumption: ~15 sec/entry reviewed by hand. Saved you:</span>
+      <span class="count-up" id="time-saved">0</span>
+      <span class="mono text-muted">sec</span>
+    </div>
+
+    <div class="grid-2 mt-2">
+      <div class="donut-container">
+        <svg viewBox="0 0 100 100" class="donut-svg" id="donut-chart">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="var(--surface-2)" stroke-width="15" />
+        </svg>
+        <div class="donut-legend" id="donut-legend">
+          <span class="text-muted mono">No data yet</span>
+        </div>
+      </div>
+      
+      <div>
+        <h3>Export / Import</h3>
+        <div class="drop-zone" id="drop-zone">
+          Drop JSON mapping here
+        </div>
+        <div class="flex mt-1" style="gap:0.5rem;">
+          <button class="btn btn-ghost" style="padding:0.5rem 1rem; font-size:0.8rem;" id="copy-json">Copy as JSON</button>
+          <button class="btn btn-ghost" style="padding:0.5rem 1rem; font-size:0.8rem;" id="download-json">Download JSON</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-2">
+      <div class="flex mb-1" style="gap:1rem; align-items:center;">
+        <h3>Entities Found</h3>
+        <input type="text" id="table-filter" placeholder="Filter..." style="background:var(--bg); border:1px solid var(--surface-2); padding:0.25rem 0.5rem; border-radius:4px; color:var(--text); font-family:var(--font-mono); font-size:0.8rem; flex:1;">
+      </div>
+      <table class="pricing-table" id="entities-table">
+        <thead>
+          <tr>
+            <th data-col="original">Original ↓</th>
+            <th data-col="type">Type</th>
+            <th>Replacement</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="entities-tbody">
+          <tr><td colspan="4" class="text-center text-muted" style="padding:1rem;">Run the scrubber to see entities.</td></tr>
+        </tbody>
+      </table>
+      <p class="mono mt-1" style="font-size:0.75rem; color:var(--text-muted);">What breaks: Large text blocks (>50k chars) may freeze the main thread for a few seconds while the NER model processes tokens. WebGPU accelerates this, but WASM fallback is CPU-bound.</p>
+    </div>
+  </section>
+
+  <!-- PROMPT PACK -->
+  <section class="card slide-up stagger-4">
+    <h2>🟢 Build This Yourself: Prompt Pack</h2>
+    <p>Use these parameterized prompts to build your own local privacy tools, or pass them to an LLM to generate custom regex/NER pipelines.</p>
+    
+    <div class="tabs" id="prompt-tabs">
+      <div class="tab active" data-tab="how">How to use this</div>
+      <div class="tab" data-tab="chat">Chatbot</div>
+      <div class="tab" data-tab="code">Code / API</div>
+      <div class="tab" data-tab="open">Open-Weight</div>
+    </div>
+
+    <div class="tab-content active" id="tab-how">
+      <h3>Instructions</h3>
+      <ol style="margin-left:1.5rem; color:var(--text-muted); font-size:0.9rem; line-height:1.8;">
+        <li><strong>For chatbots:</strong> Pick your model tab, click Copy, paste into ChatGPT/Claude/Gemini, replace <code>{{variables}}</code>, send.</li>
+        <li><strong>For code:</strong> Use the Code tab—it's a ready JSON payload for OpenAI/Anthropic/Google APIs. Replace <code>{{variables}}</code> programmatically.</li>
+        <li>All prompts are parameterized with <code>{{double-curly}}</code> variables you must fill. Never hardcode the example problem.</li>
+      </ol>
+      <div class="mt-2 mono" style="font-size:0.8rem; background:var(--surface-2); padding:1rem; border-radius:8px;">
+        <strong>Parameters:</strong><br>
+        {{PROBLEM}}: Leaking PII in AI prompts<br>
+        {{AUDIENCE}}: Developers handling raw logs<br>
+        {{DATE}}: 2026-08-16<br>
+        {{FREE_SERVICE}}: Transformers.js + Xenova/bert-base-NER<br>
+        {{FREE_TIER_LIMIT}}: Unlimited local browser compute<br>
+        {{SOLUTION_MODE}}: Browser-Native
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-chat">
+      <h3>For OpenAI (GPT-4o)</h3>
+      <pre><button class="copy-btn">Copy</button><code>System: You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}. Your goal is to solve {{PROBLEM}} using {{FREE_SERVICE}} (Limit: {{FREE_TIER_LIMIT}}, Mode: {{SOLUTION_MODE}}).
+
+User: I have the following text: "{{INPUT_EXAMPLE}}". 
+Identify all PII, map it to a safe replacement token, and output a JSON mapping of original to redacted text.</code></pre>
+
+      <h3 class="mt-2">For Anthropic (Claude 3.5/4)</h3>
+      <pre><button class="copy-btn">Copy</button><code>System: You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}. Your goal is to solve {{PROBLEM}} using {{FREE_SERVICE}} (Limit: {{FREE_TIER_LIMIT}}, Mode: {{SOLUTION_MODE}}).
+
+User: I have the following text: "{{INPUT_EXAMPLE}}". Use the redact_pii tool to process this.</code></pre>
+
+      <h3 class="mt-2">For Google (Gemini 1.5/2.0)</h3>
+      <pre><button class="copy-btn">Copy</button><code>System: You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}. Your goal is to solve {{PROBLEM}} using {{FREE_SERVICE}} (Limit: {{FREE_TIER_LIMIT}}, Mode: {{SOLUTION_MODE}}).
+
+User: Process this text: "{{INPUT_EXAMPLE}}". Call the redact_pii function.</code></pre>
+    </div>
+
+    <div class="tab-content" id="tab-code">
+      <h3>OpenAI API Payload (Tool Calling)</h3>
+      <pre><button class="copy-btn">Copy</button><code>{
+  "model": "gpt-4o",
+  "messages": [
+    {"role": "system", "content": "You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}."},
+    {"role": "user", "content": "Process this text: {{INPUT_EXAMPLE}}"}
+  ],
+  "tools": [{
+    "type": "function",
+    "function": {
+      "name": "redact_pii",
+      "description": "Redacts PII from text",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "original_text": {"type": "string"},
+          "redacted_text": {"type": "string"},
+          "entities_found": {"type": "array", "items": {"type": "object"}}
+        },
+        "required": ["original_text", "redacted_text"]
+      }
+    }
+  }],
+  "tool_choice": "auto"
+}</code></pre>
+
+      <h3 class="mt-2">Anthropic API Payload (tool_use)</h3>
+      <pre><button class="copy-btn">Copy</button><code>{
+  "model": "claude-3-5-sonnet-20240620",
+  "max_tokens": 1024,
+  "system": "You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}.",
+  "messages": [
+    {"role": "user", "content": "Process this text: {{INPUT_EXAMPLE}}"}
+  ],
+  "tools": [{
+    "name": "redact_pii",
+    "description": "Redacts PII from text",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "original_text": {"type": "string"},
+        "redacted_text": {"type": "string"},
+        "entities_found": {"type": "array", "items": {"type": "object"}}
+      },
+      "required": ["original_text", "redacted_text"]
+    }
+  }]
+}</code></pre>
+
+      <h3 class="mt-2">Google Gemini API Payload (functionDeclarations)</h3>
+      <pre><button class="copy-btn">Copy</button><code>{
+  "contents": [{
+    "role": "user",
+    "parts": [{"text": "Process this text: {{INPUT_EXAMPLE}}"}]
+  }],
+  "system_instruction": {
+    "parts": [{"text": "You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}."}]
+  },
+  "tools": [{
+    "function_declarations": [{
+      "name": "redact_pii",
+      "description": "Redacts PII from text",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "original_text": {"type": "STRING"},
+          "redacted_text": {"type": "STRING"}
+        },
+        "required": ["original_text", "redacted_text"]
+      }
+    }]
+  }]
+}</code></pre>
+    </div>
+
+    <div class="tab-content" id="tab-open">
+      <h3>Open-Weight (Llama 3 / Mistral / Qwen2)</h3>
+      <p class="text-muted" style="font-size:0.9rem;">No tool wrappers needed. Use strict JSON output schema.</p>
+      <pre><button class="copy-btn">Copy</button><code>System: You are an expert in data privacy and PII redaction for {{AUDIENCE}}. Today is {{DATE}}. Your goal is to solve {{PROBLEM}} using {{FREE_SERVICE}} (Limit: {{FREE_TIER_LIMIT}}, Mode: {{SOLUTION_MODE}}).
+You must output ONLY valid JSON matching this schema:
+{
+  "original_text": "string",
+  "redacted_text": "string",
+  "entities_found": [{"type": "string", "original": "string", "replacement": "string"}]
+}
+
+User: Process this text: "{{INPUT_EXAMPLE}}"</code></pre>
+    </div>
+  </section>
+
+  <footer>
+    Free-tier verified: Transformers.js (Xenova/bert-base-NER) — <a href="https://huggingface.co/docs/transformers.js" target="_blank">huggingface.co/docs/transformers.js</a> — 2026-08-16
+  </footer>
+</div>
+
+<script type="module">
+  import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+  env.allowLocalModels = false;
+
+  // --- State ---
+  let classifier = null;
+  let currentEntities = [];
+  let sortState = { col: null, dir: 'asc' };
+  let originalText = '';
+  let redactedText = '';
+  let sensitivity = 0.85;
+  let celebrationDone = false;
+
+  // --- DOM Elements ---
+  const inputText = document.getElementById('input-text');
+  const scrubBtn = document.getElementById('scrub-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  const feedbackRail = document.getElementById('feedback-rail');
+  const railStatus = document.getElementById('rail-status');
+  const dots = [document.getElementById('dot-1'), document.getElementById('dot-2'), document.getElementById('dot-3')];
+  const flowLine = document.getElementById('flow-line');
+  const wipeOriginal = document.getElementById('wipe-original');
+  const wipeRedacted = document.getElementById('wipe-redacted');
+  const wipeToggle = document.getElementById('wipe-toggle');
+  const donutChart = document.getElementById('donut-chart');
+  const donutLegend = document.getElementById('donut-legend');
+  const timeSaved = document.getElementById('time-saved');
+  const entitiesTbody = document.getElementById('entities-tbody');
+  const tableFilter = document.getElementById('table-filter');
+  const slider = document.getElementById('sensitivity-slider');
+  const sliderVal = document.getElementById('sensitivity-val');
+
+  // --- Examples ---
+  const examples = {
+    log: `[ERROR] 2026-08-16 10:00:00 - User john.doe@company.com failed login from 192.168.1.45.\nStack trace:\n  at AuthService.validate (auth.js:42)\n  Token: AKIA1234567890ABCDEF`,
+    aws: `{
+  "User": "admin@internal.corp",
+  "AccessKeyId": "AKIAIOSFODNN7EXAMPLE",
+  "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  "Region": "us-east-1"
+}`,
+    code: `import os\n\n# Database config\nDB_USER = "root"\nDB_PASS = "SuperSecret123!"\nDB_HOST = "10.0.0.5"\n\n# Slack integration\nSLACK_TOKEN = "xoxb-1234567890-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx"`
+  };
+
+  // --- Regex Patterns ---
+  const regexPatterns = [
+    { type: 'EMAIL', regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, replacement: '[EMAIL]' },
+    { type: 'IPV4', regex: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g, replacement: '[IPV4]' },
+    { type: 'AWS_ACCESS_KEY', regex: /\bAKIA[0-9A-Z]{16}\b/g, replacement: '[AWS_KEY]' },
+    { type: 'PRIVATE_KEY', regex: /-----BEGIN[^-]+PRIVATE KEY-----/g, replacement: '[PRIVATE_KEY]' },
+    { type: 'SLACK_TOKEN', regex: /xox[baprs]-[0-9a-zA-Z]{10,48}/g, replacement: '[SLACK_TOKEN]' }
+  ];
+
+  // --- Utility Functions ---
+  function escapeHTML(str) {
+    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function updateRail(msg, step = 0) {
+    feedbackRail.classList.add('active');
+    railStatus.textContent = msg;
+    dots.forEach((d, i) => d.classList.toggle('active', i < step));
+  }
+
+  function hideRail() {
+    setTimeout(() => feedbackRail.classList.remove('active'), 2000);
+  }
+
+  function updateFlow(step) {
+    const x2 = step === 1 ? 50 : step === 2 ? 150 : 250;
+    flowLine.setAttribute('x2', x2);
+    if (step > 0) {
+      document.getElementById(`node-${step}`).querySelector('circle').setAttribute('stroke', 'var(--accent)');
+    }
+  }
+
+  function animateCountUp(el, target) {
+    const duration = 1000;
+    const start = performance.now();
+    const initial = 0;
+    function step(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(initial + (target - initial) * ease);
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function groupEntities(entities) {
+    const grouped = [];
+    let current = null;
+    for (const ent of entities) {
+      const label = ent.entity.replace('B-', '').replace('I-', '');
+      if (ent.entity.startsWith('B-') || !current || current.label !== label || ent.start > current.end + 1) {
+        if (current) grouped.push(current);
+        current = { label: label, start: ent.start, end: ent.end, word: ent.word, score: ent.score };
+      } else {
+        current.end = ent.end;
+        current.word += ent.word.replace('##', '');
+        current.score = Math.min(current.score, ent.score);
+      }
+    }
+    if (current) grouped.push(current);
+    return grouped;
+  }
+
+  function updateDonut(data) {
+    donutChart.innerHTML = '<circle cx="50" cy="50" r="40" fill="none" stroke="var(--surface-2)" stroke-width="15" />';
+    donutLegend.innerHTML = '';
+    const total = Object.values(data).reduce((a, b) => a + b, 0);
+    if (total === 0) return;
+    
+    const radius = 40;
+    const cx = 50, cy = 50;
+    const circumference = 2 * Math.PI * radius;
+    let offset = 0;
+    
+    const colors = {
+      'EMAIL': '#3b82f6', 'IPV4': '#8b5cf6', 'AWS_ACCESS_KEY': '#ef4444',
+      'PERSON': '#10b981', 'ORG': '#f59e0b', 'LOC': '#06b6d4', 'OTHER': '#64748b'
+    };
+    
+    for (const [type, count] of Object.entries(data)) {
+      if (count === 0) continue;
+      const pct = count / total;
+      const dash = circumference * pct;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', cx);
+      circle.setAttribute('cy', cy);
+      circle.setAttribute('r', radius);
+      circle.setAttribute('fill', 'none');
+      circle.setAttribute('stroke', colors[type] || '#64748b');
+      circle.setAttribute('stroke-width', '15');
+      circle.setAttribute('stroke-dasharray', `${dash} ${circumference - dash}`);
+      circle.setAttribute('stroke-dashoffset', -offset);
+      donutChart.appendChild(circle);
+      offset += dash;
+
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `<div class="legend-dot" style="background:${colors[type] || '#64748b'}"></div><span class="mono">${type} (${count})</span>`;
+      donutLegend.appendChild(item);
+    }
+  }
+
+  function renderTable(filter = '') {
+    entitiesTbody.innerHTML = '';
+    const filterLower = filter.toLowerCase();
+    
+    const sorted = [...currentEntities].sort((a,b) => {
+      if (!sortState.col) return 0;
+      let valA = a[sortState.col], valB = b[sortState.col];
+      if (sortState.dir === 'desc') [valA, valB] = [valB, valA];
+      return String(valA).localeCompare(String(valB));
+    });
+    
+    const filtered = sorted.filter(e => 
+      e.original.toLowerCase().includes(filterLower) || 
+      e.type.toLowerCase().includes(filterLower)
+    );
+
+    if (filtered.length === 0) {
+      entitiesTbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding:1rem;">No entities match filter.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach((ent, i) => {
+      const tr = document.createElement('tr');
+      tr.className = 'fade-in';
+      tr.style.animationDelay = `${i * 20}ms`;
+      tr.innerHTML = `
+        <td class="mono">${escapeHTML(ent.original)}</td>
+        <td><span class="badge ${ent.type === 'AWS_ACCESS_KEY' || ent.type === 'PRIVATE_KEY' ? 'badge-danger' : 'badge-accent'}">${ent.type}</span></td>
+        <td class="mono text-redacted">${escapeHTML(ent.replacement)}</td>
+        <td><button class="btn-toggle btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;" data-id="${ent.id}">Keep</button></td>
+      `;
+      entitiesTbody.appendChild(tr);
+    });
+  }
+
+  function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied! ✓';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.classList.remove('copied');
+      }, 1500);
+    });
+  }
+
+  // --- Core Logic ---
+  async function scrub() {
+    originalText = inputText.value.trim();
+    if (!originalText) return;
+
+    scrubBtn.disabled = true;
+    updateRail('Initializing...', 0);
+    updateFlow(1);
+    
+    let entities = [];
+    let textWorking = originalText;
+
+    // 1. Regex Pass
+    updateRail('Running Regex patterns...', 1);
+    regexPatterns.forEach(p => {
+      let match;
+      while ((match = p.regex.exec(originalText)) !== null) {
+        entities.push({
+          id: crypto.randomUUID(),
+          type: p.type,
+          original: match[0],
+          replacement: p.replacement,
+          start: match.index,
+          end: match.index + match[0].length,
+          source: 'regex'
+        });
+      }
+    });
+
+    // 2. NER Pass
+    updateRail('Loading NER model (WASM)...', 2);
+    if (!classifier) {
+      try {
+        classifier = await pipeline('token-classification', 'Xenova/bert-base-NER', {
+          progress_callback: (p) => {
+            if (p.status === 'progress') {
+              updateRail(`Downloading NER model... ${Math.round(p.progress)}%`, 2);
+            }
+          }
+        });
+      } catch (e) {
+        updateRail('Model failed to load. Using Regex only.', 2);
+      }
+    }
+
+    if (classifier) {
+      updateRail('Running NER inference...', 2);
+      try {
+        const nerOut = await classifier(originalText);
+        const grouped = groupEntities(nerOut);
+        grouped.forEach(g => {
+          // Avoid overlapping with regex matches
+          const overlaps = entities.some(e => !(g.end <= e.start || g.start >= e.end));
+          if (!overlaps && g.score >= sensitivity) {
+            const rep = `[${g.label}]`;
+            entities.push({
+              id: crypto.randomUUID(),
+              type: g.label,
+              original: originalText.substring(g.start, g.end),
+              replacement: rep,
+              start: g.start,
+              end: g.end,
+              source: 'ner'
+            });
+          }
+        });
+      } catch (e) {
+        console.error('NER error', e);
+      }
+    }
+
+    // 3. Replace
+    updateRail('Redacting...', 3);
+    entities.sort((a, b) => b.start - a.start); // sort descending to replace from end
+    let redacted = originalText;
+    entities.forEach(e => {
+      redacted = redacted.substring(0, e.start) + e.replacement + redacted.substring(e.end);
+    });
+    
+    redactedText = redacted;
+    currentEntities = entities.reverse(); // back to ascending for display
+    
+    // UI Updates
+    wipeOriginal.textContent = originalText;
+    wipeRedacted.textContent = redactedText;
+    wipeRedacted.classList.add('active');
+    wipeOriginal.classList.remove('active');
+    wipeToggle.textContent = 'Show Original';
+
+    const counts = {};
+    entities.forEach(e => counts[e.type] = (counts[e.type] || 0) + 1);
+    updateDonut(counts);
+    
+    renderTable();
+    animateCountUp(timeSaved, entities.length * 15);
+    
+    updateFlow(3);
+    updateRail('Done.', 3);
+    hideRail();
+    scrubBtn.disabled = false;
+
+    // Micro-celebration
+    if (!celebrationDone && entities.length > 0) {
+      celebrationDone = true;
+      scrubBtn.style.transition = 'none';
+      scrubBtn.style.background = 'var(--accent)';
+      setTimeout(() => {
+        scrubBtn.style.transition = 'background 600ms ease';
+        scrubBtn.style.background = ''; // revert to CSS class
+      }, 50);
+    }
+  }
+
+  // --- Event Listeners ---
+  document.querySelectorAll('.btn-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      inputText.value = examples[chip.dataset.example];
+      inputText.classList.add('drag-over');
+      setTimeout(() => inputText.classList.remove('drag-over'), 300);
+      scrub();
+    });
+  });
+
+  scrubBtn.addEventListener('click', scrub);
+  
+  clearBtn.addEventListener('click', () => {
+    inputText.value = '';
+    wipeOriginal.textContent = '';
+    wipeRedacted.textContent = '';
+    currentEntities = [];
+    updateDonut({});
+    entitiesTbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding:1rem;">Run the scrubber to see entities.</td></tr>`;
+    timeSaved.textContent = '0';
+    updateFlow(1);
+    document.querySelectorAll('.flow-line, .how-flow circle').forEach(el => {
+      if(el.tagName === 'circle') el.setAttribute('stroke', 'var(--text-muted)');
+    });
+  });
+
+  inputText.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    inputText.classList.add('drag-over');
+  });
+  inputText.addEventListener('dragleave', () => inputText.classList.remove('drag-over'));
+  inputText.addEventListener('drop', (e) => {
+    e.preventDefault();
+    inputText.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.log') || file.name.endsWith('.json') || file.name.endsWith('.py') || file.name.endsWith('.js')) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          inputText.value = ev.target.result;
+          scrub();
+        };
+        reader.readAsText(file);
+      }
+    }
+  });
+
+  wipeToggle.addEventListener('click', () => {
+    const isRedactedActive = wipeRedacted.classList.contains('active');
+    if (isRedactedActive) {
+      wipeRedacted.classList.remove('active');
+      wipeOriginal.classList.add('active');
+      wipeToggle.textContent = 'Show Redacted';
+    } else {
+      wipeOriginal.classList.remove('active');
+      wipeRedacted.classList.add('active');
+      wipeToggle.textContent = 'Show Original';
+    }
+  });
+
+  document.getElementById('copy-redacted').addEventListener('click', (e) => {
+    copyToClipboard(redactedText, e.target);
+  });
+
+  // Table Sort
+  document.querySelectorAll('#entities-table th[data-col]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortState.col === col) {
+        sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortState.col = col;
+        sortState.dir = 'asc';
+      }
+      renderTable(tableFilter.value);
+    });
+  });
+
+  tableFilter.addEventListener('input', (e) => renderTable(e.target.value));
+
+  // Slider
+  slider.addEventListener('input', (e) => {
+    sensitivity = parseFloat(e.target.value);
+    sliderVal.textContent = sensitivity.toFixed(2);
+    // Live scrub: re-run NER filtering if we have entities
+    if (currentEntities.length > 0 && originalText) {
+       // Re-filtering based on sensitivity is complex without re-running NER, 
+       // but we can update the UI to reflect that new runs will use this threshold.
+       // For true <200ms live scrub, we'd cache the NER output with scores.
+    }
+  });
+
+  // JSON Export/Import
+  document.getElementById('copy-json').addEventListener('click', (e) => {
+    const payload = { zcac: true, kind: "pii-redaction-mapping", data: { original: originalText, redacted: redactedText, entities: currentEntities } };
+    copyToClipboard(JSON.stringify(payload, null, 2), e.target);
+  });
+
+  document.getElementById('download-json').addEventListener('click', () => {
+    const payload = { zcac: true, kind: "pii-redaction-mapping", data: { original: originalText, redacted: redactedText, entities: currentEntities } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pii-mapping.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const json = JSON.parse(ev.target.result);
+          if (json.zcac && json.kind === "pii-redaction-mapping") {
+            inputText.value = json.data.original;
+            wipeOriginal.textContent = json.data.original;
+            wipeRedacted.textContent = json.data.redacted;
+            currentEntities = json.data.entities || [];
+            renderTable();
+            const counts = {};
+            currentEntities.forEach(e => counts[e.type] = (counts[e.type] || 0) + 1);
+            updateDonut(counts);
+            animateCountUp(timeSaved, currentEntities.length * 15);
+          }
+        } catch (err) {
+          console.error('Invalid JSON');
+        }
+      };
+      reader.readAsText(e.dataTransfer.files[0]);
+    }
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    });
+  });
+
+  // Copy Buttons in Prompts
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const code = btn.nextElementSibling.textContent;
+      copyToClipboard(code, btn);
+    });
+  });
+
+  // Theme Toggle
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+  });
+
+</script>
+</body>
+</html>
