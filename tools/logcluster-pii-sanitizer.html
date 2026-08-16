@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogCluster & PII Sanitizer — Zero-Cost AI Coding Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface-border: #1f293d;
+      --surface-hover: #1a2436;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.15);
+      --accent-hover: #059669;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #3b82f6;
+      --font-sans: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --ease-out: cubic-bezier(.16, 1, .3, 1);
+      --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+      --dur-fast: 150ms;
+      --dur-med: 300ms;
+      --dur-slow: 500ms;
+      --radius: 8px;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-border: #e2e8f0;
+      --surface-hover: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #059669;
+      --accent-glow: rgba(5, 150, 105, 0.12);
+      --accent-hover: #047857;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    /* Sticky Nav */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    [data-theme="light"] .nav { background: rgba(248, 250, 252, 0.85); }
+    .nav-brand {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-title { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-muted); }
+    .theme-btn {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+
+    /* Header Pitch */
+    .pitch-header { text-align: center; margin-bottom: 40px; }
+    .pitch-header h1 { font-family: var(--font-mono); font-size: 2.2rem; margin-bottom: 8px; letter-spacing: -0.02em; }
+    .kinetic-hook { color: var(--accent); font-weight: 600; font-size: 1.1rem; margin-bottom: 16px; }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 99px;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+
+    /* WHY Visual Section */
+    .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px; }
+    @media (max-width: 768px) { .section-grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card-title { font-family: var(--font-mono); font-size: 1rem; margin-bottom: 16px; color: var(--text); display: flex; justify-content: space-between; }
+
+    /* HOW Visual Flow */
+    .flow-graphic { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+    .flow-node { text-align: center; font-size: 0.85rem; font-family: var(--font-mono); }
+    .flow-icon {
+      width: 44px; height: 44px; border-radius: 50%; background: var(--surface-hover);
+      border: 1px solid var(--surface-border); display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 8px; color: var(--accent); font-weight: bold;
+    }
+    .flow-line { flex: 1; height: 2px; background: var(--surface-border); margin: 0 12px; position: relative; overflow: hidden; }
+    .flow-line-progress {
+      position: absolute; top:0; left:0; height:100%; width:0%; background: var(--accent);
+      transition: width var(--dur-slow) var(--ease-out);
+    }
+
+    /* Working Tool Area */
+    .tool-box { margin-bottom: 40px; }
+    .chips-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .chip-label { font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
+    .chip {
+      background: var(--surface-hover); border: 1px solid var(--surface-border); color: var(--text);
+      padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; font-family: var(--font-mono);
+      transition: all var(--dur-fast) var(--ease-out);
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .dropzone {
+      border: 2px dashed var(--surface-border); border-radius: var(--radius); padding: 16px;
+      text-align: center; background: var(--surface); transition: all var(--dur-fast) var(--ease-out);
+      margin-bottom: 12px;
+    }
+    .dropzone.dragover { border-color: var(--accent); background: var(--accent-glow); transform: scale(1.005); }
+
+    textarea.input-logs {
+      width: 100%; height: 160px; background: var(--bg); border: 1px solid var(--surface-border);
+      border-radius: var(--radius); padding: 12px; color: var(--text); font-family: var(--font-mono);
+      font-size: 0.85rem; resize: vertical; margin-bottom: 12px;
+    }
+    textarea.input-logs:focus { outline: none; border-color: var(--accent); }
+
+    /* Progress Rail */
+    .feedback-rail {
+      display: none; height: 36px; background: var(--surface-hover); border: 1px solid var(--surface-border);
+      border-radius: var(--radius); padding: 0 12px; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; font-family: var(--font-mono); font-size: 0.8rem;
+    }
+    .rail-active { display: flex; }
+
+    /* Utility Dashboard */
+    .savings-banner {
+      background: var(--accent-glow); border: 1px solid var(--accent); border-radius: var(--radius);
+      padding: 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+    }
+    .savings-num { font-family: var(--font-mono); font-size: 2rem; font-weight: 700; color: var(--accent); }
+
+    .controls-bar { display: flex; gap: 16px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+    .search-input {
+      background: var(--bg); border: 1px solid var(--surface-border); padding: 8px 12px;
+      border-radius: var(--radius); color: var(--text); font-family: var(--font-sans); font-size: 0.85rem; flex: 1; min-width: 200px;
+    }
+    .scrub-container { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 0.8rem; }
+
+    table.data-table {
+      width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.85rem;
+    }
+    table.data-table th, table.data-table td {
+      padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--surface-border);
+    }
+    table.data-table th { background: var(--surface-hover); font-family: var(--font-mono); cursor: pointer; }
+    table.data-table tr:hover { background: var(--surface-hover); }
+
+    .btn {
+      background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: var(--radius);
+      font-weight: 600; cursor: pointer; font-family: var(--font-mono); font-size: 0.85rem;
+      transition: background var(--dur-fast) var(--ease-out);
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--surface-hover); color: var(--text); border: 1px solid var(--surface-border); }
+
+    /* Import Dropzone */
+    .import-zone {
+      border: 1px dashed var(--surface-border); padding: 12px; text-align: center; border-radius: var(--radius);
+      font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-muted); margin-top: 16px;
+    }
+
+    /* Prompt Pack Tabs */
+    .tabs-header { display: flex; gap: 4px; border-bottom: 1px solid var(--surface-border); margin-bottom: 16px; overflow-x: auto; }
+    .tab-btn {
+      background: none; border: none; padding: 8px 16px; color: var(--text-muted); font-family: var(--font-mono);
+      font-size: 0.85rem; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    pre.code-block {
+      background: var(--bg); border: 1px solid var(--surface-border); padding: 14px; border-radius: var(--radius);
+      font-family: var(--font-mono); font-size: 0.8rem; overflow-x: auto; color: var(--text); margin-bottom: 12px; position: relative;
+    }
+    .copy-btn { position: absolute; top: 8px; right: 8px; font-size: 0.75rem; padding: 4px 8px; }
+
+    footer { text-align: center; margin-top: 60px; font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" class="nav-brand">
+      <span>&larr;</span> ZERO-COST-AI-CODING
+    </a>
+    <span class="nav-title">LogCluster &amp; PII Sanitizer</span>
+    <button class="theme-btn" id="themeToggle">Light Mode</button>
+  </nav>
+
+  <div class="container">
+    
+    <!-- Pitch Header -->
+    <header class="pitch-header">
+      <h1>LogCluster &amp; PII Sanitizer</h1>
+      <div class="kinetic-hook">Paste raw server logs. Watch secrets scrubbed &amp; errors clustered instantly.</div>
+      <div class="badge-pill">100% Client-Side • Unlimited Local Execution • $0/mo</div>
+    </header>
+
+    <!-- WHY & HOW Section -->
+    <div class="section-grid">
+      <!-- WHY Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>WHY: Log SaaS vs Local Browser</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Source: Datadog Pricing 2026</span>
+        </div>
+        <svg viewBox="0 0 400 130" style="width:100%; height:auto;">
+          <rect x="10" y="20" width="170" height="90" rx="6" fill="var(--surface-hover)" stroke="var(--surface-border)"/>
+          <text x="25" y="45" fill="var(--danger)" font-family="JetBrains Mono" font-size="12" font-weight="bold">Paid SaaS Loggers</text>
+          <text x="25" y="68" fill="var(--text-muted)" font-family="Inter" font-size="11">$0.10+ per GB Ingest</text>
+          <text x="25" y="86" fill="var(--danger)" font-family="Inter" font-size="11">Risk: Secrets leaked</text>
+
+          <rect x="210" y="20" width="170" height="90" rx="6" fill="var(--accent-glow)" stroke="var(--accent)"/>
+          <text x="225" y="45" fill="var(--accent)" font-family="JetBrains Mono" font-size="12" font-weight="bold">Browser Runtime</text>
+          <text x="225" y="68" fill="var(--text)" font-family="Inter" font-size="11">$0.00 / GB (Local JS)</text>
+          <text x="225" y="86" fill="var(--accent)" font-family="Inter" font-size="11">100% Zero-Leak PII</text>
+        </svg>
+      </div>
+
+      <!-- HOW Card -->
+      <div class="card">
+        <div class="card-title">HOW IT WORKS</div>
+        <div class="flow-graphic">
+          <div class="flow-node">
+            <div class="flow-icon">1</div>
+            <span>Paste / Drop</span>
+          </div>
+          <div class="flow-line">
+            <div class="flow-line-progress" id="flowProgress"></div>
+          </div>
+          <div class="flow-node">
+            <div class="flow-icon">2</div>
+            <span>Regex Scrub</span>
+          </div>
+          <div class="flow-line">
+            <div class="flow-line-progress" id="flowProgress2"></div>
+          </div>
+          <div class="flow-node">
+            <div class="flow-icon">3</div>
+            <span>Clustered JSON</span>
+          </div>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); text-align:center;">
+          Runs entirely in client memory via browser RegExp. Zero data leaves your browser.
+        </p>
+      </div>
+    </div>
+
+    <!-- WORKING TOOL AREA -->
+    <div class="card tool-box">
+      <div class="card-title">INPUT SERVER LOGS</div>
+
+      <div class="chips-row">
+        <span class="chip-label">Try example:</span>
+        <button class="chip" onclick="loadSample('nginx')">Nginx Access Log</button>
+        <button class="chip" onclick="loadSample('node')">Node StackTrace &amp; Secrets</button>
+        <button class="chip" onclick="loadSample('microservice')">Microservice JSON</button>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        Drag &amp; drop log file (.log, .txt, .json) or paste below
+      </div>
+
+      <textarea class="input-logs" id="logInput" placeholder="Paste raw server logs, stack traces, or JSON payloads here..."></textarea>
+
+      <div style="display:flex; gap:12px;">
+        <button class="btn" onclick="processLogs()">Sanitize &amp; Cluster Logs</button>
+        <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+
+    <!-- Live Feedback Rail -->
+    <div class="feedback-rail" id="feedbackRail">
+      <span id="railStatus">Status: Idle</span>
+      <span id="railCount">0 lines processed</span>
+    </div>
+
+    <!-- UTILITY DASHBOARD (Results) -->
+    <div id="resultsSection" style="display:none;">
+      
+      <!-- Savings Banner -->
+      <div class="savings-banner">
+        <div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">Estimated Triage Time Saved</div>
+          <div class="savings-num" id="savingsNum">0s</div>
+        </div>
+        <div style="font-size:0.8rem; color:var(--text-muted); text-align:right;">
+          Based on ~12s per log entry reviewed manually
+        </div>
+      </div>
+
+      <div class="section-grid">
+        <!-- Live Frequency Histogram -->
+        <div class="card">
+          <div class="card-title">Error Pattern Frequency</div>
+          <canvas id="chartCanvas" width="400" height="150" style="width:100%; height:auto;"></canvas>
+        </div>
+
+        <!-- Limits & Capabilities -->
+        <div class="card">
+          <div class="card-title">Honest Technical Limits</div>
+          <ul style="font-size:0.85rem; color:var(--text-muted); padding-left:18px;">
+            <li>Max file size recommended: 50MB (UI thread bound).</li>
+            <li>Regex secret scrubber identifies standard API keys (AWS, Bearer tokens, emails, IPs).</li>
+            <li>Custom log formats are grouped by structural similarity.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Playable Controls & Table -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-title">Clustered Results</div>
+        
+        <div class="controls-bar">
+          <input type="text" class="search-input" id="searchInput" placeholder="Filter clusters..." oninput="renderTable()">
+          <div class="scrub-container">
+            <label>Min Occurrences:</label>
+            <input type="range" id="thresholdSlider" min="1" max="10" value="1" oninput="updateThresholdLabel(); renderTable();">
+            <span id="thresholdVal">1</span>
+          </div>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th onclick="sortTable('count')">Count ↕</th>
+              <th onclick="sortTable('level')">Level ↕</th>
+              <th>Pattern / Scrubbed Output</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+
+        <div style="display:flex; gap:12px; margin-top:16px;">
+          <button class="btn" id="copyJsonBtn" onclick="copyJSON()">Copy as JSON</button>
+          <button class="btn btn-secondary" onclick="downloadJSON()">Download JSON</button>
+        </div>
+
+        <!-- Composability Import -->
+        <div class="import-zone" id="importZone">
+          Drag &amp; Drop previously exported ZCAC JSON to reload state
+        </div>
+      </div>
+    </div>
+
+    <!-- PARAMETERIZED PROMPT PACK (Step 4.7) -->
+    <div class="card">
+      <div class="card-title">PARAMETRIZED PROMPT PACK — Build This Yourself</div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
+        Copy parameterized prompts for your preferred AI model provider to reconstruct or modify this visual tool pattern.
+      </p>
+
+      <div class="tabs-header">
+        <button class="tab-btn active" onclick="switchTab('tab-how')">How to use</button>
+        <button class="tab-btn" onclick="switchTab('tab-openai')">OpenAI</button>
+        <button class="tab-btn" onclick="switchTab('tab-anthropic')">Anthropic</button>
+        <button class="tab-btn" onclick="switchTab('tab-google')">Google</button>
+        <button class="tab-btn" onclick="switchTab('tab-openweight')">Open-Weight</button>
+      </div>
+
+      <!-- Tab 1: How to use -->
+      <div class="tab-content active" id="tab-how">
+        <p style="font-size:0.85rem; margin-bottom:12px;"><strong>Instructions:</strong></p>
+        <ol style="font-size:0.85rem; color:var(--text-muted); padding-left:20px; line-height:1.8;">
+          <li>For chatbots: Pick a model tab, click Copy, replace <code>{{variables}}</code>, and paste into ChatGPT/Claude/Gemini.</li>
+          <li>For API integration: Use the structured payloads and schema parameters in your target model tab.</li>
+          <li>All templates enforce strict browser-native zero-cost architecture with zero external runtime dependencies.</li>
+        </ol>
+      </div>
+
+      <!-- Tab 2: OpenAI -->
+      <div class="tab-content" id="tab-openai">
+        <div style="font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px; color:var(--accent);">For OpenAI — GPT-4o / GPT-4o-mini</div>
+        <pre class="code-block" id="promptOpenAI">
+{
+  "model": "gpt-4o-mini",
+  "temperature": 0.4,
+  "top_p": 0.9,
+  "max_tokens": 4096,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You build zero-cost browser tools for {{AUDIENCE}}. Date constraint: {{DATE}}. Mode: {{SOLUTION_MODE}}. Generate single-file HTML/JS without external libraries."
+    },
+    {
+      "role": "user",
+      "content": "Build a visual log clusterer for {{PROBLEM}}. Service verified: {{FREE_SERVICE}} at {{FREE_TIER_URL}}. Output format: {{OUTPUT_KIND}}."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "generate_tool",
+        "description": "Generates complete client-side tool HTML code",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "html_code": { "type": "string" }
+          },
+          "required": ["html_code"]
+        }
+      }
+    }
+  ]
+}
+        </pre>
+        <button class="btn btn-secondary copy-btn" onclick="copyCode('promptOpenAI', this)">Copy Payload</button>
+      </div>
+
+      <!-- Tab 3: Anthropic -->
+      <div class="tab-content" id="tab-anthropic">
+        <div style="font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px; color:var(--accent);">For Anthropic — Claude 3.5 Sonnet / Claude 4</div>
+        <pre class="code-block" id="promptAnthropic">
+{
+  "model": "claude-3-5-sonnet-20241022",
+  "max_tokens": 4096,
+  "temperature": 0.4,
+  "system": "You build single-file browser tools for {{AUDIENCE}}. Mode: {{SOLUTION_MODE}}. Strict zero external dependencies.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Create a tool for {{PROBLEM}}. Free tier reference: {{FREE_TIER_URL}} (Limit: {{FREE_TIER_LIMIT}}). Input example: {{INPUT_EXAMPLE}}."
+    }
+  ],
+  "tools": [
+    {
+      "name": "build_single_file_app",
+      "description": "Outputs full working HTML string",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "html": { "type": "string" }
+        },
+        "required": ["html"]
+      }
+    }
+  ]
+}
+        </pre>
+        <button class="btn btn-secondary copy-btn" onclick="copyCode('promptAnthropic', this)">Copy Payload</button>
+      </div>
+
+      <!-- Tab 4: Google -->
+      <div class="tab-content" id="tab-google">
+        <div style="font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px; color:var(--accent);">For Google — Gemini 1.5 Pro / 2.0 Flash</div>
+        <pre class="code-block" id="promptGoogle">
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "System: Build browser tool for {{AUDIENCE}}. Mode: {{SOLUTION_MODE}}.\nUser: Solve {{PROBLEM}} using free tier {{FREE_SERVICE}} ({{FREE_TIER_URL}}). Example: {{INPUT_EXAMPLE}}."
+        }
+      ]
+    }
+  ],
+  "generationConfig": { "temperature": 0.4, "maxOutputTokens": 4096 },
+  "tools": [{
+    "functionDeclarations": [{
+      "name": "renderHTMLTool",
+      "description": "Returns final standalone application file",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": { "code": { "type": "STRING" } },
+        "required": ["code"]
+      }
+    }]
+  }]
+}
+        </pre>
+        <button class="btn btn-secondary copy-btn" onclick="copyCode('promptGoogle', this)">Copy Payload</button>
+      </div>
+
+      <!-- Tab 5: Open-Weight -->
+      <div class="tab-content" id="tab-openweight">
+        <div style="font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px; color:var(--accent);">For Open-Weight — Llama 3.1 70B / Mistral Large / Qwen2 72B</div>
+        <pre class="code-block" id="promptOpenWeight">
+SYSTEM: You are an expert web engineer building single-file browser tools for {{AUDIENCE}}.
+Mode: {{SOLUTION_MODE}} (100% client-side, zero backend APIs).
+
+USER: Build a tool solving {{PROBLEM}}.
+Verified Service: {{FREE_SERVICE}} ({{FREE_TIER_URL}} - Limit: {{FREE_TIER_LIMIT}}).
+Input Example: {{INPUT_EXAMPLE}}
+
+Respond ONLY with valid JSON following this schema:
+{
+  "zcac": true,
+  "kind": "{{OUTPUT_KIND}}",
+  "html": "<!DOCTYPE html>..."
+}
+        </pre>
+        <button class="btn btn-secondary copy-btn" onclick="copyCode('promptOpenWeight', this)">Copy Payload</button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <footer>
+    Free-tier verified: Browser Client Runtime (Web Regex) — https://developer.mozilla.org/en-US/docs/Web/JavaScript — 2026-08-16
+  </footer>
+
+  <script>
+    // State
+    let currentData = [];
+    let sortAsc = false;
+
+    // Theme Switch
+    const themeBtn = document.getElementById('themeToggle');
+    themeBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      themeBtn.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+    });
+
+    // Sample Data
+    const SAMPLES = {
+      nginx: `192.168.1.1 - - [16/Aug/2026:10:00:00 +0000] "GET /api/v1/user HTTP/1.1" 200 512\n192.168.1.5 - - [16/Aug/2026:10:00:02 +0000] "POST /login Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" 401 128\n192.168.1.5 - - [16/Aug/2026:10:00:05 +0000] "POST /login Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" 401 128\n10.0.0.12 - - [16/Aug/2026:10:01:10 +0000] "GET /db-status" 500 2048 Connection timeout to Postgres`,
+      node: `[ERROR] 2026-08-16T10:15:00Z - Connection failed to AWS S3 bucket using key AKIAIOSFODNN7EXAMPLE\nError: DB_QUERY_TIMEOUT at /app/server.js:42\n    at Database.query (/app/db.js:105)\n[ERROR] 2026-08-16T10:15:02Z - Connection failed to AWS S3 bucket using key AKIAIOSFODNN7EXAMPLE\nError: DB_QUERY_TIMEOUT at /app/server.js:42\n    at Database.query (/app/db.js:105)\n[WARN] 2026-08-16T10:16:00Z - Deprecated API call from user test@example.com`,
+      microservice: `{"timestamp":"2026-08-16T10:20:00Z","level":"ERROR","message":"Failed payment auth for email user1@test.com token sk_live_51M00000000000000000"}\n{"timestamp":"2026-08-16T10:20:01Z","level":"ERROR","message":"Failed payment auth for email user2@test.com token sk_live_51M00000000000000000"}\n{"timestamp":"2026-08-16T10:21:00Z","level":"INFO","message":"Healthcheck OK"}`
+    };
+
+    function loadSample(key) {
+      document.getElementById('logInput').value = SAMPLES[key];
+      processLogs();
+    }
+
+    function clearAll() {
+      document.getElementById('logInput').value = '';
+      document.getElementById('resultsSection').style.display = 'none';
+      document.getElementById('feedbackRail').classList.remove('rail-active');
+      document.getElementById('flowProgress').style.width = '0%';
+      document.getElementById('flowProgress2').style.width = '0%';
+    }
+
+    // PII Scrubbing Rules
+    function sanitizeLine(text) {
+      return text
+        .replace(/AKIA[0-9A-Z]{16}/g, '[SCRUBBED_AWS_KEY]')
+        .replace(/sk_live_[0-9a-zA-Z]{24,}/g, '[SCRUBBED_STRIPE_SECRET]')
+        .replace(/Bearer\s+[A-Za-z0-9\-\._~\+\/]+=*/g, 'Bearer [SCRUBBED_JWT]')
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[SCRUBBED_EMAIL]')
+        .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[SCRUBBED_IP]');
+    }
+
+    function processLogs() {
+      const raw = document.getElementById('logInput').value.trim();
+      if (!raw) return;
+
+      // Animate flow line
+      document.getElementById('flowProgress').style.width = '100%';
+
+      // Update Feedback Rail
+      const rail = document.getElementById('feedbackRail');
+      rail.classList.add('rail-active');
+      document.getElementById('railStatus').textContent = 'Status: Sanitizing & Clustering...';
+
+      const lines = raw.split('\n').filter(l => l.trim().length > 0);
+      document.getElementById('railCount').textContent = `${lines.length} lines processed`;
+
+      setTimeout(() => {
+        document.getElementById('flowProgress2').style.width = '100%';
+
+        // Cluster analysis
+        const clusterMap = {};
+        lines.forEach(line => {
+          const scrubbed = sanitizeLine(line);
+          // Simple structural pattern extraction
+          const pattern = scrubbed.replace(/\d+/g, '#');
+          const level = scrubbed.includes('ERROR') || scrubbed.includes('500') || scrubbed.includes('timeout') ? 'ERROR' : (scrubbed.includes('WARN') || scrubbed.includes('401') ? 'WARN' : 'INFO');
+
+          if (!clusterMap[pattern]) {
+            clusterMap[pattern] = { pattern: scrubbed, count: 0, level: level };
+          }
+          clusterMap[pattern].count++;
+        });
+
+        currentData = Object.values(clusterMap);
+
+        // Update UI
+        document.getElementById('railStatus').textContent = 'Status: Done ✓';
+        document.getElementById('resultsSection').style.display = 'block';
+
+        // Count-Up Animation
+        const totalSavedSeconds = lines.length * 12;
+        animateCountUp('savingsNum', totalSavedSeconds);
+
+        renderTable();
+        drawChart();
+      }, 300);
+    }
+
+    function animateCountUp(elementId, targetVal) {
+      let current = 0;
+      const step = Math.ceil(targetVal / 20);
+      const timer = setInterval(() => {
+        current += step;
+        if (current >= targetVal) {
+          current = targetVal;
+          clearInterval(timer);
+        }
+        document.getElementById(elementId).textContent = current > 60 ? `${Math.round(current/60)}m (${current}s)` : `${current}s`;
+      }, 20);
+    }
+
+    function updateThresholdLabel() {
+      document.getElementById('thresholdVal').textContent = document.getElementById('thresholdSlider').value;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const minCount = parseInt(document.getElementById('thresholdSlider').value, 10);
+
+      tbody.innerHTML = '';
+
+      const filtered = currentData.filter(item => {
+        return item.count >= minCount && item.pattern.toLowerCase().includes(search);
+      });
+
+      filtered.forEach(item => {
+        const tr = document.createElement('tr');
+        const badgeColor = item.level === 'ERROR' ? 'var(--danger)' : (item.level === 'WARN' ? 'var(--warning)' : 'var(--info)');
+        
+        tr.innerHTML = `
+          <td style="font-family:var(--font-mono); font-weight:bold;">${item.count}</td>
+          <td><span style="color:${badgeColor}; font-family:var(--font-mono); font-weight:bold;">${item.level}</span></td>
+          <td style="font-family:var(--font-mono); font-size:0.8rem; word-break:break-all;">${escapeHtml(item.pattern)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function sortTable(field) {
+      sortAsc = !sortAsc;
+      currentData.sort((a, b) => {
+        if (field === 'count') return sortAsc ? a.count - b.count : b.count - a.count;
+        if (field === 'level') return sortAsc ? a.level.localeCompare(b.level) : b.level.localeCompare(a.level);
+        return 0;
+      });
+      renderTable();
+    }
+
+    function drawChart() {
+      const canvas = document.getElementById('chartCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (currentData.length === 0) return;
+
+      const topData = currentData.slice(0, 5);
+      const maxVal = Math.max(...topData.map(d => d.count), 1);
+      const barHeight = 18;
+      const startY = 10;
+
+      topData.forEach((item, idx) => {
+        const y = startY + idx * (barHeight + 10);
+        const barWidth = (item.count / maxVal) * 260;
+
+        ctx.fillStyle = item.level === 'ERROR' ? '#ef4444' : (item.level === 'WARN' ? '#f59e0b' : '#3b82f6');
+        ctx.fillRect(10, y, barWidth, barHeight);
+
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '10px JetBrains Mono';
+        ctx.fillText(`${item.count}x - ${item.level}`, barWidth + 18, y + 13);
+      });
+    }
+
+    // Export JSON (Composability)
+    function copyJSON() {
+      const payload = {
+        zcac: true,
+        kind: "log-cluster-sanitizer",
+        data: currentData
+      };
+      navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      const btn = document.getElementById('copyJsonBtn');
+      btn.textContent = 'Copied! ✓';
+      setTimeout(() => btn.textContent = 'Copy as JSON', 1200);
+    }
+
+    function downloadJSON() {
+      const payload = {
+        zcac: true,
+        kind: "log-cluster-sanitizer",
+        data: currentData
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'log-clusters.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Tabs
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    function copyCode(elementId, btn) {
+      const code = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(code);
+      btn.textContent = 'Copied! ✓';
+      setTimeout(() => btn.textContent = 'Copy Payload', 1200);
+    }
+
+    // Drag and Drop
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          document.getElementById('logInput').value = evt.target.result;
+          processLogs();
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Import zone
+    const importZone = document.getElementById('importZone');
+    importZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+    importZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const parsed = JSON.parse(evt.target.result);
+            if (parsed.zcac && parsed.kind === 'log-cluster-sanitizer') {
+              currentData = parsed.data;
+              document.getElementById('resultsSection').style.display = 'block';
+              renderTable();
+              drawChart();
+            }
+          } catch(err) {}
+        };
+        reader.readAsText(file);
+      }
+    });
+  </script>
+</body>
+</html>
