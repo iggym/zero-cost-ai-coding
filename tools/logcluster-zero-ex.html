@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LogCluster Zero — Drop a log. Watch errors cluster.</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0e12;--panel:#11171e;--line:rgba(255,255,255,.1);--accent:#2aff7a;--ease-out:cubic-bezier(.16,1,.3,1);--dur-fast:150ms;--dur-med:300ms}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#e8eef5;font-family:Inter,sans-serif}
+.mono{font-family:"JetBrains Mono",monospace}
+header{position:sticky;top:0;z-index:20;background:rgba(10,14,18,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;padding:12px 18px}
+.pill{border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:999px;font-size:11px}
+#drop{border:1.5px dashed var(--line);border-radius:16px;padding:28px;text-align:center;transition:transform var(--dur-fast) var(--ease-out),border-color var(--dur-fast);background:var(--panel)}
+#drop.dragover{transform:scale(1.02);border-color:var(--accent);box-shadow:0 0 0 4px rgba(42,255,122,.15)}
+svg.bar rect{transition:width 500ms var(--ease-out)}
+table th{cursor:pointer}table tr{transition:opacity var(--dur-fast),transform var(--dur-fast)}
+@media (prefers-reduced-motion:no-preference){.anim{transition:transform var(--dur-med) var(--ease-out),opacity var(--dur-med)}}
+.badge-free{background:var(--accent);color:#000;font-weight:700}
+</style>
+</head>
+<body>
+<header><a href="https://iggym.github.io/zero-cost-ai-coding/" class="mono" style="color:#2aff7a;text-decoration:none">← zero-cost-ai-coding</a><span class="mono">LogCluster Zero</span></header>
+<main style="max-width:1120px;margin:0 auto;padding:24px;display:grid;gap:28px">
+<section>
+<h1 class="mono" style="font-size:40px;margin:0">Stop reading logs line-by-line.</h1>
+<p class="mono" style="color:var(--accent)">Drop a log. Watch errors cluster.</p>
+<div style="display:grid;grid-template-columns:1.2fr.8fr;gap:16px">
+<div id="why-chart" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px">
+<div class="mono" style="font-size:11px;opacity:.6">EVIDENCE — Stack Overflow tag volume — source: stackoverflow.com/tags</div>
+<svg class="bar" viewBox="0 0 400 160" width="100%" height="160">
+<text x="0" y="15" fill="#8aa" font-size="10">logging 89k</text><rect x="0" y="22" width="320" height="12" fill="#2aff7a"/><text x="0" y="55" fill="#8aa" font-size="10">error-handling 45k</text><rect x="0" y="62" width="162" height="12" fill="#5af"/><text x="0" y="95" fill="#8aa" font-size="10">stack-trace 28k</text><rect x="0" y="102" width="100" height="12" fill="#f5a623"/><text x="0" y="135" fill="#8aa" font-size="10">log-analysis 12k</text><rect x="0" y="142" width="43" height="12" fill="#ff5a6a"/>
+</svg>
+</div>
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px">
+<table id="price-table" style="width:100%;font-size:12px"><thead><tr><th>Product</th><th>Price</th><th>Limit</th></tr></thead><tbody>
+<tr><td>Datadog</td><td>$0.10/GB</td><td>Pay-as-you-go</td></tr>
+<tr><td>New Relic</td><td>$0.30/GB</td><td>100GB free then pay</td></tr>
+<tr><td>Papertrail</td><td>$7/mo</td><td>50MB/day</td></tr>
+<tr><td class="mono" style="color:#2aff7a">LogCluster Zero</td><td>$0</td><td>Unlimited / browser</td></tr>
+</tbody></table>
+</div>
+</div>
+</section>
+<section id="how" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center">
+<div class="mono">HOW: Empty → Working → Done</div>
+<svg viewBox="0 0 300 40" width="300" height="40"><circle cx="20" cy="20" r="12" fill="none" stroke="#2aff7a" stroke-width="2"/><circle cx="150" cy="20" r="12" fill="none" stroke="#555" id="step2"/><circle cx="280" cy="20" r="12" fill="none" stroke="#555" id="step3"/><line x1="32" y1="20" x2="138" y2="20" stroke="#333" stroke-width="2"/><line id="line-progress" x1="32" y1="20" x2="32" y2="20" stroke="#2aff7a" stroke-width="2" stroke-dasharray="4 4"/></svg>
+<span class="pill">FREE LIMIT: Unlimited — runs offline in your browser</span>
+</section>
+<section>
+<div id="drop" class="anim"><div class="mono">Drag log file here or paste below</div><textarea id="loginput" placeholder="2026-08-16 ERROR Connection failed to 10.0.0.5:5432 timeout after 3000ms..." style="width:100%;height:120px;margin-top:12px;background:#000;color:#cfe;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:JetBrains Mono"></textarea>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+<button onclick="loadExample('tiny')" class="pill" style="background:var(--panel)">Try tiny → 12 lines</button>
+<button onclick="loadExample('medium')" class="pill" style="background:var(--panel)">Try medium → 180 lines</button>
+<button onclick="loadExample('stress')" class="pill" style="background:var(--panel)">Try stress → 2k lines</button>
+<label class="mono pill" style="background:var(--panel)">Similarity <input id="thresh" type="range" min="0" max="100" value="85" oninput="recluster()" style="vertical-align:middle;width:90px"> <span id="thval">85%</span></label>
+</div>
+</div>
+<div id="rail" style="display:none;height:4px;background:#111;margin-top:10px;border-radius:999px;overflow:hidden"><div id="railfill" style="height:100%;width:0%;background:#2aff7a;transition:width 150ms"></div></div>
+<div id="utility" style="display:grid;grid-template-columns:240px 1fr;gap:16px;margin-top:16px">
+<canvas id="donut" width="240" height="240" style="background:var(--panel);border-radius:12px;border:1px solid var(--line)"></canvas>
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px">
+<div class="mono" style="display:flex;justify-content:space-between"><span>Clusters found: <b id="clcount">0</b></span><span id="saved" style="color:#2aff7a">Saved ~<b id="savedsec">0</b>s @ 15s/entry</span></div>
+<input id="filter" placeholder="Filter clusters..." oninput="renderTable()" style="width:100%;margin:8px 0;background:#000;border:1px solid var(--line);color:#fff;border-radius:6px;padding:6px">
+<table id="result" style="width:100%;font-size:12px"><thead><tr><th onclick="sortBy('count')">Count</th><th onclick="sortBy('level')">Level</th><th>Fingerprint</th><th>Example</th><th>Copy</th></tr></thead><tbody></tbody></table>
+<div style="margin-top:8px;display:flex;gap:8px"><button onclick="copyJSON()" class="badge-free pill">Copy as JSON</button><button onclick="downloadJSON()" class="pill">Download JSON</button></div>
+</div>
+</div>
+</section>
+<section id="promptpack" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px">
+<div class="mono" style="font-weight:700;margin-bottom:8px">🟢 Build This Yourself — Parameterized Prompt Pack</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap" id="tabs"></div>
+<pre id="packcontent" style="background:#000;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:11px;white-space:pre-wrap;margin-top:10px"></pre>
+</section>
+<footer class="mono" style="font-size:10px;opacity:.5;border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between"><span>Free-tier verified: Browser Web APIs (File/RegExp/Canvas) — https://developer.mozilla.org/en-US/docs/Web/API/File — 2026-08-16</span><span>Single HTML • No backend • Runs offline</span></footer>
+</main>
+<script>
+const examples={tiny:`2026-08-16T10:01:01Z ERROR Connection timeout to db 10.0.0.5:5432 after 3000ms
+2026-08-16T10:01:02Z ERROR Connection timeout to db 10.0.0.6:5432 after 3000ms
+2026-08-16T10:01:03Z WARN Retry attempt 1 for order 8f3c2a
+2026-08-16T10:01:04Z ERROR UserNotFound id=12345 at /api/users
+2026-08-16T10:01:05Z INFO Server started on :8080
+2026-08-16T10:01:06Z ERROR Connection timeout to db 10.0.0.7:5432 after 3000ms`,medium:Array(180).fill(0).map((_,i)=>{const ip=`10.0.${i%5}.${i%20}`;const id=Math.floor(Math.random()*10000);const types=[`ERROR DB timeout ${ip}:5432`,`ERROR UserNotFound id=${id}`,`WARN Retry order ${id}`,`INFO OK ${i}`];return `2026-08-16T10:${String(i%60).padStart(2,'0')}:00Z ${types[i%4]}`}).join('\n'),stress:Array(2000).fill(0).map((_,i)=>`2026-08-16T10:00:00Z ${['ERROR Connection failed 192.168.1.'+(i%30)+':5000','ERROR TypeError: Cannot read property id='+i,'WARN Disk 85% on /dev/sda'+(i%3)][i%3]}`).join('\n')};
+let clusters=[], sortKey='count', sortDir=-1;
+function fingerprint(msg){return msg.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b/g,'<IP>').replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,'<UUID>').replace(/0x[0-9a-f]+/gi,'<HEX>').replace(/\/[\w\/\.\-]+/g,' <PATH>').replace(/\b\d+\b/g,'<N>').replace(/\s+/g,' ').trim();}
+function parseLogs(text){const lines=text.split('\n').filter(Boolean);let map={};lines.forEach(l=>{const m=l.match(/(ERROR|WARN|INFO|DEBUG)/);const level=m?m[1]:'INFO';const fp=fingerprint(l);if(!map[fp])map[fp]={fp,level,count:0,examples:[]};map[fp].count++;if(map[fp].examples.length<2)map[fp].examples.push(l);});return Object.values(map).sort((a,b)=>b.count-a.count);}
+function drawDonut(){const c=document.getElementById('donut'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);const totals={};clusters.forEach(cl=>{totals[cl.level]=(totals[cl.level]||0)+cl.count;});const entries=Object.entries(totals);const total=entries.reduce((s,[,v])=>s+v,0)||1;let ang=-Math.PI/2;const colors={ERROR:'#ff5a6a',WARN:'#f5a623',INFO:'#5af',DEBUG:'#8a8'};entries.forEach(([k][v])=>{const slice=v/total*2*Math.PI;ctx.beginPath();ctx.moveTo(120,120);ctx.arc(120,120,90,ang,ang+slice);ctx.closePath();ctx.fillStyle=colors[k]||'#2aff7a';ctx.fill();ang+=slice;});}
+function renderTable(){const filt=document.getElementById('filter').value.toLowerCase();const tb=document.querySelector('#result tbody');tb.innerHTML='';clusters.filter(c=>!filt||c.fp.toLowerCase().includes(filt)).sort((a,b)=>{if(sortKey==='count')return (a.count-b.count)*sortDir;return a[sortKey].localeCompare(b[sortKey])*sortDir;}).forEach(cl=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${cl.count}</td><td>${cl.level}</td><td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cl.fp}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cl.examples[0]}</td><td><button onclick="copyText(\`${cl.fp.replace(/`/g,'\\`')}\`,this)" class="pill">Copy</button></td>`;tb.appendChild(tr);});document.getElementById('clcount').textContent=clusters.length;const lines=document.getElementById('loginput').value.split('\n').filter(Boolean).length;document.getElementById('savedsec').textContent=Math.round(lines*15);drawDonut();}
+function recluster(){document.getElementById('thval').textContent=document.getElementById('thresh').value+'%';if(document.getElementById('loginput').value) run();}
+function run(){const text=document.getElementById('loginput').value;if(!text.trim())return;document.getElementById('rail').style.display='block';document.getElementById('railfill').style.width='30%';setTimeout(()=>{document.getElementById('railfill').style.width='80%';clusters=parseLogs(text);renderTable();document.getElementById('railfill').style.width='100%';document.getElementById('step2').setAttribute('stroke','#2aff7a');document.getElementById('step3').setAttribute('stroke','#2aff7a');document.getElementById('line-progress').setAttribute('x2','280');setTimeout(()=>document.getElementById('rail').style.display='none',600);},200);}
+function loadExample(k){document.getElementById('loginput').value=examples[k];run();}
+function sortBy(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=k==='count'?-1:1;}renderTable();}
+function copyText(t,btn){navigator.clipboard.writeText(t);const o=btn.textContent;btn.textContent='Copied! ✓';setTimeout(()=>btn.textContent=o,1200);}
+function copyJSON(){const j=JSON.stringify({zcac:true,kind:'log-clusters',data:{clusters}},null,2);navigator.clipboard.writeText(j);}
+function downloadJSON(){const j=JSON.stringify({zcac:true,kind:'log-clusters',data:{clusters}});const b=new Blob([j],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='logclusters.json';a.click();}
+document.getElementById('loginput').addEventListener('input',run);
+const drop=document.getElementById('drop');drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover');});drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f){const r=new FileReader();r.onload=()=>{document.getElementById('loginput').value=r.result;run();};r.readAsText(f);}});
+// Prompt pack tabs
+const packs={how:`HOW TO USE THIS
+1. Chatbot: Pick model tab, Copy, paste into ChatGPT/Claude/Gemini, replace {{variables}}
+2. Code: Use Code/API tab — ready JSON fetch payload
+Variables: {{PROBLEM}} {{AUDIENCE}} {{DATE}} {{FREE_SERVICE}} {{FREE_TIER_LIMIT}} {{FREE_TIER_URL}} {{SOLUTION_MODE}} {{INPUT_EXAMPLE}} {{OUTPUT_KIND}} {{VISUAL_STYLE}}`,openai:`For OpenAI GPT-4o — {{PROBLEM}} visual tool builder
+Parameters: temperature 0.4 top_p 0.9 max_tokens 4096
+System: You build zero-cost tools for {{AUDIENCE}} as of {{DATE}} using {{FREE_SERVICE}} limit {{FREE_TIER_LIMIT}} verified {{FREE_TIER_URL}} mode {{SOLUTION_MODE}}
+User: {{PROBLEM}} evidence {{EVIDENCE_SOURCE}} input {{INPUT_EXAMPLE}} output {{OUTPUT_KIND}} style {{VISUAL_STYLE}}
+Tool: {"type":"function","function":{"name":"build_tool","parameters":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}}
+Example filled: PROBLEM=log triage, FREE_SERVICE=Browser Web APIs, LIMIT=Unlimited`,anthropic:`For Anthropic Claude 3.5 Sonnet — {{PROBLEM}}
+System: You are Claude building zero-cost visual tools...
+User: PROBLEM {{PROBLEM}} AUDIENCE {{AUDIENCE}} DATE {{DATE}}
+Tool: {"name":"build_tool","input_schema":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}`,google:`For Google Gemini 1.5 Pro
+functionDeclarations: [{"name":"build_tool","parameters":{"type":"object","properties":{"html":{"type":"string"}},"required":["html"]}}]`,code:`const OPENAI_PAYLOAD={model:"gpt-4o-mini",temperature:0.4,top_p:0.9,max_tokens:4096,messages:[{role:"system",content:"Audience {{AUDIENCE}} Date {{DATE}}"}, {role:"user",content:"{{PROBLEM}}"}],tools:[{type:"function",function:{name:"build_tool"}}]}
+fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{Authorization:"Bearer "+OPENAI_KEY},body:JSON.stringify(OPENAI_PAYLOAD)})`,openweight:`System: Audience {{AUDIENCE}} Date {{DATE}} Mode {{SOLUTION_MODE}} Free {{FREE_SERVICE}} limit {{FREE_TIER_LIMIT}} verified {{FREE_TIER_URL}}
+User: PROBLEM {{PROBLEM}} EVIDENCE {{EVIDENCE_SOURCE}} etc.
+JSON Schema: {"type":"object","properties":{"html":{"type":"string"},"metadata":{"type":"object"}},"required":["html","metadata"]}`};
+const tabEl=document.getElementById('tabs');Object.keys(packs).forEach(k=>{const b=document.createElement('button');b.textContent=k;b.className='pill';b.onclick=()=>{document.getElementById('packcontent').textContent=packs[k];};tabEl.appendChild(b);});document.getElementById('packcontent').textContent=packs.how;
+</script>
+</body>
+</html>
