@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAG Chunk Lab — inspect chunking before you embed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0d10;--surface:#111419;--surface-2:#161a21;--border:#232934;--border-soft:#1b2029;
+  --text:#e7ecf3;--text-dim:#aab3c0;--text-mute:#7a8494;
+  --accent:#2dd4a7;--accent-soft:rgba(45,212,167,.16);--ok:#2dd4a7;--warn:#f5b942;--crit:#f0616d;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --dur-fast:.18s;--dur-med:.4s;--dur-slow:.8s;
+  --font-body:'Inter',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+html.light{
+  --bg:#f7f8fa;--surface:#ffffff;--surface-2:#f1f3f6;--border:#dfe3ea;--border-soft:#e9edf2;
+  --text:#1a1f29;--text-dim:#4a5460;--text-mute:#737d8a;
+  --accent:#0b9d7a;--accent-soft:rgba(11,157,122,.14);--shadow:0 8px 24px rgba(20,30,50,.10);
+}
+html.light body{background:var(--bg)}
+html.light .topbar{background:rgba(247,248,250,.85)}
+html.light .toast{background:var(--surface)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.55;font-size:15px}
+a{color:var(--accent);text-decoration:none}
+button{font-family:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(11,13,16,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.topbar-inner{display:flex;align-items:center;gap:10px;padding:11px 22px;max-width:1120px;margin:0 auto}
+.topbar a.home{font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim);display:flex;align-items:center;gap:8px}
+.topbar .crumb{font-family:var(--font-mono);font-size:.8rem;color:var(--text-mute)}
+.topbar .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.chip{font-size:.72rem;font-family:var(--font-mono);padding:3px 9px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim);background:var(--surface)}
+.chip.accent{color:var(--accent);border-color:var(--accent-soft);background:var(--accent-soft)}
+.theme-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:6px 10px;font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:6px}
+.hero{padding:56px 0 24px}
+.badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:.74rem;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-soft);padding:5px 12px;border-radius:999px;margin-bottom:18px}
+.badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+h1{font-size:2.5rem;line-height:1.1;margin:0 0 12px;letter-spacing:-.02em;font-weight:700}
+.lede{font-size:1.12rem;color:var(--text-dim);max-width:680px;margin:0 0 26px;accent-color:var(--accent)}
+.lead-bar{display:flex;gap:9px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:9px 15px;border-radius:9px;font-size:.84rem;cursor:pointer;transition:border-color var(--dur-fast),color var(--dur-fast),background var(--dur-fast)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn svg{width:15px;height:15px}
+section{padding:34px 0;border-top:1px solid var(--border-soft)}
+.sec-label{font-family:var(--font-mono);font-size:.74rem;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+h2{font-size:1.5rem;margin:0 0 8px;letter-spacing:-.01em}
+p.body{color:var(--text-dim);max-width:680px;margin:0 0 10px}
+.why-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:.85rem}
+.why-table th,.why-table td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+.why-table th{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;color:var(--text-mute)}
+.fail-table th{color:var(--crit)}
+.fail-table td:first-child{color:var(--crit);font-family:var(--font-mono);font-size:.78rem}
+.fail-table tr:last-child td{border-bottom:none}
+.reftab{font-size:.85rem;width:100%;border-collapse:collapse;margin-top:14px}
+.reftab th,.reftab td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-soft)}
+.reftab th{font-family:var(--font-mono);font-size:.72rem;text-transform:uppercase;color:var(--text-mute)}
+.reftab td{font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim)}
+.reftab .src{font-size:.74rem;color:var(--text-mute)}
+.reftab tr:last-child td{border-bottom:none}
+.flow{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px}
+.step{flex:1;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden}
+.step .n{font-family:var(--font-mono);font-size:.74rem;color:var(--accent)}
+.step h3{margin:6px 0 6px;font-size:1.05rem}
+.step p{margin:0;font-size:.82rem;color:var(--text-dim)}
+.step .line{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--border);transform:scaleX(0);transform-origin:left}
+.step.in .line{transform:scaleX(1);transition:transform var(--dur-slow) var(--ease-out);background:var(--accent)}
+.code{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;padding:11px 13px;font-family:var(--font-mono);font-size:.76rem;white-space:pre-wrap;color:var(--text-dim);margin-top:8px;line-height:1.5}
+.tool-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.sample-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.smp{font-size:.76rem;font-family:var(--font-mono);padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);cursor:pointer}
+.smp:hover,.smp.active{border-color:var(--accent);color:var(--accent)}
+.smp.active{background:var(--accent-soft)}
+textarea.doc{width:100%;min-height:160px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:10px;padding:13px;font-family:var(--font-mono);font-size:.78rem;color:var(--text);line-height:1.55;resize:vertical}
+textarea.doc:focus{outline:none;border-color:var(--accent)}
+.tool-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.btn.primary{background:var(--accent);color:#08130f;border-color:var(--accent);font-weight:600}
+.btn.primary:hover{background:#3ee6b8;color:#08130f}
+.controls{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:18px 0 4px}
+@media(max-width:720px){.controls{grid-template-columns:1fr}}
+.ctrl{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:11px;padding:14px}
+.ctrl label{display:flex;justify-content:space-between;font-size:.76rem;color:var(--text-mute);font-family:var(--font-mono);text-transform:uppercase;margin-bottom:8px}
+.ctrl label .val{color:var(--accent)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:5px;background:var(--border);outline:none;accent-color:var(--accent)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 0 3px var(--accent-soft)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--accent);cursor:pointer}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--surface-2);border:none;color:var(--text-dim);padding:6px 11px;font-size:.74rem;font-family:var(--font-mono);cursor:pointer}
+.seg button.active{background:var(--accent-soft);color:var(--accent)}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-dim);cursor:pointer}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
+.stat{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:11px;padding:14px}
+.stat .v{font-family:var(--font-mono);font-size:1.55rem;color:var(--text)}
+.stat .l{font-size:.7rem;color:var(--text-mute);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.04em}
+.stat .sub{font-size:.7rem;color:var(--text-mute);margin-top:3px}
+.stat.ok .v{color:var(--ok)} .stat.warn .v{color:var(--warn)} .stat.crit .v{color:var(--crit)}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+.card h4{margin:0 0 10px;font-size:.82rem;font-family:var(--font-mono);text-transform:uppercase;color:var(--text-mute);letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mini-wrap{position:relative;height:64px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;overflow:hidden}
+.mini-svg{width:100%;height:100%;display:block}
+.mini-cap{font-size:.72rem;color:var(--text-mute);margin-top:7px;font-family:var(--font-mono)}
+.histo{display:flex;align-items:flex-end;gap:4px;height:120px;padding-top:8px}
+.histo .bar{flex:1;background:var(--accent-soft);border-top:2px solid var(--accent);border-radius:3px 3px 0 0;min-height:2px;transition:height var(--dur-med) var(--ease-out)}
+.histo .bar.over{background:rgba(240,97,109,.18);border-top-color:var(--crit)}
+.histo-cap{display:flex;justify-content:space-between;font-size:.66rem;color:var(--text-mute);font-family:var(--font-mono);margin-top:6px}
+.table-wrap{overflow-x:auto;margin-top:14px}
+table.data{width:100%;border-collapse:collapse;font-size:.83rem;min-width:640px}
+table.data th,table.data td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+table.data th{font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;color:var(--text-mute);cursor:pointer;user-select:none;white-space:nowrap}
+table.data th:hover{color:var(--accent)}
+table.data td{font-family:var(--font-mono);font-size:.78rem}
+table.data td.text-cell{font-family:var(--font-body);font-size:.8rem;color:var(--text-dim);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.data tr:last-child td{border-bottom:none}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.7rem;font-family:var(--font-mono)}
+.pill.ok{background:var(--accent-soft);color:var(--ok)} .pill.warn{background:rgba(245,185,66,.16);color:var(--warn)} .pill.crit{background:rgba(240,97,109,.16);color:var(--crit)}
+.empty{text-align:center;padding:34px 12px;color:var(--text-mute);font-size:.86rem}
+.search{width:100%;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;padding:8px 11px;color:var(--text);font-size:.8rem;margin-bottom:10px}
+.search:focus{outline:none;border-color:var(--accent)}
+.rail{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:10px;padding:9px 13px;font-size:.78rem;color:var(--text-dim);margin-top:12px}
+.rail .status{font-family:var(--font-mono);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rail .status.err{color:var(--crit)}
+.rail .steps{display:flex;gap:6px} .rail .step-dot{width:9px;height:9px;border-radius:50%;background:var(--border);transition:all var(--dur-med)}
+.rail .step-dot.active{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)} .rail .step-dot.done{background:var(--accent)}
+.note{font-size:.76rem;color:var(--text-mute);margin-top:10px;line-height:1.5}
+.note code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-family:var(--font-mono);font-size:.74rem;color:var(--text-dim)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--accent-soft);color:var(--accent);padding:9px 16px;border-radius:10px;font-size:.82rem;font-family:var(--font-mono);opacity:0;transition:all var(--dur-med);z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.pptabs{display:flex;gap:6px;border-bottom:1px solid var(--border-soft);margin-bottom:14px;flex-wrap:wrap}
+.pptab{background:none;border:none;color:var(--text-mute);font-family:var(--font-mono);font-size:.76rem;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent}
+.pptab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.prompt-code{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:9px;padding:13px;font-family:var(--font-mono);font-size:.76rem;color:var(--text-dim);white-space:pre-wrap;line-height:1.5;position:relative}
+.prompt-code .copy{position:absolute;top:8px;right:8px}
+.prompt-vars{font-size:.8rem;color:var(--text-dim);margin-top:12px}
+.prompt-vars li{font-family:var(--font-mono);font-size:.76rem;color:var(--text-mute);margin:3px 0}
+footer{padding:40px 0 50px;border-top:1px solid var(--border-soft)}
+footer .verified{font-size:.76rem;color:var(--text-mute);max-width:760px;line-height:1.6}
+footer .verified a{color:var(--text-dim);text-decoration:underline;text-underline-offset:2px}
+footer .verified a:hover{color:var(--accent)}
+.brand{font-family:var(--font-mono);font-size:.78rem;color:var(--text-mute);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.dot-pulse{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent-soft);animation:dotpulse 2s infinite}
+@keyframes dotpulse{0%{box-shadow:0 0 0 0 var(--accent-soft)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.fade-in{opacity:0;transform:translateY(8px);transition:opacity var(--dur-slow),transform var(--dur-slow)}
+.fade-in.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/" aria-label="zero-cost ai-coding home">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/></svg>
+      <span>zero-cost-ai-coding</span>
+    </a>
+    <span class="crumb">/ RAG Chunk Lab</span>
+    <div class="right">
+      <span class="chip">Browser-native</span>
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle color theme">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+        theme
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero" style="border:none">
+    <div class="badge"><span class="dot"></span> Browser-native · no key · no backend</div>
+    <h1>Tune chunk size &amp; overlap <em>before</em> you embed.</h1>
+    <p class="lede">Paste a document. See exactly how it splits into retrieval chunks — chunk count, token budget per chunk, overlap duplication, and duplicate chunks — all locally in your browser.</p>
+    <div class="lead-bar">
+      <button class="btn" data-scroll="tool">Open the lab</button>
+      <button class="btn" id="shareXBtn">share on X <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H10M17 7v7"/></svg></button>
+      <button class="btn" id="copyLinkBtn">copy link</button>
+      <a class="btn" href="https://iggym.github.io/zero-cost-ai-coding/" target="_blank" rel="noopener">All tools ↗</a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-label">01 · why this exists</div>
+    <h2>Chunking is the step people skip — then retrieval suffers.</h2>
+    <p class="body">Embeddings get all the attention, but chunk size and overlap decide whether a RAG system actually surfaces the right passage. A chunk too small loses context; too large dilutes the signal; too much overlap wastes storage and creates near-duplicate vectors. The defaults in popular frameworks are reasonable starting points, not answers — and they're invisible until something breaks.</p>
+    <table class="fail-table why-table">
+      <thead><tr><th>Failure mode</th><th>What happens</th><th>What to check</th></tr></thead>
+      <tbody>
+        <tr><td>chunks too small</td><td>Each chunk lacks surrounding context; retrieval matches fragments, not ideas.</td><td>Is avg chunk size below your model's useful range?</td></tr>
+        <tr><td>chunks too large</td><td>A single chunk covers multiple topics; the embedding averages them away.</td><td>Any chunk far above the token budget?</td></tr>
+        <tr><td>too much overlap</td><td>Near-duplicate vectors; wasted storage; redundant retrieved passages.</td><td>Overlap duplication share high vs. chunk count?</td></tr>
+        <tr><td>no heading context</td><td>A chunk sitting under a heading loses the heading's meaning once split off.</td><td>Are headings carried into each chunk?</td></tr>
+        <tr><td>duplicate chunks</td><td>Repeated boilerplate produces identical vectors that crowd out real results.</td><td>Exact-duplicate chunk count > 0?</td></tr>
+      </tbody>
+    </table>
+    <table class="reftab">
+      <thead><tr><th>Framework splitter</th><th>chunk_size default</th><th>overlap default</th><th>unit</th></tr></thead>
+      <tbody>
+        <tr><td>LangChain CharacterTextSplitter</td><td>4000</td><td>200</td><td>characters (len)</td></tr>
+        <tr><td>LangChain RecursiveCharacterTextSplitter</td><td>4000</td><td>200</td><td>chars (inherited)</td></tr>
+        <tr><td>LlamaIndex TokenTextSplitter</td><td>1024</td><td>20</td><td>tokens</td></tr>
+        <tr><td>LlamaIndex SentenceSplitter</td><td>1024</td><td>200</td><td>tokens</td></tr>
+        <tr><td>LlamaIndex chunk_overlap_ratio</td><td>—</td><td>0.1 (10%)</td><td>ratio of chunk size</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Sources: <a href="https://python.langchain.com/api_reference/text_splitters/character/langchain_text_splitters.character.CharacterTextSplitter.html">LangChain CharacterTextSplitter</a>, <a href="https://docs.llamaindex.ai/en/v0.10.19/api/llama_index.core.node_parser.TokenTextSplitter.html">LlamaIndex TokenTextSplitter</a>. Token counts here are approximate (≈4 chars/token), not tokenizer-exact — see limits below.</p>
+  </section>
+
+  <section>
+    <div class="sec-label">02 · how it works</div>
+    <h2>Three local steps. Your document never leaves the browser.</h2>
+    <div class="flow">
+      <div class="step" id="s1"><div class="n">01</div><h3>Paste</h3><p>Drop in plain text or Markdown. Pick a sample to see edge cases.</p><div class="line"></div></div>
+      <div class="step" id="s2"><div class="n">02</div><h3>Split</h3><p>Recursive splitter: paragraph → sentence → word → char, with overlap.</p><div class="line"></div></div>
+      <div class="step" id="s3"><div class="n">03</div><h3>Inspect</h3><p>Minimap, token histogram, duplicate flags, and export to JSONL.</p><div class="line"></div></div>
+    </div>
+  </section>
+
+  <section id="tool">
+    <div class="sec-label">03 · try it on your own document</div>
+    <h2>The lab</h2>
+    <div class="tool-card">
+      <div class="sample-row">
+        <button class="smp active" data-sample="medium">Sample: docs with headings + boilerplate</button>
+        <button class="smp" data-sample="long">Sample: long paragraphs</button>
+        <button class="smp" data-sample="short">Sample: tiny chunks</button>
+      </div>
+      <textarea class="doc" id="docInput" spellcheck="false" placeholder="Paste a document (plain text or Markdown)..."></textarea>
+      <div class="controls">
+        <div class="ctrl"><label>Chunk target <span class="val" id="szVal">512 tok</span></label><input type="range" id="szSlider" min="64" max="1500" step="16" value="512"></div>
+        <div class="ctrl"><label>Overlap <span class="val" id="ovVal">10%</span></label><input type="range" id="ovSlider" min="0" max="40" step="5" value="10"></div>
+        <div class="ctrl"><label>Split strategy</label><div class="seg" id="stratSeg"><button class="active" data-strat="recursive">recursive</button><button data-strat="para">paragraph</button></div></div>
+        <div class="ctrl"><label>Heading context</label><div><label class="toggle"><input type="checkbox" id="headChk" checked> keep nearest heading</label></div></div>
+      </div>
+      <div class="tool-actions">
+        <button class="btn primary" id="runBtn">Chunk it</button>
+        <button class="btn" id="downloadBtn">Download JSONL</button>
+        <button class="btn" id="exportStateBtn">Export state</button>
+        <button class="btn" id="importBtn">Import state</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+        <button class="btn" data-scroll="dash">Dashboard ↓</button>
+      </div>
+      <div class="rail" id="rail">
+        <div class="status" id="railStatus">ready — paste a document or click a sample</div>
+        <div class="steps"><span class="step-dot done"></span><span class="step-dot"></span><span class="step-dot"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dash">
+    <div class="sec-label">04 · utility dashboard</div>
+    <h2>What you actually got</h2>
+    <div class="stat-row" id="statRow">
+      <div class="stat"><div class="l">Total chars</div><div class="v" id="stChars">0</div></div>
+      <div class="stat"><div class="l">≈ tokens</div><div class="v" id="stTokens">0</div><div class="sub">≈4 chars/tok</div></div>
+      <div class="stat ok"><div class="l">Chunks</div><div class="v" id="stChunks">0</div></div>
+      <div class="stat"><div class="l">Avg chunk tok</div><div class="v" id="stAvg">0</div><div class="sub" id="stP95"></div></div>
+      <div class="stat warn"><div class="l">Overlap dup</div><div class="v" id="stOv">0</div><div class="sub" id="stOvSub"></div></div>
+      <div class="stat crit"><div class="l">Dup chunks</div><div class="v" id="stDup">0</div><div class="sub">exact match</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h4>Chunk map <span class="mini-cap" id="miniCap">each band = one chunk (width ∝ tokens)</span></h4>
+        <div class="mini-wrap"><svg class="mini-svg" id="miniSvg" viewBox="0 0 1000 64" preserveAspectRatio="none"></svg></div>
+        <h4 style="margin-top:18px">Token distribution <span style="font-weight:400;color:var(--text-mute)">per chunk</span></h4>
+        <div class="histo" id="histo"></div>
+        <div class="histo-cap"><span id="histoLo">≤64</span><span id="histoHi">&gt;1500</span></div>
+      </div>
+      <div class="card">
+        <h4>Chunks <span style="font-weight:400;color:var(--text-mute)" id="chunkCount">0</span></h4>
+        <input class="search" id="filterInput" placeholder="Filter chunks...">
+        <div class="table-wrap">
+          <table class="data" id="chunkTable">
+            <thead><tr><th data-sort="id">#</th><th data-sort="heading">Heading</th><th data-sort="tokens" style="text-align:right">Tok</th><th data-sort="overlap" style="text-align:right">Ov</th><th>Preview</th></tr></thead>
+            <tbody id="chunkBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="note">The minimap shows each chunk as a horizontal band sized by its approx token count; translucent segments mark overlap that's duplicated from the previous chunk. The histogram buckets chunks by token count — bars turn red when a chunk exceeds the current target budget.</p>
+  </section>
+
+  <section>
+    <div class="sec-label">05 · prompt pack</div>
+    <h2>Generate a chunking recipe for any model</h2>
+    <p class="body">Copy a parameterized prompt, fill the variables, and hand it to a coding model to write a LangChain or LlamaIndex splitter matching what you tuned above. Each tab references a verified splitter API. Toggle between the parameterized template (with <code>{{variables}}</code>) and a filled example using your current settings.</p>
+    <div class="pptabs" id="ppTabs"></div>
+    <div class="seg" id="ppModeSeg" style="margin-bottom:12px"><button class="active" data-mode="template">template</button><button data-mode="filled">filled example</button></div>
+    <div id="ppBody"></div>
+    <p class="prompt-vars">Variables: <code>{chunk_size}</code> · <code>{chunk_overlap}</code> · <code>{keep_headings}</code> · <code>{doc_format}</code></p>
+  </section>
+
+  <footer>
+    <div class="brand"><span class="dot-pulse"></span> zero-cost-ai-coding · RAG Chunk Lab</div>
+    <div class="verified">
+      Free-tier verification: this tool runs entirely client-side (no server, no API key, no data sent anywhere) and is hostable for free on <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages" target="_blank" rel="noopener">GitHub Pages</a> (public repos, ≤1 GB site, soft 100 GB/mo bandwidth, 10 builds/hr) or any static host. Token estimates use the ≈4 characters/token heuristic from <a href="https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them" target="_blank" rel="noopener">OpenAI</a> — an approximate budget proxy, not tokenizer-exact. Chunk-size and overlap defaults are taken from live <a href="https://python.langchain.com/api_reference/text_splitters/character/langchain_text_splitters.character.CharacterTextSplitter.html" target="_blank" rel="noopener">LangChain</a> and <a href="https://docs.llamaindex.ai/en/v0.10.19/api/llama_index.core.node_parser.TokenTextSplitter.html" target="_blank" rel="noopener">LlamaIndex</a> docs. No prices to verify this run — this is a diagnostic tool, not a cost calculator. Released MIT.
+    </div>
+  </footer>
+</div>
+
+<div class="toast" id="toast">Copied</div>
+
+<script>
+"use strict";
+/* ============================================================ state */
+const STATE={doc:"",target:512,overlap:10,strat:"recursive",keepHeadings:true,result:null,sortKey:"id",sortDir:1,filter:"",ppMode:"template",ppActive:"openai"};
+const HOME="https://iggym.github.io/zero-cost-ai-coding/";
+
+/* ============================================================ samples */
+function makeSamples(){
+  const longPara=Array(40).fill("Chunking strategy affects retrieval quality and token budget. ").join("");
+  const boilerplate="\n\n## Notice\n"+Array(12).fill("This documentation is provided as-is. ").join("")+"\n";
+  const base="# Getting Started\n\nWelcome to the integration guide. This section explains how to connect your application to the platform using the REST API and webhooks.\n\n## Authentication\n\nAll requests require a bearer token. Obtain one from the dashboard under API keys. Tokens expire after 24 hours and must be refreshed using the refresh endpoint.\n\n### Token refresh\n\nSend a POST request to /auth/refresh with your current token in the Authorization header. The response contains a new access token and its expiry time.\n\n## Rate limits\n\nThe API enforces a rate limit of 60 requests per minute per token. Burst capacity allows short spikes up to 100 requests. Exceeding the limit returns HTTP 429 with a Retry-After header.\n\n## Webhooks\n\nConfigure webhooks in the dashboard to receive event notifications. Each webhook must respond with HTTP 200 within 5 seconds or the delivery is retried with exponential backoff.\n\n### Delivery guarantees\n\nEvents are delivered at least once. Consumers must be idempotent and handle duplicates by checking the event id. Out-of-order delivery is possible between distinct event types.\n"+boilerplate+"\n## Troubleshooting\n\nIf a request fails, check the status code first. A 401 means the token is missing or expired. A 429 means you hit the rate limit. A 5xx means a server error; retry with backoff.\n"+boilerplate;
+  const short="# Quick reference\n\nRun it.\n\nBuild it.\n\nShip it.\n\nDone.\n";
+  return {medium:base+longPara.slice(0,600), long:"# Article\n\n"+longPara+longPara+longPara, short:short+boilerplate};
+}
+const SAMPLES=makeSamples();
+
+/* ============================================================ token helper */
+function approxTokens(t){return Math.max(1,Math.round(t.length/4));}
+
+/* ============================================================ chunker */
+function nearestHeading(text,offset){
+  const before=text.slice(0,offset);
+  const lines=before.split(/\r?\n/);
+  let head="";
+  for(const ln of lines){const m=/^#{1,6}\s+(.*)$/.exec(ln);if(m)head=m[1].trim();}
+  return head;
+}
+/* split text into paragraphs, each {text,start} where start is char offset in text */
+function splitParagraphs(text){
+  const paras=[];let buf="",bufStart=0;
+  const lines=text.split(/\r?\n/);
+  let cursor=0;
+  for(const ln of lines){
+    const len=ln.length;
+    if(ln.trim()===""){
+      if(buf.trim()){paras.push({text:buf,start:bufStart});buf="";}
+    } else {
+      if(buf===""){bufStart=cursor;}
+      buf=buf?buf+"\n"+ln:ln;
+    }
+    cursor+=len+1; // +1 for the newline
+  }
+  if(buf.trim())paras.push({text:buf,start:bufStart});
+  return paras;
+}
+/* recursive splitter: returns [{text,start}] substrings of `text`, each <= targetChars.
+   Separators are preserved on merge so text is never corrupted. `base` is the absolute
+   offset of `text` within the original document (for char-range tracking). */
+function splitRecursive(text,targetChars,depth,base){
+  base=base||0;
+  if(text.trim().length===0)return [];
+  if(text.length<=targetChars){return [{text:text,start:base}];}
+  const seps=[/\n\n/,/(?<=[.!?])\s+/,/\s+/];
+  if(depth>=seps.length){return hardWindow(text,targetChars,base);}
+  const re=new RegExp(seps[depth].source,"g");
+  // split into pieces that KEEP their trailing separator, so merges re-insert it
+  const splits=[];let last=0;let m;
+  while((m=re.exec(text))!==null){
+    if(m.index>last){splits.push({text:text.slice(last,m.index),sep:m[0],start:last});}
+    else if(m[0].length===0){re.lastIndex++;continue;}
+    else{splits.push({text:"",sep:m[0],start:m.index});}
+    last=m.index+m[0].length;
+  }
+  if(last<text.length)splits.push({text:text.slice(last),sep:"",start:last});
+  const out=[];let buf=null;
+  for(const s of splits){
+    if(s.text.length===0&&s.sep.length===0)continue;
+    if(buf){
+      const cand=buf.text+buf.sep+s.text;
+      if(cand.length<=targetChars){buf.text=cand;}
+      else{
+        out.push({text:buf.text,start:buf.start});
+        if(s.text.length>targetChars){out.push(...splitRecursive(s.text,targetChars,depth+1,base+s.start));buf=null;}
+        else{buf={text:s.text,sep:s.sep,start:base+s.start};}
+      }
+    } else {
+      if(s.text.length>targetChars){out.push(...splitRecursive(s.text,targetChars,depth+1,base+s.start));}
+      else{buf={text:s.text,sep:s.sep,start:base+s.start};}
+    }
+  }
+  if(buf)out.push({text:buf.text,start:buf.start});
+  return out.filter(u=>u.text.trim());
+}
+function hardWindow(text,targetChars,base){
+  base=base||0;
+  const out=[];let i=0;const step=Math.max(1,Math.floor(targetChars));
+  while(i<text.length){
+    out.push({text:text.slice(i,i+targetChars),start:base+i});
+    i+=step;
+  }
+  return out.filter(u=>u.text.trim());
+}
+function chunkDocument(text,opts){
+  const {target,overlapPct,strat,keepHeadings}=opts;
+  const targetChars=Math.max(1,target*4);
+  const overlapChars=Math.round(targetChars*overlapPct/100);
+  let base;
+  if(strat==="para"){
+    const paras=splitParagraphs(text).map(p=>({text:p.text.trim(),start:p.start})).filter(u=>u.text);
+    const merged=[];let buf=null;
+    for(const u of paras){
+      if(buf){const c=buf.text+"\n\n"+u.text;if(c.length<=targetChars){buf.text=c;}else{merged.push(buf);buf={text:u.text,start:u.start};}}
+      else{buf={text:u.text,start:u.start};}
+    }
+    if(buf)merged.push(buf);
+    base=merged;
+  } else {
+    base=splitRecursive(text,targetChars,0);
+  }
+  const chunks=[];
+  for(let i=0;i<base.length;i++){
+    const core=base[i];
+    const trimmed=core.text.trimStart();
+    const headLine=/^#{1,6}\s+(.*)$/.exec(trimmed);
+    let head="";
+    if(headLine){head=headLine[1].trim();}  // chunk already starts with its own heading
+    else if(keepHeadings){head=nearestHeading(text,core.start);}  // prepend section context
+    let body=core.text;let ovTok=0;
+    if(i>0&&overlapChars>0){
+      const prev=base[i-1].text;
+      const prefix=prev.slice(Math.max(0,prev.length-overlapChars));
+      if(prefix.trim()){body=prefix+core.text;ovTok=approxTokens(prefix);}
+    }
+    if(!headLine&&head){body=head+"\n\n"+body;}
+    chunks.push({id:i+1,text:body,coreText:core.text,heading:head,charStart:core.start,charEnd:core.start+core.text.length,approxTokens:approxTokens(body),overlapTok:ovTok});
+  }
+  for(const c of chunks){c.overBudget=c.approxTokens>target;}
+  const norm=s=>s.toLowerCase().replace(/\s+/g," ").trim();
+  const seen={};
+  for(const c of chunks){const k=norm(c.coreText);c.duplicate=!!seen[k];seen[k]=true;}
+  return chunks;
+}
+
+/* ============================================================ stats + render */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function fmt(n){return n>=1000?(n/1000).toFixed(n>=10000?0:1)+"k":""+n;}
+function setStat(id,v,sub){document.getElementById(id).textContent=v;}
+function animateStat(id,to){const el=document.getElementById(id);const from=parseInt(el.textContent.replace(/[^0-9-]/g,"")||"0",10);const start=performance.now();const dur=500;function step(t){const p=Math.min(1,(t-start)/dur);el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step);}requestAnimationFrame(step);}
+function renderStats(r){
+  if(!r)return;
+  const toks=r.chunks.reduce((a,c)=>a+c.approxTokens,0);
+  const ovDup=r.chunks.reduce((a,c)=>a+c.overlapTok,0);
+  const sorted=[...r.chunks].map(c=>c.approxTokens).sort((a,b)=>a-b);
+  const p95=sorted.length?sorted[Math.min(sorted.length-1,Math.floor(sorted.length*0.95))]:0;
+  const dups=r.chunks.filter(c=>c.duplicate).length;
+  animateStat("stChars",r.totalChars);
+  animateStat("stTokens",r.totalTokens);
+  animateStat("stChunks",r.chunks.length);
+  animateStat("stAvg",r.chunks.length?Math.round(toks/r.chunks.length):0);
+  document.getElementById("stP95").textContent="p95 ≈ "+p95;
+  animateStat("stOv",ovDup);
+  document.getElementById("stOvSub").textContent=Math.round(toks?ovDup/toks*100:0)+"% of tokens";
+  animateStat("stDup",dups);
+  document.getElementById("chunkCount").textContent=r.chunks.length+" chunks";
+}
+function renderMinimap(r){
+  const svg=document.getElementById("miniSvg");svg.innerHTML="";
+  if(!r||!r.chunks.length)return;
+  const total=r.chunks.reduce((a,c)=>a+c.approxTokens,0)||1;
+  const W=1000,H=64;
+  let x=0;
+  for(const c of r.chunks){
+    const w=Math.max(1,c.approxTokens/total*W);
+    const rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
+    rect.setAttribute("x",x);rect.setAttribute("y",6);rect.setAttribute("width",Math.max(0.8,w-1));rect.setAttribute("height",H-12);
+    rect.setAttribute("rx",2);
+    rect.setAttribute("fill",c.overBudget?"rgba(240,97,109,.6)":c.duplicate?"rgba(245,185,66,.55)":"rgba(45,212,167,.45)");
+    svg.appendChild(rect);
+    // overlap translucent segment at left of chunk
+    if(c.overlapTok>0){
+      const ow=Math.max(0.8,(c.overlapTok/total*W)-1);
+      const o=document.createElementNS("http://www.w3.org/2000/svg","rect");
+      o.setAttribute("x",x);o.setAttribute("y",6);o.setAttribute("width",ow);o.setAttribute("height",H-12);o.setAttribute("rx",2);
+      o.setAttribute("fill","rgba(122,132,148,.5)");
+      svg.appendChild(o);
+    }
+    x+=w;
+  }
+  document.getElementById("miniCap").textContent=r.chunks.length+" chunks · width ∝ approx tokens";
+}
+function renderHistogram(r){
+  const el=document.getElementById("histo");el.innerHTML="";
+  if(!r||!r.chunks.length)return;
+  const buckets=[0,0,0,0,0,0,0];const cuts=[64,128,256,512,1024,1500];
+  for(const c of r.chunks){
+    let b=cuts.length;for(let i=0;i<cuts.length;i++){if(c.approxTokens<=cuts[i]){b=i;break;}}buckets[b]++;
+  }
+  const max=Math.max(1,...buckets);
+  const labels=["≤64","≤128","≤256","≤512","≤1k","≤1.5k",">1.5k"];
+  for(let i=0;i<buckets.length;i++){
+    const bar=document.createElement("div");bar.className="bar";
+    const over=(STATE.target&&cuts[i-1]>=STATE.target);
+    if(i>=3&&STATE.target&&cuts[i-1]&&cuts[i-1]>STATE.target)bar.classList.add("over");
+    bar.style.height=(buckets[i]/max*100)+"%";
+    bar.title=labels[i]+": "+buckets[i]+" chunks";
+    el.appendChild(bar);
+  }
+  document.getElementById("histoLo").textContent="≤64";
+  document.getElementById("histoHi").textContent=">1.5k";
+}
+function renderTable(r){
+  const body=document.getElementById("chunkBody");body.innerHTML="";
+  if(!r||!r.chunks.length){body.innerHTML='<tr><td colspan=5 class=\"empty\">No chunks yet — paste a document and hit “Chunk it”.</td></tr>';return;}
+  let rows=r.chunks.slice();
+  const k=STATE.sortKey,dir=STATE.sortDir;
+  rows.sort((a,b)=>{
+    let av,bv;if(k==="id"){av=a.id;bv=b.id;}else if(k==="tokens"){av=a.approxTokens;bv=b.approxTokens;}else if(k==="overlap"){av=a.overlapTok;bv=b.overlapTok;}else{av=(a.heading||"").toLowerCase();bv=(b.heading||"").toLowerCase();}
+    return typeof av==="number"?(av-bv)*dir:(av<bv?-1:av>bv?1:0)*dir;
+  });
+  const f=STATE.filter.toLowerCase().trim();
+  if(f)rows=rows.filter(c=>(c.heading+" "+c.text).toLowerCase().includes(f));
+  for(const c of rows){
+    const tr=document.createElement("tr");
+    const pill=c.duplicate?"crit":(c.overBudget?"warn":"ok");
+    const label=c.duplicate?"dup":(c.overBudget?"over":"");
+    tr.innerHTML='<td>'+(label?'<span class="pill '+pill+'">'+label+'</span><br>':'')+c.id+'</td>'+
+      '<td>'+(c.heading?esc(c.heading):'<span style=\"color:var(--text-mute)\">—</span>')+'</td>'+
+      '<td style=\"text-align:right\">'+c.approxTokens+'</td>'+
+      '<td style=\"text-align:right\">'+(c.overlapTok||"")+'</td>'+
+      '<td class=\"text-cell\">'+esc(c.text.slice(0,120))+'</td>';
+    body.appendChild(tr);
+  }
+}
+function renderAll(r){STATE.result=r;renderStats(r);renderMinimap(r);renderHistogram(r);renderTable(r);}
+
+/* ============================================================ run pipeline */
+function run(){
+  const text=document.getElementById("docInput").value;
+  STATE.doc=text;
+  setStatus("parsing…",1);
+  if(!text.trim()){renderAll({chunks:[],totalChars:0,totalTokens:0});setStatus("empty — paste a document",0);return;}
+  const reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  setTimeout(()=>{
+    try{
+      const chunks=chunkDocument(text,{target:STATE.target,overlapPct:STATE.overlap,strat:STATE.strat,keepHeadings:STATE.keepHeadings});
+      const totalTokens=chunks.reduce((a,c)=>a+c.approxTokens,0);
+      renderAll({chunks,totalChars:text.length,totalTokens});
+      setStatus("done — "+chunks.length+" chunks · ≈"+totalTokens+" tokens",2);
+    }catch(e){setStatus("error: "+e.message,0);}
+  },reduce?0:220);
+}
+function setStatus(msg,stage){
+  const s=document.getElementById("railStatus");s.textContent=msg;s.classList.toggle("err",msg.startsWith("error"));
+  const dots=document.querySelectorAll("#rail .step-dot");
+  dots.forEach((d,i)=>{d.classList.toggle("active",i===stage);d.classList.toggle("done",i<stage);});
+}
+
+/* ============================================================ exports */
+function buildJsonl(r){
+  if(!r||!r.chunks.length)return "";
+  return r.chunks.map((c,i)=>JSON.stringify({id:"chunk-"+String(i+1).padStart(3,"0"),heading:c.heading,text:c.text,approx_tokens:c.approxTokens,char_start:c.charStart,char_end:c.charEnd})).join("\n");
+}
+function buildExport(r){return JSON.stringify({zcac:true,kind:"rag-chunks",target:STATE.target,overlap:STATE.overlap,strat:STATE.strat,keep_headings:STATE.keepHeadings,doc:STATE.doc,stats:{chunks:r?r.chunks.length:0,total_tokens:r?r.totalTokens:0},exported_at:new Date().toISOString()},null,2);}
+function tryImport(text){try{const o=JSON.parse(text);if(o.zcac!==true||o.kind!=="rag-chunks")throw new Error("not a rag-chunks export");if(typeof o.target==="number"){STATE.target=o.target;document.getElementById("szSlider").value=o.target;document.getElementById("szVal").textContent=o.target+" tok";}
+  if(typeof o.overlap=="number"){STATE.overlap=o.overlap;document.getElementById("ovSlider").value=o.overlap;document.getElementById("ovVal").textContent=o.overlap+"%";}
+  if(o.strat){STATE.strat=o.strat;document.querySelectorAll("#stratSeg button").forEach(b=>b.classList.toggle("active",b.dataset.strat===o.strat));}
+  if(typeof o.keep_headings=="boolean"){STATE.keepHeadings=o.keep_headings;document.getElementById("headChk").checked=o.keep_headings;}
+  if(typeof o.doc=="string")document.getElementById("docInput").value=o.doc;
+  run();return true;
+}catch(e){return false;}}
+
+/* ============================================================ prompt pack */
+const PROMPTS={
+  openai:{label:"OpenAI",vars:["chunk_size","chunk_overlap","keep_headings","doc_format"],code:[
+"Use langchain_text_splitters to build a RecursiveCharacterTextSplitter with:",
+"  chunk_size = {{chunk_size}}        # max chars per chunk (≈ tokens/4)",
+"  chunk_overlap = {{chunk_overlap}}   # chars of overlap between chunks",
+"  separators = ['\\n\\n', '(?<=[.!?])\\s+', '\\s+']",
+"If {{keep_headings}} is true, prepend the nearest preceding markdown heading to each chunk.",
+"Input doc format: {{doc_format}}.",
+"Return the chunks as JSONL: {\"id\":\"chunk-001\",\"text\":\"...\",\"approx_tokens\":N}"
+].join("\n")},
+  anthropic:{label:"Anthropic",vars:["chunk_size","chunk_overlap","keep_headings","doc_format"],code:[
+"Write a Python function chunk_doc(text) that splits {{doc_format}} text using langchain's RecursiveCharacterTextSplitter.",
+"Parameters: chunk_size={{chunk_size}} (chars), chunk_overlap={{chunk_overlap}} (chars).",
+"If {{keep_headings}} is true, attach the nearest preceding markdown heading to each chunk.",
+"Output a list of dicts: {id, heading, text, approx_tokens} where approx_tokens = len(text)//4.",
+"Honest limits: token counts are approximate; this does not measure embedding quality."
+].join("\n")},
+  google:{label:"Google",vars:["chunk_size","chunk_overlap","keep_headings","doc_format"],code:[
+"Build a LlamaIndex SentenceSplitter with chunk_size={{chunk_size}} and chunk_overlap={{chunk_overlap}} (token units).",
+"If {{keep_headings}} is true, enable section-aware splitting so each node keeps its heading.",
+"Input documents are {{doc_format}}.",
+"Return nodes as JSONL: {\"id\":\"chunk-001\",\"text\":\"...\",\"approx_tokens\":N}.",
+"Note: SentenceSplitter measures chunk_size in tokens, not characters."
+].join("\n")},
+  openweight:{label:"Open-Weight",vars:["chunk_size","chunk_overlap","keep_headings","doc_format"],code:[
+"Write a dependency-free Python chunker (stdlib only) that splits {{doc_format}} text recursively on ['\\n\\n', '. ', ' '] with a char budget of {{chunk_size}} and overlap of {{chunk_overlap}} chars.",
+"If {{keep_headings}} is true, track markdown # headings and prepend the nearest one to each chunk.",
+"Estimate tokens as len(text)//4 (≈4 chars/token heuristic).",
+"Emit JSONL: {\"id\":\"chunk-001\",\"text\":\"...\",\"approx_tokens\":N,\"char_start\":A,\"char_end\":B}."
+].join("\n")}
+};
+function renderPromptPack(active){
+  if(active)STATE.ppActive=active;
+  STATE.ppActive=STATE.ppActive||"openai";
+  const tabs=document.getElementById("ppTabs");tabs.innerHTML="";
+  const body=document.getElementById("ppBody");body.innerHTML="";
+  Object.keys(PROMPTS).forEach(key=>{
+    const p=PROMPTS[key];
+    const btn=document.createElement("button");btn.className="pptab"+(key===STATE.ppActive?" active":"");btn.textContent=p.label;btn.onclick=()=>renderPromptPack(key);
+    tabs.appendChild(btn);
+  });
+  const p=PROMPTS[STATE.ppActive];
+  const filled={"{{chunk_size}}":STATE.target*4,"{{chunk_overlap}}":Math.round(STATE.target*4*STATE.overlap/100),"{{keep_headings}}":STATE.keepHeadings?"true":"false","{{doc_format}}":"Markdown"};
+  let code=p.code;
+  if(STATE.ppMode==="filled"){for(const[k,v]of Object.entries(filled))code=code.split(k).join(v);}
+  const wrap=document.createElement("div");wrap.className="prompt-code";
+  const cp=document.createElement("button");cp.className="btn copy";cp.textContent="copy";cp.onclick=()=>copyText(code,cp,"copied");
+  const pre=document.createElement("div");pre.textContent=code;
+  wrap.appendChild(cp);wrap.appendChild(pre);body.appendChild(wrap);
+  const vars=document.createElement("div");vars.className="prompt-vars";vars.innerHTML="Variables: "+p.vars.map(v=>'<li><code>{{'+v+'}}</code></li>').join("")+(STATE.ppMode==="filled"?" — filled with your current settings.":" — fill these to match your settings.");
+  body.appendChild(vars);
+}
+
+/* ============================================================ utils + events */
+function morphBtn(btn,label){if(!btn)return;const orig=btn.dataset.orig||btn.textContent;btn.dataset.orig=orig;btn.textContent=label;btn.style.color="var(--accent)";btn.style.borderColor="var(--accent-soft)";setTimeout(()=>{btn.textContent=orig;btn.style.color="";btn.style.borderColor="";},1500);}
+function copyText(txt,btn,msg){navigator.clipboard.writeText(txt).then(()=>{if(btn)morphBtn(btn,msg||"copied");else toast(msg||"Copied");}).catch(()=>toast("copy failed"));}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1600);}
+let _shareUrl=location.href;
+function shareUrl(){return _shareUrl;}
+
+function wire(){
+  // samples
+  document.querySelectorAll(".smp").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll(".smp").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+    document.getElementById("docInput").value=SAMPLES[b.dataset.sample];run();
+  });
+  document.getElementById("docInput").addEventListener("input",()=>{document.querySelectorAll(".smp").forEach(x=>x.classList.remove("active"));});
+  // sliders
+  const sz=document.getElementById("szSlider"),ov=document.getElementById("ovSlider");
+  sz.oninput=()=>{STATE.target=+sz.value;document.getElementById("szVal").textContent=STATE.target+" tok";run();};
+  ov.oninput=()=>{STATE.overlap=+ov.value;document.getElementById("ovVal").textContent=STATE.overlap+"%";run();};
+  document.querySelectorAll("#stratSeg button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#stratSeg button").forEach(x=>x.classList.remove("active"));b.classList.add("active");STATE.strat=b.dataset.strat;run();});
+  document.getElementById("headChk").onchange=()=>{STATE.keepHeadings=document.getElementById("headChk").checked;run();};
+  // actions
+  document.getElementById("runBtn").onclick=run;
+  document.getElementById("downloadBtn").onclick=()=>{const jl=buildJsonl(STATE.result);if(!jl){toast("nothing to export");return;}const blob=new Blob([jl],{type:"application/x-ndjson"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="rag-chunks.jsonl";a.click();URL.revokeObjectURL(a.href);toast("downloaded "+(STATE.result?STATE.result.chunks.length:0)+" chunks");};
+  document.getElementById("exportStateBtn").onclick=e=>copyText(buildExport(STATE.result),e.currentTarget,"copied");
+  document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+  document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{if(!tryImport(r.result))toast("not a rag-chunks export");};r.readAsText(f);e.target.value="";};
+  // table sort + filter
+  document.querySelectorAll("#chunkTable th[data-sort]").forEach(th=>th.onclick=()=>{const k=th.dataset.sort;if(STATE.sortKey===k)STATE.sortDir*=-1;else{STATE.sortKey=k;STATE.sortDir=k==="id"||k==="tokens"||k==="overlap"?1:1;}renderTable(STATE.result);});
+  document.getElementById("filterInput").oninput=e=>{STATE.filter=e.target.value;renderTable(STATE.result);};
+  // scroll
+  document.querySelectorAll("[data-scroll]").forEach(b=>b.onclick=()=>{const el=document.getElementById(b.dataset.scroll);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});});
+  // share
+  document.getElementById("shareXBtn").onclick=()=>{const url=shareUrl();const txt="RAG Chunk Lab — inspect chunking before you embed";window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(txt)+"&url="+encodeURIComponent(url),"_blank","noopener");};
+  document.getElementById("copyLinkBtn").onclick=e=>copyText(shareUrl(),e.currentTarget,"copied");
+  // prompt pack mode toggle
+  document.querySelectorAll("#ppModeSeg button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#ppModeSeg button").forEach(x=>x.classList.remove("active"));b.classList.add("active");STATE.ppMode=b.dataset.mode;renderPromptPack();});
+  // theme
+  const tb=document.getElementById("themeBtn");tb.onclick=()=>document.documentElement.classList.toggle("light");
+  // prompt pack
+  renderPromptPack("openai");
+  // flow reveal
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add("in");}),{threshold:.3});
+  ["s1","s2","s3"].forEach(id=>{const el=document.getElementById(id);if(el)io.observe(el);});
+  // initial
+  document.getElementById("docInput").value=SAMPLES.medium;
+  run();
+}
+document.addEventListener("DOMContentLoaded",wire);
+</script>
+</body>
+</html>
