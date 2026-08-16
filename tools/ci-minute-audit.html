@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CI Minute Audit — find the minutes your GitHub Actions workflow wastes</title>
+<meta name="description" content="Paste a GitHub Actions workflow. See which jobs burn your 2,000 free minutes, how many you get back, and copy a patched YAML. Runs entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ease-out:cubic-bezier(.16,1,.3,1); --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --dur-fast:150ms; --dur-med:300ms; --dur-slow:500ms;
+  --bg:#0b0e0d; --bg-2:#111614; --bg-3:#161d1a; --line:#243029;
+  --fg:#e7efe9; --fg-dim:#98a89e;
+  --accent:#3ddc84; --accent-dim:#1f7a4a; --warn:#e8b339; --bad:#e8695c;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Inter',system-ui,-apple-system,Segoe UI,sans-serif;
+  --radius:10px;
+}
+html[data-theme="light"]{
+  --bg:#f6f8f6; --bg-2:#ffffff; --bg-3:#eef2ee; --line:#d6ded8;
+  --fg:#111815; --fg-dim:#54635b; --accent:#127a45; --accent-dim:#9fe0bd;
+  --warn:#8a6300; --bad:#b23c2f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4,.mono,code,pre,button,input,select,th{font-family:var(--mono)}
+h1,h2,h3{line-height:1.15;margin:0 0 .4em}
+h2{font-size:1.35rem;letter-spacing:-.01em}
+h3{font-size:1rem;letter-spacing:0}
+a{color:var(--accent)}
+p{margin:.5em 0}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+section{padding:44px 0;border-top:1px solid var(--line)}
+section:first-of-type{border-top:none}
+.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.muted{color:var(--fg-dim)}
+.small{font-size:.82rem}
+.tiny{font-size:.74rem}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding:10px 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar a.home{font-family:var(--mono);font-size:.8rem;text-decoration:none;color:var(--fg)}
+.topbar a.home span{color:var(--accent)}
+.topbar .right{display:flex;align-items:center;gap:12px}
+.topbar .title{font-family:var(--mono);font-size:.8rem;color:var(--fg-dim)}
+.iconbtn{background:var(--bg-3);border:1px solid var(--line);color:var(--fg);border-radius:8px;
+  padding:5px 9px;font-size:.75rem;cursor:pointer;transition:transform var(--dur-fast) var(--ease-out),border-color var(--dur-fast)}
+.iconbtn:hover{border-color:var(--accent)}
+
+/* hero */
+.hero h1{font-size:clamp(1.7rem,4.2vw,2.6rem);letter-spacing:-.02em}
+.kinetic{font-family:var(--mono);color:var(--accent);font-size:clamp(.95rem,2vw,1.1rem);margin:.2em 0 1em}
+.kinetic .caret{display:inline-block;width:9px;height:1.05em;background:var(--accent);vertical-align:-2px;margin-left:2px}
+.pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.pill{display:inline-flex;align-items:center;gap:7px;background:var(--bg-3);border:1px solid var(--line);
+  border-radius:999px;padding:5px 12px;font-family:var(--mono);font-size:.74rem;color:var(--fg-dim)}
+.pill b{color:var(--fg);font-weight:500}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.btn{background:var(--accent);color:#04150c;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;
+  font-weight:700;cursor:pointer;font-family:var(--mono);transition:transform var(--dur-fast) var(--ease-out),filter var(--dur-fast)}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.ghost:hover{border-color:var(--accent)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* grid + cards */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:860px){.g2,.g3{grid-template-columns:1fr}}
+.card{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.card h3{margin-bottom:4px}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-dim);cursor:pointer;user-select:none;white-space:nowrap}
+th[aria-sort="ascending"],th[aria-sort="descending"]{color:var(--accent)}
+th .arrow{opacity:.5}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+tbody tr{transition:opacity var(--dur-fast) var(--ease-out),transform var(--dur-fast) var(--ease-out)}
+tbody tr.enter{opacity:0;transform:translateY(4px)}
+
+/* inputs */
+textarea,input[type=text],select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;padding:10px;font-family:var(--mono);font-size:.8rem}
+textarea{min-height:230px;resize:vertical;line-height:1.5}
+textarea:focus,input:focus,select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+label.field{display:block;font-family:var(--mono);font-size:.74rem;color:var(--fg-dim);margin-bottom:2px}
+.chip{background:var(--bg-3);border:1px dashed var(--line);color:var(--fg);border-radius:999px;padding:5px 12px;
+  font-family:var(--mono);font-size:.74rem;cursor:pointer;transition:transform var(--dur-fast) var(--ease-out),border-color var(--dur-fast),background var(--dur-fast)}
+.chip:hover{border-color:var(--accent);background:var(--bg-2)}
+.chip:active{transform:scale(.96)}
+.dropzone{border:1px dashed var(--line);border-radius:var(--radius);transition:transform var(--dur-med) var(--ease-out),border-color var(--dur-fast),background var(--dur-fast)}
+.dropzone.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg-2))}
+.morphed{animation:morphin var(--dur-med) var(--ease-out)}
+@keyframes morphin{from{opacity:.3;transform:scale(.995)}to{opacity:1;transform:none}}
+
+/* state badges */
+.state{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.72rem;color:var(--fg-dim)}
+.state .sq{width:8px;height:8px;border-radius:2px;background:var(--fg-dim)}
+.state.empty .sq{background:#5d6b62}
+.state.working .sq{background:var(--warn)}
+.state.done .sq{background:var(--accent)}
+
+/* rail */
+#rail{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--bg-2);border-top:1px solid var(--line);
+  transform:translateY(105%);transition:transform var(--dur-med) var(--ease-out)}
+#rail.show{transform:none}
+#rail .inner{max-width:1080px;margin:0 auto;padding:8px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#rail .bar{flex:1;min-width:120px;height:4px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+#rail .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width var(--dur-med) var(--ease-out)}
+.dots{display:flex;gap:5px}
+.dots b{width:7px;height:7px;border-radius:50%;background:var(--bg-3);border:1px solid var(--line);transition:background var(--dur-fast),transform var(--dur-fast)}
+.dots b.on{background:var(--accent);border-color:var(--accent)}
+
+/* findings */
+.sev{display:inline-block;padding:1px 7px;border-radius:5px;font-family:var(--mono);font-size:.68rem;border:1px solid}
+.sev.high{color:var(--bad);border-color:var(--bad)}
+.sev.med{color:var(--warn);border-color:var(--warn)}
+.sev.low{color:var(--fg-dim);border-color:var(--line)}
+
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:.76rem;margin:0}
+.copybar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.copybtn{background:var(--bg-3);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:4px 10px;
+  font-family:var(--mono);font-size:.72rem;cursor:pointer;transition:transform var(--dur-fast) var(--ease-out),color var(--dur-fast),border-color var(--dur-fast)}
+.copybtn:hover{border-color:var(--accent)}
+.copybtn.ok{color:var(--accent);border-color:var(--accent)}
+
+/* tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:14px}
+.tab{background:transparent;border:1px solid var(--line);color:var(--fg-dim);border-radius:999px;padding:6px 13px;
+  font-family:var(--mono);font-size:.75rem;cursor:pointer;transition:color var(--dur-fast),border-color var(--dur-fast),transform var(--dur-fast) var(--ease-out)}
+.tab[aria-selected="true"]{color:var(--accent);border-color:var(--accent)}
+.tabpanel[hidden]{display:none}
+.tabpanel{animation:fadein var(--dur-med) var(--ease-out)}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.count{font-family:var(--mono);font-size:clamp(1.8rem,5vw,2.6rem);font-weight:700;letter-spacing:-.02em;line-height:1}
+.count.pulse{animation:pulse var(--dur-slow) var(--ease-out)}
+@keyframes pulse{0%{transform:scale(1)}35%{transform:scale(1.045)}100%{transform:scale(1)}}
+.sweep{position:relative;overflow:hidden}
+.sweep.go::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--accent) 26%,transparent) 50%,transparent 70%);
+  transform:translateX(-100%);animation:sweep 560ms var(--ease-out) 1}
+@keyframes sweep{to{transform:translateX(100%)}}
+
+/* flow diagram */
+.flownode circle{transition:fill var(--dur-med) var(--ease-out),stroke var(--dur-med)}
+.flowline{stroke-dasharray:var(--len);stroke-dashoffset:var(--len);transition:stroke-dashoffset var(--dur-slow) var(--ease-in-out)}
+.flowline.on{stroke-dashoffset:0}
+
+.stagger>*{opacity:0;transform:translateY(8px);animation:rise var(--dur-med) var(--ease-out) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+  .stagger>*{opacity:1;transform:none}
+  #rail{transition:none}
+  .flowline{stroke-dashoffset:0!important}
+}
+footer{border-top:1px solid var(--line);padding:22px 0 90px;color:var(--fg-dim);font-family:var(--mono);font-size:.74rem}
+.srcnote{font-family:var(--mono);font-size:.7rem;color:var(--fg-dim)}
+.kv{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:.78rem;padding:3px 0;border-bottom:1px dotted var(--line)}
+.kv b{font-weight:500}
+.bad{color:var(--bad)} .warnc{color:var(--warn)} .okc{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="home" href="https://iggym.github.io/zero-cost-ai-coding/">&larr; <span>zero-cost-ai-coding</span></a>
+  <div class="right">
+    <button class="iconbtn" id="themeBtn" aria-label="Toggle light and dark mode">◐ theme</button>
+    <span class="title">CI Minute Audit</span>
+  </div>
+</div>
+
+<main class="wrap">
+
+<!-- ══════════ WHY ══════════ -->
+<section class="hero">
+  <div class="eyebrow">Why</div>
+  <h1>Your workflow file is spending minutes you can't see.</h1>
+  <div class="kinetic">Paste a workflow. Watch the wasted minutes separate.<span class="caret" id="caret"></span></div>
+  <p class="muted" style="max-width:62ch">
+    GitHub Free gives a private repo 2,000 Actions minutes a month. A workflow with no cache, no
+    <code>concurrency</code> cancel, a Windows or macOS matrix leg, and no path filter can drain that in a week —
+    and the run log never tells you which line did it. This page reads your YAML in the browser, attributes minutes
+    to each job, and hands back a patched file.
+  </p>
+
+  <div class="pillrow">
+    <span class="pill"><i class="dot"></i>Runs in your browser — YAML never leaves the tab</span>
+    <span class="pill">Free tier: <b>2,000 min/mo</b> private · <b>unlimited</b> public · <b>10 GB</b> cache/repo</span>
+    <span class="pill">Verified <b>2026-08-16</b> — GitHub Docs</span>
+  </div>
+  <div class="pillrow">
+    <button class="btn" id="jumpTool">Run it on my workflow ↓</button>
+    <button class="copybtn" id="shareX">Share on X</button>
+    <button class="copybtn" id="shareLink">Copy link</button>
+  </div>
+
+  <div class="grid g2" style="margin-top:24px">
+    <div class="card">
+      <h3>What a minute costs once you're over</h3>
+      <p class="tiny muted" style="margin-top:0">Published rates, sortable. Overage bills per real minute; the
+      <em>drain multiplier</em> is how fast a minute eats your included allowance.</p>
+      <table id="priceTable">
+        <thead><tr>
+          <th data-k="os">Runner <span class="arrow">↕</span></th>
+          <th data-k="sku">Billing SKU <span class="arrow">↕</span></th>
+          <th class="num" data-k="rate">$/min <span class="arrow">↕</span></th>
+          <th class="num" data-k="mult">Drain × <span class="arrow">↕</span></th>
+          <th class="num" data-k="cost60">60 min/day, 30 d <span class="arrow">↕</span></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="srcnote" style="margin-top:8px">Source: <a href="https://docs.github.com/en/billing/concepts/product-billing/github-actions" target="_blank" rel="noopener">docs.github.com — GitHub Actions billing</a> · read 2026-08-16</p>
+    </div>
+
+    <div class="card">
+      <h3>Included minutes per plan, per month</h3>
+      <p class="tiny muted" style="margin-top:0">Private repos only. Public repos on standard runners are unmetered.</p>
+      <svg id="planChart" viewBox="0 0 420 190" width="100%" height="190" role="img" aria-label="Bar chart of included GitHub Actions minutes per month by plan: Free 2000, Pro 3000, Team 3000, Enterprise Cloud 50000"></svg>
+      <p class="srcnote">Log scale — Enterprise is 25× Free. Same source as the table.</p>
+      <div class="kv"><span>Cache storage, every plan</span><b>10 GB per repository</b></div>
+      <div class="kv"><span>Artifact storage, Free plan</span><b>500 MB (shared with Packages)</b></div>
+      <div class="kv"><span>Default job timeout if you set none</span><b>360 minutes</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ HOW ══════════ -->
+<section>
+  <div class="eyebrow">How</div>
+  <h2>Three steps, all client-side</h2>
+  <div class="card">
+    <svg id="flow" viewBox="0 0 720 130" width="100%" height="130" role="img" aria-label="Flow diagram: paste workflow, parse and attribute minutes, copy patched YAML"></svg>
+    <div class="grid g3" style="margin-top:6px">
+      <div><h3>1 · Paste</h3><p class="small muted">Drop or paste any <code>.github/workflows/*.yml</code>. Nothing is uploaded — the parser is 200 lines of JS on this page.</p></div>
+      <div><h3>2 · Attribute</h3><p class="small muted">Every job gets a runner multiplier, a matrix combo count, and a list of minute leaks with the rule that fired.</p></div>
+      <div><h3>3 · Patch</h3><p class="small muted">Copy a rewritten workflow with concurrency cancel, cache steps and timeouts inserted at the right indentation.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ TOOL ══════════ -->
+<section id="tool">
+  <div class="eyebrow">The tool</div>
+  <h2>Paste your workflow</h2>
+  <div class="grid g2">
+    <div class="card dropzone" id="dz">
+      <div class="copybar">
+        <span class="state empty" id="stateBadge"><i class="sq"></i><span>Empty — waiting for YAML</span></span>
+        <button class="copybtn" id="clearBtn">Clear</button>
+      </div>
+      <textarea id="yamlIn" spellcheck="false" placeholder="Paste workflow YAML here, or drop a .yml file anywhere on this box…"></textarea>
+      <div class="pillrow" style="margin-top:10px">
+        <span class="tiny muted" style="align-self:center">Try this →</span>
+        <button class="chip" data-ex="tiny">tiny · node CI</button>
+        <button class="chip" data-ex="medium">medium · 3-OS matrix</button>
+        <button class="chip" data-ex="stress">stress · monorepo, 12 combos</button>
+      </div>
+      <div class="pillrow">
+        <button class="btn" id="runBtn">Audit workflow</button>
+        <button class="btn ghost" id="jsonCopy">Copy as JSON</button>
+        <button class="btn ghost" id="jsonDl">Download JSON</button>
+      </div>
+      <p class="tiny muted" style="margin:4px 0 0">Drag a <code>zcac</code> JSON file here to reload a previous audit. Unknown kinds are ignored.</p>
+    </div>
+
+    <div class="card">
+      <h3>Assumptions — move them, everything recomputes</h3>
+      <p class="tiny muted" style="margin-top:0">No hidden multipliers. Every number below is yours to set; savings are derived only from these.</p>
+      <div id="sliders" class="grid" style="gap:10px"></div>
+    </div>
+  </div>
+
+  <!-- utility dashboard -->
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card sweep" id="saveCard">
+      <div class="tiny muted">What this saved you — minutes/month</div>
+      <div class="count okc" id="savedMin">0</div>
+      <div class="tiny muted" id="savedAssume">Set assumptions above.</div>
+    </div>
+    <div class="card">
+      <div class="tiny muted">Allowance drain before → after</div>
+      <div class="count" id="drainNow">0</div>
+      <div class="tiny muted" id="drainLine">of 2,000 included minutes/month</div>
+    </div>
+    <div class="card">
+      <div class="tiny muted">Overage avoided at published rates</div>
+      <div class="count" id="dollars">$0</div>
+      <div class="tiny muted" id="dollarLine">Only applies past the included allowance.</div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <h3>Minutes by job — current vs patched</h3>
+      <svg id="jobChart" viewBox="0 0 460 240" width="100%" height="240" role="img" aria-label="Bar chart of allowance drain minutes per job, current versus patched"></svg>
+      <p class="tiny muted" id="jobChartNote">Drain minutes per month, runner multiplier applied. Dashed line = your plan's included minutes.</p>
+    </div>
+    <div class="card">
+      <h3>Findings</h3>
+      <div class="grid g2" style="gap:8px;margin-bottom:8px">
+        <input type="text" id="filter" placeholder="filter: cache, matrix, macos, timeout…">
+        <select id="sevFilter">
+          <option value="">all severities</option><option value="high">high only</option>
+          <option value="med">medium+</option><option value="low">low only</option>
+        </select>
+      </div>
+      <div style="max-height:300px;overflow:auto">
+        <table id="findTable">
+          <thead><tr>
+            <th data-k="job">Job <span class="arrow">↕</span></th>
+            <th data-k="title">Leak <span class="arrow">↕</span></th>
+            <th class="num" data-k="save">Min/mo <span class="arrow">↕</span></th>
+            <th data-k="sevRank">Sev <span class="arrow">↕</span></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="tiny muted" id="findNote">Click a row to see the fix.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="copybar">
+      <h3 style="margin:0">Patched workflow</h3>
+      <button class="copybtn" data-copy="#patched">Copy YAML</button>
+    </div>
+    <pre id="patched">Run an audit to generate a patched file.</pre>
+    <p class="tiny muted">Inserted lines are marked with <code># [ci-minute-audit]</code>. Read them before committing —
+    a cache key that is wrong for your project is worse than no cache.</p>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>What breaks</h3>
+    <ul class="small muted" style="margin:.3em 0 0;padding-left:18px">
+      <li><b>At the cap:</b> with no payment method on file, runs are blocked once the 2,000 minutes are gone — jobs don't queue, they refuse to start. With a card on file you're billed per minute instead.</li>
+      <li><b>Cache isn't free space:</b> 10 GB per repository, and entries unused for 7 days are evicted. A monorepo caching <code>target/</code> and <code>node_modules</code> will thrash and you'll pay the download cost with none of the hit rate.</li>
+      <li><b>cancel-in-progress is dangerous on deploys.</b> Group it by workflow+ref for CI only. Cancelling a half-finished release job is a worse day than 40 wasted minutes.</li>
+      <li><b>The parser is a subset.</b> It reads block mappings, block/flow sequences and anchors-free YAML. Reusable workflows (<code>uses:</code> at job level), <code>&amp;anchors</code>, and multi-document files are reported as unparsed rather than guessed at.</li>
+      <li><b>Estimates are your assumptions × structure.</b> This tool does not read your run history, so it can't know real job durations. Feed it your actual average from the Actions tab.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══════════ PROMPT PACK ══════════ -->
+<section id="pack">
+  <div class="eyebrow">Build this yourself</div>
+  <h2>Parameterized prompt pack</h2>
+  <p class="small muted" style="max-width:70ch">The pattern, not just this tool: pick a real problem, verify a free way to run it, and make a model emit a single working HTML file. Fill the <code>{{variables}}</code>.</p>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div id="panels"></div>
+</section>
+
+</main>
+
+<div id="rail" aria-live="polite">
+  <div class="inner">
+    <span class="dots" id="railDots"><b></b><b></b><b></b><b></b></span>
+    <span class="mono tiny" id="railText">idle</span>
+    <span class="bar"><i id="railBar"></i></span>
+    <span class="mono tiny" id="railCount"></span>
+  </div>
+</div>
+
+<footer class="wrap">
+  Free-tier verified: GitHub Actions (GitHub Free — 2,000 minutes/month private, unlimited on public repos, 10 GB cache per repo) —
+  <a href="https://docs.github.com/en/billing/concepts/product-billing/github-actions" target="_blank" rel="noopener">docs.github.com/en/billing/concepts/product-billing/github-actions</a> — 2026-08-16
+</footer>
+
+<script>
+"use strict";
+/* ───────────────────────── helpers ───────────────────────── */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmt = n => n>=1000 ? Math.round(n).toLocaleString() : (Math.round(n*10)/10).toLocaleString();
+
+/* theme */
+const themeBtn=$('#themeBtn');
+const savedTheme=localStorage.getItem('zcac-theme');
+if(savedTheme) document.documentElement.dataset.theme=savedTheme;
+themeBtn.onclick=()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';
+  document.documentElement.dataset.theme=t;localStorage.setItem('zcac-theme',t);drawPlanChart();drawJobChart();};
+
+/* copy morph */
+function copyMorph(btn, text){
+  navigator.clipboard.writeText(text).then(()=>{
+    const old=btn.textContent; btn.textContent='Copied! ✓'; btn.classList.add('ok');
+    setTimeout(()=>{btn.textContent=old;btn.classList.remove('ok');},1200);
+  }).catch(()=>{btn.textContent='Copy failed';setTimeout(()=>btn.textContent='Copy',1200);});
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-copy]'); if(!b) return;
+  copyMorph(b, $(b.dataset.copy).textContent);
+});
+$('#shareLink').onclick=e=>copyMorph(e.target, location.href);
+$('#shareX').onclick=()=>window.open('https://x.com/intent/tweet?text='+encodeURIComponent('CI Minute Audit — paste a GitHub Actions workflow, see which jobs eat your 2,000 free minutes, copy the patched YAML. Runs in-browser.')+'&url='+encodeURIComponent(location.href),'_blank','noopener');
+$('#jumpTool').onclick=()=>$('#tool').scrollIntoView({behavior:reduce?'auto':'smooth'});
+
+/* caret blink */
+if(!reduce){let on=true;setInterval(()=>{on=!on;$('#caret').style.opacity=on?'1':'0';},560);}
+
+/* ─────────────── verified facts (Step 2 search) ───────────────
+   All from docs.github.com/en/billing/concepts/product-billing/github-actions, read 2026-08-16 */
+const RUNNERS=[
+  {os:'Linux 1-core (x64)', sku:'actions_linux_slim', rate:0.002, mult:1,  match:/ubuntu.*(1-core|slim)/i},
+  {os:'Linux 2-core (x64)', sku:'actions_linux',      rate:0.006, mult:1,  match:/ubuntu/i},
+  {os:'Linux 2-core (arm64)',sku:'actions_linux_arm', rate:0.005, mult:1,  match:/ubuntu.*arm/i},
+  {os:'Windows 2-core',     sku:'actions_windows',    rate:0.010, mult:2,  match:/windows/i},
+  {os:'macOS 3–4 core',     sku:'actions_macos',      rate:0.062, mult:10, match:/mac/i}
+];
+const PLANS=[{n:'Free',m:2000},{n:'Pro',m:3000},{n:'Team',m:3000},{n:'Enterprise Cloud',m:50000}];
+const DEFAULT_TIMEOUT=360; // documented default job timeout, minutes
+
+function runnerFor(label){
+  const l=String(label||'ubuntu-latest');
+  if(/mac/i.test(l)) return RUNNERS[4];
+  if(/windows/i.test(l)) return RUNNERS[3];
+  if(/arm/i.test(l)) return RUNNERS[2];
+  return RUNNERS[1];
+}
+
+/* ─────────────── WHY visual 1: sortable price table ─────────────── */
+const priceRows=RUNNERS.map(r=>({...r, cost60:+(r.rate*60*30).toFixed(2)}));
+let priceSort={k:'rate',dir:1};
+function renderPrice(){
+  const tb=$('#priceTable tbody');
+  const rows=[...priceRows].sort((a,b)=>{
+    const A=a[priceSort.k],B=b[priceSort.k];
+    return (typeof A==='number'? A-B : String(A).localeCompare(String(B)))*priceSort.dir;});
+  tb.innerHTML=rows.map(r=>`<tr class="enter"><td>${r.os}</td><td class="mono tiny">${r.sku}</td>
+    <td class="num">$${r.rate.toFixed(3)}</td><td class="num">${r.mult}×</td><td class="num">$${r.cost60.toFixed(2)}</td></tr>`).join('');
+  requestAnimationFrame(()=>$$('#priceTable tbody tr').forEach((tr,i)=>setTimeout(()=>tr.classList.remove('enter'),reduce?0:i*30)));
+  $$('#priceTable th').forEach(th=>th.setAttribute('aria-sort', th.dataset.k===priceSort.k?(priceSort.dir>0?'ascending':'descending'):'none'));
+}
+$$('#priceTable th').forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k; priceSort = {k, dir: priceSort.k===k? -priceSort.dir : 1}; renderPrice();});
+renderPrice();
+
+/* ─────────────── WHY visual 2: plan chart (log scale) ─────────────── */
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function drawPlanChart(){
+  const svg=$('#planChart'), W=420,H=190,pad={l:108,r:14,t:10,b:24};
+  const max=Math.log10(50000), min=Math.log10(1000);
+  const bw=(H-pad.t-pad.b)/PLANS.length;
+  let s='';
+  PLANS.forEach((p,i)=>{
+    const y=pad.t+i*bw+4, h=bw-12;
+    const frac=(Math.log10(p.m)-min)/(max-min);
+    const w=Math.max(4,(W-pad.l-pad.r)*frac);
+    s+=`<text x="${pad.l-8}" y="${y+h/2+4}" text-anchor="end" font-family="${'JetBrains Mono, monospace'}" font-size="11" fill="${css('--fg-dim')}">${p.n}</text>`;
+    s+=`<rect x="${pad.l}" y="${y}" width="0" height="${h}" rx="3" fill="${p.n==='Free'?css('--accent'):css('--accent-dim')}">
+        <animate attributeName="width" from="0" to="${w}" dur="${reduce?'0s':'.5s'}" fill="freeze" calcMode="spline" keySplines=".16 1 .3 1" keyTimes="0;1"/></rect>`;
+    s+=`<text x="${pad.l+w+6}" y="${y+h/2+4}" font-family="JetBrains Mono, monospace" font-size="11" fill="${css('--fg')}">${p.m.toLocaleString()}</text>`;
+  });
+  s+=`<text x="${pad.l}" y="${H-6}" font-family="JetBrains Mono, monospace" font-size="10" fill="${css('--fg-dim')}">minutes/month, private repos · log scale</text>`;
+  svg.innerHTML=s;
+}
+drawPlanChart();
+
+/* ─────────────── HOW visual: flow diagram ─────────────── */
+function drawFlow(step){ // step 0..3
+  const svg=$('#flow'), nodes=[{x:110,l:'PASTE'},{x:360,l:'ATTRIBUTE'},{x:610,l:'PATCH'}];
+  const acc=css('--accent'), line=css('--line'), dim=css('--fg-dim'), fg=css('--fg');
+  let s=`<line x1="110" y1="55" x2="610" y2="55" stroke="${line}" stroke-width="2"/>`;
+  const len=500;
+  const prog = step<=0?0: step>=3?1: step/3;
+  s+=`<line class="flowline${prog>0?' on':''}" style="--len:${len};stroke-dashoffset:${len*(1-prog)}" x1="110" y1="55" x2="610" y2="55" stroke="${acc}" stroke-width="2"/>`;
+  nodes.forEach((n,i)=>{
+    const active=step>i;
+    s+=`<g class="flownode"><circle cx="${n.x}" cy="55" r="21" fill="${active?acc:css('--bg-3')}" stroke="${active?acc:line}" stroke-width="2"/>
+      <text x="${n.x}" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="${active?'#04150c':dim}">${i+1}</text>
+      <text x="${n.x}" y="98" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="${active?fg:dim}">${n.l}</text></g>`;
+  });
+  svg.innerHTML=s;
+}
+drawFlow(0);
+
+/* ─────────────── rail ─────────────── */
+function rail(show,text,pct,count,dots){
+  const r=$('#rail'); r.classList.toggle('show',show);
+  if(text!==undefined)$('#railText').textContent=text;
+  if(pct!==undefined)$('#railBar').style.width=pct+'%';
+  if(count!==undefined)$('#railCount').textContent=count;
+  if(dots!==undefined)$$('#railDots b').forEach((b,i)=>b.classList.toggle('on',i<dots));
+}
+function setState(kind,label){
+  const el=$('#stateBadge'); el.className='state '+kind; el.querySelector('span').textContent=label;
+}
+
+/* ═════════════ YAML subset parser ═════════════ */
+function parseYAML(src){
+  const raw=src.replace(/\t/g,'  ').split(/\r?\n/);
+  const lines=raw.map((t,i)=>({t,i})).filter(o=>o.t.trim()!=='' && !/^\s*#/.test(o.t));
+  if(!lines.length) throw new Error('empty file');
+  const indentOf=t=>t.match(/^ */)[0].length;
+  function scalar(v){
+    v=v.trim();
+    if(v==='') return null;
+    const c=v.indexOf(' #'); if(c>0 && !/["']/.test(v.slice(0,c))) v=v.slice(0,c).trim();
+    if(/^\[.*\]$/.test(v)) return v.slice(1,-1).split(',').map(x=>scalar(x)).filter(x=>x!==null);
+    if(/^".*"$/.test(v)||/^'.*'$/.test(v)) return v.slice(1,-1);
+    if(/^(true|false)$/i.test(v)) return v.toLowerCase()==='true';
+    if(/^-?\d+(\.\d+)?$/.test(v)) return +v;
+    return v;
+  }
+  function block(arr){
+    if(!arr.length) return null;
+    const ind=indentOf(arr[0].t);
+    if(/^\s*-\s?/.test(arr[0].t)){ // sequence
+      const out=[]; let cur=null;
+      arr.forEach(o=>{
+        if(indentOf(o.t)===ind && /^\s*-\s?/.test(o.t)){
+          if(cur) out.push(cur); cur=[{t:o.t.replace(/^(\s*)-(\s|$)/,'$1 $2'), i:o.i}];
+        } else if(cur) cur.push(o);
+      });
+      if(cur) out.push(cur);
+      return out.map(items=>{
+        const trimmed=items.filter(o=>o.t.trim()!=='');
+        if(trimmed.length===1 && !/:( |$)/.test(trimmed[0].t)) return scalar(trimmed[0].t);
+        return block(trimmed);
+      });
+    }
+    const map={};
+    for(let k=0;k<arr.length;k++){
+      const o=arr[k]; if(indentOf(o.t)!==ind) continue;
+      const m=o.t.trim().match(/^([^:]+):(.*)$/); if(!m) continue;
+      const key=scalar(m[1])===null?m[1].trim():String(scalar(m[1]));
+      const rest=m[2].trim();
+      const child=[]; let j=k+1;
+      while(j<arr.length && indentOf(arr[j].t)>ind){child.push(arr[j]);j++;}
+      if(rest==='|'||rest==='>'||rest==='|-'||rest==='>-'){
+        map[key]=child.map(c=>c.t.trim()).join('\n');
+      } else if(rest!==''){ map[key]=scalar(rest); }
+      else { map[key]=child.length?block(child):null; }
+      map['__line_'+key]=o.i;
+      k=j-1;
+    }
+    return map;
+  }
+  const doc=block(lines);
+  if(typeof doc!=='object'||Array.isArray(doc)) throw new Error('top level is not a mapping');
+  return doc;
+}
+
+/* ═════════════ analysis ═════════════ */
+const A={ // assumption defaults, all user-visible
+  jobMin:6, runsDay:12, installShare:35, hitRate:80, superseded:15, docsShare:10, prDup:40, planMin:2000
+};
+const SLIDERS=[
+  ['jobMin','Average job length','min',1,60,1,'From your Actions tab. Applies per matrix combo.'],
+  ['runsDay','Workflow runs per day','runs',1,120,1,'Pushes + PR events that trigger this file.'],
+  ['installShare','Dependency install share of a job','%',0,90,5,'The part of a run that a warm cache can skip.'],
+  ['hitRate','Cache hit rate you expect','%',0,100,5,'Misses still pay full install.'],
+  ['superseded','Runs superseded by a newer push','%',0,60,5,'What cancel-in-progress would have killed.'],
+  ['docsShare','Pushes touching only docs/markdown','%',0,60,5,'What a paths-ignore filter would skip.'],
+  ['prDup','Pushes that are on an open PR branch','%',0,90,5,'Where push + pull_request both fire, doubling the run.'],
+  ['planMin','Your plan included minutes','min',2000,50000,1000,'Free 2,000 · Pro/Team 3,000 · Enterprise 50,000.']
+];
+function buildSliders(){
+  $('#sliders').innerHTML=SLIDERS.map(([k,label,unit,mn,mx,st,help])=>`
+    <div>
+      <label class="field" for="s_${k}">${label} — <b class="okc" id="v_${k}">${A[k]}</b> ${unit}</label>
+      <input id="s_${k}" type="range" min="${mn}" max="${mx}" step="${st}" value="${A[k]}">
+      <div class="tiny muted">${help}</div>
+    </div>`).join('');
+  SLIDERS.forEach(([k])=>{
+    const el=$('#s_'+k);
+    el.addEventListener('input',()=>{A[k]=+el.value; $('#v_'+k).textContent=(+el.value).toLocaleString(); if(STATE.doc) compute(true);});
+  });
+}
+buildSliders();
+
+function matrixCombos(job){
+  const st=job&&job.strategy; if(!st||!st.matrix) return {n:1,dims:[]};
+  const m=st.matrix; let n=1; const dims=[];
+  Object.keys(m).forEach(k=>{
+    if(k.startsWith('__line_')) return;
+    if(k==='include'){ if(Array.isArray(m[k])) { n+=0; dims.push('include('+m[k].length+')'); } return; }
+    if(k==='exclude') return;
+    const v=m[k];
+    if(Array.isArray(v)&&v.length){n*=v.length;dims.push(k+'('+v.length+')');}
+  });
+  if(Array.isArray(m.exclude)) n=Math.max(1,n-m.exclude.length);
+  if(Array.isArray(m.include)) n+=0;
+  return {n:Math.max(1,n),dims};
+}
+function stepsOf(job){ return Array.isArray(job&&job.steps)? job.steps.filter(s=>s&&typeof s==='object') : []; }
+function detectEcosystem(steps, text){
+  const t=text.toLowerCase();
+  const uses=steps.map(s=>String(s.uses||'')).join(' ').toLowerCase();
+  if(/setup-node/.test(uses)||/npm |yarn |pnpm /.test(t)) return 'node';
+  if(/setup-python/.test(uses)||/pip install|poetry/.test(t)) return 'python';
+  if(/setup-java/.test(uses)||/gradle|mvn /.test(t)) return 'java';
+  if(/setup-go/.test(uses)||/go build|go test/.test(t)) return 'go';
+  if(/cargo /.test(t)) return 'rust';
+  if(/bundle install|setup-ruby/.test(uses+t)) return 'ruby';
+  return 'generic';
+}
+const CACHE_SNIPPET={
+  node:{path:'~/.npm',key:"${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}",restore:'${{ runner.os }}-npm-'},
+  python:{path:'~/.cache/pip',key:"${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}",restore:'${{ runner.os }}-pip-'},
+  java:{path:'~/.m2/repository',key:"${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}",restore:'${{ runner.os }}-m2-'},
+  go:{path:'~/go/pkg/mod',key:"${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}",restore:'${{ runner.os }}-go-'},
+  rust:{path:'~/.cargo/registry',key:"${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}",restore:'${{ runner.os }}-cargo-'},
+  ruby:{path:'vendor/bundle',key:"${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}",restore:'${{ runner.os }}-gems-'},
+  generic:{path:'~/.cache',key:"${{ runner.os }}-deps-${{ hashFiles('**/*lock*') }}",restore:'${{ runner.os }}-deps-'}
+};
+
+const STATE={doc:null,text:'',jobs:[],findings:[],topConcurrency:false,triggers:{},celebrated:false};
+
+function analyze(text){
+  const doc=parseYAML(text);
+  const jobsMap=doc.jobs&&typeof doc.jobs==='object'?doc.jobs:{};
+  const on = doc.on!==undefined?doc.on : (doc['true']!==undefined?doc['true']:doc.True);
+  const trig={push:false,pr:false,pushPaths:false,schedule:false,pushBranches:null};
+  if(typeof on==='string'){ trig[on==='push'?'push':on==='pull_request'?'pr':'other']=true; }
+  else if(Array.isArray(on)){ on.forEach(k=>{if(k==='push')trig.push=true; if(k==='pull_request')trig.pr=true; if(k==='schedule')trig.schedule=true;}); }
+  else if(on&&typeof on==='object'){
+    if('push' in on){trig.push=true; const p=on.push; if(p&&typeof p==='object'){ if(p['paths-ignore']||p.paths) trig.pushPaths=true; if(p.branches) trig.pushBranches=p.branches; }}
+    if('pull_request' in on) trig.pr=true;
+    if('schedule' in on) trig.schedule=true;
+  }
+  STATE.topConcurrency = !!doc.concurrency;
+  const cancelTop = !!(doc.concurrency && typeof doc.concurrency==='object' && doc.concurrency['cancel-in-progress']===true);
+  const jobs=[];
+  Object.keys(jobsMap).forEach(name=>{
+    if(name.startsWith('__line_')) return;
+    const j=jobsMap[name]; if(!j||typeof j!=='object'||Array.isArray(j)) return;
+    const steps=stepsOf(j);
+    let runsOn=j['runs-on'];
+    if(Array.isArray(runsOn)) runsOn=runsOn[0];
+    if(typeof runsOn==='object'&&runsOn) runsOn=runsOn.labels||'ubuntu-latest';
+    if(Array.isArray(runsOn)) runsOn=runsOn[0];
+    const matrixOS = j.strategy&&j.strategy.matrix&&j.strategy.matrix.os;
+    const osLabels = Array.isArray(matrixOS)?matrixOS.map(String):[String(runsOn||'ubuntu-latest')];
+    const combos=matrixCombos(j);
+    const jobText=steps.map(s=>JSON.stringify(s)).join(' ');
+    const eco=detectEcosystem(steps, jobText);
+    const hasCacheAction=steps.some(s=>/actions\/cache/.test(String(s.uses||'')));
+    const hasSetupCache=steps.some(s=>s.with&&typeof s.with==='object'&&s.with.cache);
+    const hasCheckout=steps.some(s=>/actions\/checkout/.test(String(s.uses||'')));
+    const deepFetch=steps.some(s=>s.with&&(String(s.with['fetch-depth'])==='0'));
+    const installs=/npm ci|npm install|yarn install|pnpm install|pip install|bundle install|go mod download|cargo fetch|mvn |gradle /i.test(jobText);
+    const jobConc=!!j.concurrency;
+    jobs.push({name, runsOn:String(runsOn||'ubuntu-latest'), osLabels, combos:combos.n, dims:combos.dims,
+      eco, hasCache:hasCacheAction||hasSetupCache, hasCheckout, deepFetch, installs,
+      timeout: j['timeout-minutes']||null, conc:jobConc, steps:steps.length,
+      failFast: j.strategy? j.strategy['fail-fast']!==false : true,
+      line: jobsMap['__line_'+name]});
+  });
+  return {doc, jobs, trig, cancelTop};
+}
+
+/* minute math — every factor traces to a slider */
+function computeJob(j, trig, cancelTop){
+  const runsMonth=A.runsDay*30;
+  const mults=j.osLabels.map(l=>runnerFor(l));
+  const perComboMult = mults.reduce((s,r)=>s+r.mult,0)/mults.length;
+  const perComboRate = mults.reduce((s,r)=>s+r.rate,0)/mults.length;
+  const realPerRun = j.combos*A.jobMin;                 // wall minutes
+  const drainPerRun = realPerRun*perComboMult;          // allowance minutes
+  const cur={drain:runsMonth*drainPerRun, real:runsMonth*realPerRun, rate:perComboRate};
+  // reductions
+  let runs=runsMonth;
+  const f=[];
+  const dupOn = trig.push&&trig.pr&&!trig.pushBranches;
+  if(dupOn){ const before=runs; runs*= (1-A.prDup/100);
+    f.push({job:j.name,title:'push + pull_request both fire',sev:'high',
+      why:'This file runs on every push and again on the pull_request event, so a branch with an open PR builds twice.',
+      fix:'Scope push to your default branch:\n\non:\n  push:\n    branches: [main]\n  pull_request:',
+      save:(before-runs)*drainPerRun}); }
+  if(trig.push&&!trig.pushPaths){ const before=runs; runs*=(1-A.docsShare/100);
+    f.push({job:j.name,title:'no paths-ignore on push',sev:'med',
+      why:'README and docs commits start the full build.',
+      fix:"on:\n  push:\n    paths-ignore:\n      - '**.md'\n      - 'docs/**'",
+      save:(before-runs)*drainPerRun}); }
+  if(!cancelTop&&!j.conc){ const before=runs; runs*=(1-A.superseded/100);
+    f.push({job:j.name,title:'no concurrency cancel-in-progress',sev:'high',
+      why:'Push three times in ten minutes and all three runs go to completion.',
+      fix:'concurrency:\n  group: ${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true',
+      save:(before-runs)*drainPerRun}); }
+  // per-run reduction: cache
+  let perRun=drainPerRun;
+  if(!j.hasCache&&j.installs){ const before=perRun; perRun*= (1-(A.installShare/100)*(A.hitRate/100));
+    f.push({job:j.name,title:'dependencies installed with no cache',sev:'high',
+      why:'Detected an install step ('+j.eco+') and no actions/cache or setup-* cache: key.',
+      fix:cacheYaml(j.eco,'      '),
+      save:runs*(before-perRun)}); }
+  // informational / structural
+  const heavy=j.osLabels.filter(l=>/mac|windows/i.test(l));
+  if(heavy.length){
+    const rn=runnerFor(heavy[0]);
+    f.push({job:j.name,title:heavy.length+' non-Linux runner leg ('+rn.mult+'× drain)',sev:rn.mult>=10?'high':'med',
+      why:'A '+rn.os+' minute drains '+rn.mult+' included minutes and bills at $'+rn.rate.toFixed(3)+'. Only keep it if the build is OS-specific.',
+      fix:'Run the full matrix on schedule/nightly, and keep pull requests on ubuntu-latest:\n\nstrategy:\n  matrix:\n    os: ${{ github.event_name == \'pull_request\' && fromJSON(\'["ubuntu-latest"]\') || fromJSON(\'["ubuntu-latest","windows-latest","macos-latest"]\') }}',
+      save:0});
+  }
+  if(j.combos>=6){
+    f.push({job:j.name,title:j.combos+' matrix combinations',sev:j.combos>=12?'high':'med',
+      why:'Dimensions: '+(j.dims.join(' × ')||'n/a')+'. Every combination is a full job.',
+      fix:'Trim the matrix to the versions you actually support, and let a failure stop the rest:\n\nstrategy:\n  fail-fast: true\n  matrix:\n    node: [20, 22]',save:0});
+  }
+  if(!j.failFast&&j.combos>1){
+    f.push({job:j.name,title:'fail-fast disabled',sev:'low',
+      why:'Every leg runs to the end even after one has failed.',fix:'strategy:\n  fail-fast: true',save:0});
+  }
+  if(!j.timeout){
+    f.push({job:j.name,title:'no timeout-minutes',sev:'med',
+      why:'A hung job runs to the documented default of '+DEFAULT_TIMEOUT+' minutes before GitHub kills it — '+
+           Math.round(DEFAULT_TIMEOUT*perComboMult).toLocaleString()+' drain minutes for one stuck run on this runner.',
+      fix:'timeout-minutes: '+Math.max(5,Math.ceil(A.jobMin*2)),save:0});
+  }
+  if(j.deepFetch){
+    f.push({job:j.name,title:'checkout fetch-depth: 0',sev:'low',
+      why:'Full history clone on every run. Needed for some release tooling, wasted otherwise.',
+      fix:'- uses: actions/checkout@v6   # default fetch-depth: 1',save:0});
+  }
+  const opt={drain:runs*perRun, real:runs*perRun/(perComboMult||1)};
+  return {cur, opt, findings:f, perComboMult, perComboRate};
+}
+function cacheYaml(eco, ind){
+  const c=CACHE_SNIPPET[eco]||CACHE_SNIPPET.generic;
+  return ind+'- uses: actions/cache@v4\n'+ind+'  with:\n'+ind+'    path: '+c.path+'\n'+ind+
+    "    key: "+c.key+'\n'+ind+'    restore-keys: |\n'+ind+'      '+c.restore;
+}
+
+/* ═════════════ patched YAML writer (line-level, indentation aware) ═════════════ */
+function patch(text, res){
+  const lines=text.replace(/\t/g,'  ').split(/\r?\n/);
+  const out=[]; const tag='   # [ci-minute-audit]';
+  const jobsIdx=lines.findIndex(l=>/^jobs:\s*$/.test(l));
+  const hasConc=lines.some(l=>/^concurrency:/.test(l));
+  const jobNames=res.jobs.map(j=>j.name);
+  const jobsById={}; res.jobs.forEach(j=>jobsById[j.name]=j);
+  let curJob=null, jobIndent=2, injectedCacheFor={}, seenRunsOn={};
+  const jobHasTimeout={}; const jobBlockLines={};
+  // map job blocks
+  if(jobsIdx>=0){
+    let cur=null;
+    for(let i=jobsIdx+1;i<lines.length;i++){
+      const l=lines[i]; if(l.trim()==='') continue;
+      const ind=l.match(/^ */)[0].length;
+      const m=l.match(/^(\s+)([A-Za-z0-9_.\-]+):\s*$/);
+      if(m && jobNames.includes(m[2]) && ind<=3){ cur=m[2]; jobBlockLines[cur]=[i]; continue; }
+      if(cur){ if(ind===0){cur=null;continue;} jobBlockLines[cur].push(i); }
+    }
+  }
+  Object.keys(jobBlockLines).forEach(j=>{
+    jobHasTimeout[j]=jobBlockLines[j].some(i=>/^\s+timeout-minutes:/.test(lines[i]));
+  });
+  const lineJob={}; Object.keys(jobBlockLines).forEach(j=>jobBlockLines[j].forEach(i=>{if(lineJob[i]===undefined)lineJob[i]=j;}));
+
+  // a cache step must be inserted AFTER the whole checkout step block, never inside its `with:`
+  let pending=null; // {ind, eco}
+  const flush=()=>{
+    if(!pending) return;
+    const ind=pending.ind, c=CACHE_SNIPPET[pending.eco]||CACHE_SNIPPET.generic;
+    out.push(ind+'- uses: actions/cache@v4'+tag, ind+'  with:', ind+'    path: '+c.path,
+             ind+'    key: '+c.key, ind+'    restore-keys: |', ind+'      '+c.restore);
+    pending=null;
+  };
+  lines.forEach((l,i)=>{
+    if(i===jobsIdx && !hasConc && !res.cancelTop){
+      out.push('concurrency:'+tag,'  group: ${{ github.workflow }}-${{ github.ref }}','  cancel-in-progress: true','');
+    }
+    // close a pending insert once we leave the checkout step (new list item or dedent)
+    if(pending && l.trim()!==''){
+      const ind=l.match(/^ */)[0].length;
+      if(ind<pending.indN || (ind===pending.indN && /^\s*-\s/.test(l))) flush();
+    }
+    out.push(l);
+    const j=lineJob[i]; if(!j) return;
+    const job=jobsById[j]; if(!job) return;
+    // timeout after runs-on
+    if(/^\s+runs-on:/.test(l) && !jobHasTimeout[j] && !seenRunsOn[j]){
+      seenRunsOn[j]=true;
+      const ind=l.match(/^ */)[0];
+      out.push(ind+'timeout-minutes: '+Math.max(5,Math.ceil(A.jobMin*2))+tag);
+    }
+    // queue cache step to land after the checkout step
+    if(!job.hasCache && job.installs && !injectedCacheFor[j] && /^\s*-\s+uses:\s*actions\/checkout/.test(l)){
+      injectedCacheFor[j]=true;
+      const ind=l.match(/^ */)[0];
+      pending={ind, indN:ind.length, eco:job.eco};
+    }
+  });
+  flush();
+  // paths-ignore hint if push exists without it
+  if(res.trig.push && !res.trig.pushPaths){
+    out.push('','# [ci-minute-audit] add under on.push to skip docs-only commits:','#   paths-ignore:',"#     - '**.md'","#     - 'docs/**'");
+  }
+  return out.join('\n');
+}
+
+/* ═════════════ run ═════════════ */
+let animHandle=null;
+function countUp(el,to,suffix=''){
+  const from=parseFloat(String(el.dataset.v||'0'))||0; el.dataset.v=to;
+  if(reduce){el.textContent=(suffix==='$'?'$':'')+fmt(to);return;}
+  const t0=performance.now(),dur=550;
+  cancelAnimationFrame(el._h);
+  const tick=t=>{
+    const p=Math.min(1,(t-t0)/dur), e=1-Math.pow(1-p,3), v=from+(to-from)*e;
+    el.textContent=(suffix==='$'?'$':'')+fmt(v);
+    if(p<1) el._h=requestAnimationFrame(tick);
+  };
+  el._h=requestAnimationFrame(tick);
+  el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+}
+
+let findSort={k:'save',dir:-1};
+function renderFindings(){
+  const q=$('#filter').value.trim().toLowerCase(), sev=$('#sevFilter').value;
+  const rank={high:3,med:2,low:1};
+  let rows=STATE.findings.map(f=>({...f,sevRank:rank[f.sev]}));
+  if(q) rows=rows.filter(f=>(f.job+' '+f.title+' '+f.why).toLowerCase().includes(q));
+  if(sev==='high') rows=rows.filter(f=>f.sev==='high');
+  if(sev==='med') rows=rows.filter(f=>f.sev!=='low');
+  if(sev==='low') rows=rows.filter(f=>f.sev==='low');
+  rows.sort((a,b)=>{const A_=a[findSort.k],B_=b[findSort.k];
+    return (typeof A_==='number'?A_-B_:String(A_).localeCompare(String(B_)))*findSort.dir;});
+  const tb=$('#findTable tbody');
+  tb.innerHTML=rows.map((f,i)=>`<tr class="enter" data-i="${i}">
+      <td class="mono tiny">${f.job}</td><td>${f.title}</td>
+      <td class="num">${f.save>0?fmt(f.save):'—'}</td>
+      <td><span class="sev ${f.sev}">${f.sev}</span></td></tr>`).join('')
+    || '<tr><td colspan="4" class="muted tiny">No findings match.</td></tr>';
+  requestAnimationFrame(()=>$$('#findTable tbody tr').forEach((tr,i)=>setTimeout(()=>tr.classList.remove('enter'),reduce?0:i*25)));
+  $$('#findTable th').forEach(th=>th.setAttribute('aria-sort',th.dataset.k===findSort.k?(findSort.dir>0?'ascending':'descending'):'none'));
+  tb.onclick=e=>{
+    const tr=e.target.closest('tr[data-i]'); if(!tr) return;
+    const f=rows[+tr.dataset.i];
+    $('#findNote').innerHTML=`<b class="okc">${f.title}</b> — ${f.why}<pre style="margin-top:6px">${f.fix.replace(/</g,'&lt;')}</pre>`;
+  };
+}
+$('#filter').addEventListener('input',renderFindings);
+$('#sevFilter').addEventListener('change',renderFindings);
+$$('#findTable th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;
+  findSort={k,dir:findSort.k===k?-findSort.dir:(k==='save'?-1:1)};renderFindings();});
+
+function drawJobChart(){
+  const svg=$('#jobChart'); const jobs=STATE.jobs;
+  if(!jobs.length){svg.innerHTML=`<text x="14" y="30" font-family="JetBrains Mono, monospace" font-size="12" fill="${css('--fg-dim')}">Run an audit to fill this chart.</text>`;return;}
+  const W=460,H=Math.max(140,40+jobs.length*46),pad={l:104,r:52,t:16,b:26};
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('height',H);
+  const max=Math.max(A.planMin, ...jobs.map(j=>j.cur.drain))*1.05;
+  const sx=v=>pad.l+(W-pad.l-pad.r)*(v/max);
+  let s='';
+  const gl=sx(A.planMin);
+  s+=`<line x1="${gl}" y1="${pad.t-6}" x2="${gl}" y2="${H-pad.b}" stroke="${css('--bad')}" stroke-width="1" stroke-dasharray="4 3"/>`;
+  s+=`<text x="${Math.min(gl+4,W-46)}" y="${pad.t-8}" font-family="JetBrains Mono, monospace" font-size="9" fill="${css('--bad')}">plan ${A.planMin.toLocaleString()}</text>`;
+  jobs.forEach((j,i)=>{
+    const y=pad.t+i*46;
+    const wCur=Math.max(2,sx(j.cur.drain)-pad.l), wOpt=Math.max(2,sx(j.opt.drain)-pad.l);
+    const nm=j.name.length>13?j.name.slice(0,12)+'…':j.name;
+    s+=`<text x="${pad.l-8}" y="${y+13}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="${css('--fg')}">${nm}</text>`;
+    s+=`<text x="${pad.l-8}" y="${y+27}" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="8.5" fill="${css('--fg-dim')}">${j.combos}× · ${j.perComboMult}× drain</text>`;
+    s+=`<rect x="${pad.l}" y="${y+3}" height="13" rx="3" fill="${css('--bad')}" opacity=".75" width="${wCur}">
+      ${reduce?'':`<animate attributeName="width" from="0" to="${wCur}" dur=".45s" fill="freeze" calcMode="spline" keySplines=".16 1 .3 1" keyTimes="0;1"/>`}</rect>`;
+    s+=`<rect x="${pad.l}" y="${y+19}" height="13" rx="3" fill="${css('--accent')}" width="${wOpt}">
+      ${reduce?'':`<animate attributeName="width" from="0" to="${wOpt}" dur=".45s" begin=".06s" fill="freeze" calcMode="spline" keySplines=".16 1 .3 1" keyTimes="0;1"/>`}</rect>`;
+    s+=`<text x="${Math.min(pad.l+wCur+5,W-46)}" y="${y+13}" font-family="JetBrains Mono, monospace" font-size="9" fill="${css('--fg-dim')}">${fmt(j.cur.drain)}</text>`;
+    s+=`<text x="${Math.min(pad.l+wOpt+5,W-46)}" y="${y+29}" font-family="JetBrains Mono, monospace" font-size="9" fill="${css('--accent')}">${fmt(j.opt.drain)}</text>`;
+  });
+  s+=`<rect x="${pad.l}" y="${H-16}" width="9" height="9" fill="${css('--bad')}" opacity=".75" rx="2"/><text x="${pad.l+13}" y="${H-8}" font-size="9" font-family="JetBrains Mono, monospace" fill="${css('--fg-dim')}">current</text>`;
+  s+=`<rect x="${pad.l+70}" y="${H-16}" width="9" height="9" fill="${css('--accent')}" rx="2"/><text x="${pad.l+83}" y="${H-8}" font-size="9" font-family="JetBrains Mono, monospace" fill="${css('--fg-dim')}">patched</text>`;
+  svg.innerHTML=s;
+}
+
+function compute(quiet){
+  let res;
+  try{ res=analyze(STATE.text); }
+  catch(err){
+    setState('empty','Could not parse — '+err.message);
+    rail(true,'parse failed',0,'',1); return;
+  }
+  STATE.trig=res.trig; STATE.cancelTop=res.cancelTop;
+  const jobs=[], findings=[];
+  res.jobs.forEach(j=>{
+    const c=computeJob(j,res.trig,res.cancelTop);
+    jobs.push({...j,cur:c.cur,opt:c.opt,perComboMult:+c.perComboMult.toFixed(2),perComboRate:c.perComboRate});
+    c.findings.forEach(f=>findings.push(f));
+  });
+  STATE.jobs=jobs; STATE.findings=findings; STATE.doc=res.doc; STATE.res=res;
+  const curDrain=jobs.reduce((s,j)=>s+j.cur.drain,0);
+  const optDrain=jobs.reduce((s,j)=>s+j.opt.drain,0);
+  const saved=Math.max(0,curDrain-optDrain);
+  const rate=jobs.length?jobs.reduce((s,j)=>s+j.perComboRate,0)/jobs.length:0.006;
+  const overNow=Math.max(0,curDrain-A.planMin), overOpt=Math.max(0,optDrain-A.planMin);
+  const dollars=Math.max(0,(overNow-overOpt))*rate;
+
+  countUp($('#savedMin'),saved);
+  $('#savedAssume').textContent=`from ${A.jobMin} min/job × ${A.runsDay} runs/day × 30 days, cache ${A.installShare}% of a run at ${A.hitRate}% hit rate, ${A.superseded}% superseded, ${A.docsShare}% docs-only, ${A.prDup}% PR-branch pushes.`;
+  countUp($('#drainNow'),curDrain);
+  $('#drainLine').innerHTML=`of <b>${A.planMin.toLocaleString()}</b> included · patched: <b class="okc">${fmt(optDrain)}</b> ${curDrain>A.planMin?'<span class="bad">— over cap today</span>':''}`;
+  countUp($('#dollars'),dollars,'$');
+  $('#dollarLine').textContent = overNow>0
+    ? `You are ${fmt(overNow)} min over; at $${rate.toFixed(3)}/min blended that is $${(overNow*rate).toFixed(2)}/mo today.`
+    : 'Still inside the allowance — the saving is headroom, not cash.';
+  drawJobChart(); renderFindings();
+  $('#patched').textContent=patch(STATE.text,res);
+  rail(true, jobs.length+' job'+(jobs.length===1?'':'s')+' audited', 100, findings.length+' findings · '+fmt(saved)+' min/mo', 4);
+  setState('done', `Done — ${jobs.length} jobs, ${findings.length} findings`);
+  drawFlow(3);
+  if(!quiet && !STATE.celebrated && findings.length){
+    STATE.celebrated=true;
+    const c=$('#saveCard'); c.classList.add('go'); setTimeout(()=>c.classList.remove('go'),620);
+  }
+}
+
+function run(){
+  STATE.text=$('#yamlIn').value;
+  if(!STATE.text.trim()){setState('empty','Empty — waiting for YAML');rail(false);return;}
+  setState('working','Working — parsing YAML');
+  rail(true,'parsing YAML',25,'',1); drawFlow(1);
+  const steps=[[160,'attributing minutes per job',60,2],[320,'checking cache, concurrency, matrix',85,3]];
+  if(reduce){compute();return;}
+  steps.forEach(([d,t,p,n])=>setTimeout(()=>{rail(true,t,p,'',n);drawFlow(n);},d));
+  setTimeout(()=>compute(),430);
+}
+$('#runBtn').onclick=run;
+$('#clearBtn').onclick=()=>{$('#yamlIn').value='';STATE.jobs=[];STATE.findings=[];STATE.doc=null;
+  drawJobChart();renderFindings();$('#patched').textContent='Run an audit to generate a patched file.';
+  setState('empty','Empty — waiting for YAML');rail(false);drawFlow(0);
+  ['savedMin','drainNow','dollars'].forEach(id=>{const e=$('#'+id);e.dataset.v=0;e.textContent=id==='dollars'?'$0':'0';});};
+
+/* examples */
+const EX={
+tiny:`name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+`,
+medium:`name: Build and test
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: \${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node }}
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+`,
+stress:`name: Monorepo pipeline
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12']
+        db: [postgres, mysql]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: \${{ matrix.python }}
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+  web:
+    runs-on: \${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node }}
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+  e2e:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm ci
+      - run: npx playwright test
+`};
+$$('.chip[data-ex]').forEach(c=>c.onclick=()=>{
+  const ta=$('#yamlIn'); ta.value=EX[c.dataset.ex];
+  ta.classList.remove('morphed'); void ta.offsetWidth; ta.classList.add('morphed');
+  run();
+});
+
+/* drop zone: yml or zcac json */
+const dz=$('#dz');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+dz.addEventListener('drop',e=>{
+  const f=e.dataTransfer.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const txt=String(r.result);
+    if(/\.json$/i.test(f.name)){
+      try{
+        const j=JSON.parse(txt);
+        if(j&&j.zcac&&j.kind==='ci-minute-audit'&&j.data&&j.data.workflow){
+          $('#yamlIn').value=j.data.workflow;
+          if(j.data.assumptions) Object.keys(j.data.assumptions).forEach(k=>{
+            if(k in A){A[k]=j.data.assumptions[k]; const el=$('#s_'+k); if(el){el.value=A[k];$('#v_'+k).textContent=A[k].toLocaleString();}}});
+          run();
+        } else { setState('empty','JSON ignored — not a ci-minute-audit payload'); }
+      }catch(err){ setState('empty','JSON ignored — could not parse'); }
+    } else { $('#yamlIn').value=txt; run(); }
+  };
+  r.readAsText(f);
+});
+
+/* export */
+function payload(){
+  return {zcac:true,kind:'ci-minute-audit',data:{
+    date:'2026-08-16', plan_included_minutes:A.planMin, assumptions:{...A},
+    workflow:STATE.text,
+    totals:{
+      current_drain_minutes_month:+ (STATE.jobs.reduce((s,j)=>s+j.cur.drain,0)).toFixed(1),
+      patched_drain_minutes_month:+ (STATE.jobs.reduce((s,j)=>s+j.opt.drain,0)).toFixed(1)
+    },
+    jobs:STATE.jobs.map(j=>({name:j.name,runs_on:j.runsOn,matrix_combos:j.combos,drain_multiplier:j.perComboMult,
+      ecosystem:j.eco,has_cache:j.hasCache,timeout_minutes:j.timeout,
+      current_drain:+j.cur.drain.toFixed(1),patched_drain:+j.opt.drain.toFixed(1)})),
+    findings:STATE.findings.map(f=>({job:f.job,leak:f.title,severity:f.sev,minutes_saved_month:+f.save.toFixed(1),fix:f.fix}))
+  }};
+}
+$('#jsonCopy').onclick=e=>copyMorph(e.target,JSON.stringify(payload(),null,2));
+$('#jsonDl').onclick=()=>{
+  const b=new Blob([JSON.stringify(payload(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ci-minute-audit.json';a.click();URL.revokeObjectURL(a.href);
+};
+
+/* ═════════════ prompt pack ═════════════ */
+const SYS = `You build single-file, working web tools for {{AUDIENCE}}.
+Rules:
+- Output ONE self-contained HTML file: one <style>, one <script>, no frameworks, no build step, no external chart libraries.
+- The tool must run on the visitor's own input and produce real output. No mockups, no lorem, no fake data.
+- Solution mode is {{SOLUTION_MODE}} (browser-native | generator | connector). Never require a backend or a secret.
+- Every free-tier claim must cite {{FREE_SERVICE}} with its published limit {{FREE_TIER_LIMIT}} and the source {{FREE_TIER_URL}}, current as of {{DATE}}. If a limit is not published, write "limit not published" rather than inventing one.
+- Include three visuals built with inline SVG or canvas: evidence chart or pricing table, a three-step flow graphic, and a dashboard driven by the visitor's real input.
+- Include one live-scrub control (slider/toggle recomputing in under 200ms) and one sortable, filterable results table.
+- Savings figures must be derived from assumptions the visitor can see and change on screen.
+- Wrap all motion in @media (prefers-reduced-motion: no-preference); the page must be fully usable with zero animation.
+- Plain language. Do not use: seamless, game-changer, unlock, empower, revolutionize, leverage as a verb, robust, cutting-edge, delve, supercharge, effortlessly.
+- Visual style: {{VISUAL_STYLE}}.`;
+const USR = `Problem: {{PROBLEM}}
+Evidence this problem is real: {{EVIDENCE_SOURCE}}
+Free service to build on: {{FREE_SERVICE}} — limit {{FREE_TIER_LIMIT}} — verified at {{FREE_TIER_URL}} on {{DATE}}
+Solution mode: {{SOLUTION_MODE}}
+Example input a visitor would paste:
+{{INPUT_EXAMPLE}}
+Expected output kind: {{OUTPUT_KIND}}
+
+Build it. Return the complete HTML file and nothing else.`;
+const FILLED = `Problem: GitHub Actions workflows quietly burn a private repo's 2,000 free minutes a month, and the run log never says which line is responsible.
+Evidence this problem is real: paid CI cost-optimization products exist, and GitHub publishes overage rates of $0.006/min Linux, $0.010/min Windows, $0.062/min macOS.
+Free service to build on: GitHub Actions — 2,000 minutes/month private, unlimited on public repos, 10 GB cache per repo — verified at https://docs.github.com/en/billing/concepts/product-billing/github-actions on 2026-08-16
+Solution mode: browser-native
+Example input a visitor would paste:
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm ci && npm test
+Expected output kind: a per-job minute breakdown plus a patched workflow YAML
+
+Build it. Return the complete HTML file and nothing else.`;
+const SCHEMA = {
+  type:"object",
+  properties:{
+    tool_title:{type:"string"},
+    solution_mode:{type:"string",enum:["browser-native","generator","connector"]},
+    free_tier:{type:"object",properties:{service:{type:"string"},limit:{type:"string"},source_url:{type:"string"},verified_date:{type:"string"}},required:["service","limit","source_url","verified_date"]},
+    visuals:{type:"array",items:{type:"string",enum:["why-chart","why-table","how-flow","utility-dashboard","sortable-table"]}},
+    html:{type:"string",description:"the complete single-file HTML document"}
+  },
+  required:["tool_title","solution_mode","free_tier","visuals","html"]
+};
+const PARAMS = `temperature: 0.4\ntop_p: 0.9\nmax_tokens: 4096`;
+const toolDesc = "Return the finished single-file tool along with its verified free-tier metadata.";
+
+const PANELS=[
+ {id:'how',label:'How to use this',html:()=>`
+  <div class="card">
+    <h3>Three ways to run these</h3>
+    <ol class="small" style="padding-left:18px">
+      <li><b>Chatbot</b> — open the tab for your model, click Copy on the system prompt and the user template, paste both into ChatGPT, Claude or AI Studio, replace every <code>{{variable}}</code>, send.</li>
+      <li><b>Code / API</b> — each model tab has a ready request body. Paste it into <code>fetch()</code>, fill the variables programmatically, keep the tool/function block as-is: it is that provider's current syntax.</li>
+      <li><b>Open weights</b> — the last tab is a plain system/user pair with a strict JSON schema instead of a tool wrapper, for Llama, Mistral or Qwen behind vLLM, Ollama or any OpenAI-compatible endpoint.</li>
+    </ol>
+    <p class="small muted">Never hardcode this page's example problem. The variables exist so the pattern transfers.</p>
+    <div class="copybar"><h3 style="margin:0">Variables</h3><button class="copybtn" data-copy="#varlist">Copy list</button></div>
+    <pre id="varlist">{{PROBLEM}}          the recurring developer problem, one sentence
+{{AUDIENCE}}         who it is for
+{{DATE}}             the date you verified free tiers
+{{FREE_SERVICE}}     the service that makes it $0
+{{FREE_TIER_LIMIT}}  the published limit, or "limit not published"
+{{FREE_TIER_URL}}    the docs page you actually read
+{{SOLUTION_MODE}}    browser-native | generator | connector
+{{INPUT_EXAMPLE}}    a small realistic input a visitor would paste
+{{OUTPUT_KIND}}      what the tool hands back
+{{VISUAL_STYLE}}     chart/table/graphic mix</pre>
+    <div class="copybar" style="margin-top:12px"><h3 style="margin:0">Filled example (this page's problem)</h3><button class="copybtn" data-copy="#filled">Copy</button></div>
+    <pre id="filled">${esc(FILLED)}</pre>
+  </div>`},
+
+ {id:'openai',label:'OpenAI',html:()=>blockSet('OpenAI — GPT-4o / GPT-4o-mini','oa',[
+   ['Parameters',PARAMS],
+   ['System prompt',SYS],
+   ['User template',USR],
+   ['Chat Completions request body',JSON.stringify({
+     model:"gpt-4o", temperature:0.4, top_p:0.9, max_tokens:4096,
+     messages:[{role:"system",content:"{{SYSTEM_PROMPT}}"},{role:"user",content:"{{USER_TEMPLATE}}"}],
+     tools:[{type:"function",function:{name:"emit_tool",description:toolDesc,parameters:SCHEMA}}],
+     tool_choice:{type:"function",function:{name:"emit_tool"}}
+   },null,2)],
+   ['Responses API request body (tools are flat here, not nested under "function")',JSON.stringify({
+     model:"gpt-4o", temperature:0.4, top_p:0.9, max_output_tokens:4096,
+     input:[{role:"system",content:"{{SYSTEM_PROMPT}}"},{role:"user",content:"{{USER_TEMPLATE}}"}],
+     tools:[{type:"function",name:"emit_tool",description:toolDesc,parameters:SCHEMA,strict:false}],
+     tool_choice:{type:"function",name:"emit_tool"}
+   },null,2)],
+   ['fetch() call','const res = await fetch("https://api.openai.com/v1/chat/completions", {\n  method: "POST",\n  headers: { "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },\n  body: JSON.stringify(OPENAI_PAYLOAD)\n});\nconst j = await res.json();\nconst out = JSON.parse(j.choices[0].message.tool_calls[0].function.arguments);\nfs.writeFileSync("tool.html", out.html);']
+ ])},
+
+ {id:'anthropic',label:'Anthropic',html:()=>blockSet('Anthropic — Claude Sonnet (Messages API)','an',[
+   ['Parameters','temperature: 0.4\ntop_p: 0.9\nmax_tokens: 4096   # required by the Messages API'],
+   ['System prompt (top-level "system" field, not a message)',SYS],
+   ['User template',USR],
+   ['Messages request body',JSON.stringify({
+     model:"claude-sonnet-4-20250514", max_tokens:4096, temperature:0.4, top_p:0.9,
+     system:"{{SYSTEM_PROMPT}}",
+     messages:[{role:"user",content:"{{USER_TEMPLATE}}"}],
+     tools:[{name:"emit_tool",description:toolDesc,input_schema:SCHEMA}],
+     tool_choice:{type:"tool",name:"emit_tool"}
+   },null,2)],
+   ['fetch() call','const res = await fetch("https://api.anthropic.com/v1/messages", {\n  method: "POST",\n  headers: {\n    "x-api-key": process.env.ANTHROPIC_API_KEY,\n    "anthropic-version": "2023-06-01",\n    "content-type": "application/json"\n  },\n  body: JSON.stringify(ANTHROPIC_PAYLOAD)\n});\nconst j = await res.json();\nconst block = j.content.find(b => b.type === "tool_use");\nfs.writeFileSync("tool.html", block.input.html);']
+ ])},
+
+ {id:'google',label:'Google',html:()=>blockSet('Google — Gemini 2.0 Flash / 1.5 Pro','gg',[
+   ['Parameters','temperature: 0.4\ntopP: 0.9\nmaxOutputTokens: 4096'],
+   ['System prompt (goes in systemInstruction)',SYS],
+   ['User template',USR],
+   ['generateContent request body',JSON.stringify({
+     systemInstruction:{parts:[{text:"{{SYSTEM_PROMPT}}"}]},
+     contents:[{role:"user",parts:[{text:"{{USER_TEMPLATE}}"}]}],
+     tools:[{functionDeclarations:[{name:"emit_tool",description:toolDesc,parameters:SCHEMA}]}],
+     toolConfig:{functionCallingConfig:{mode:"ANY",allowedFunctionNames:["emit_tool"]}},
+     generationConfig:{temperature:0.4,topP:0.9,maxOutputTokens:4096}
+   },null,2)],
+   ['fetch() call','const res = await fetch(\n  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",\n  { method:"POST",\n    headers:{ "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type":"application/json" },\n    body: JSON.stringify(GEMINI_PAYLOAD) });\nconst j = await res.json();\nconst call = j.candidates[0].content.parts.find(p => p.functionCall).functionCall;\nfs.writeFileSync("tool.html", call.args.html);'],
+   ['No-tools alternative','If you would rather not use functionDeclarations, drop "tools"/"toolConfig" and set:\n\n"generationConfig": {\n  "temperature": 0.4,\n  "topP": 0.9,\n  "maxOutputTokens": 4096,\n  "responseMimeType": "application/json",\n  "responseSchema": { ...the same schema, minus unsupported keywords... }\n}']
+ ])},
+
+ {id:'open',label:'Open-Weight',html:()=>blockSet('Open-weight — Llama 3.1 70B/405B · Mistral Large · Qwen2 72B','ow',[
+   ['Parameters','temperature: 0.4\ntop_p: 0.9\nmax_tokens: 4096\n# no tool wrapper — these templates rely on strict JSON output'],
+   ['System prompt (append the schema clause)',SYS+`
+
+OUTPUT CONTRACT — no tool calling is used here:
+Reply with a single JSON object and nothing else. No prose, no markdown fence.
+It must validate against this schema:
+`+JSON.stringify(SCHEMA,null,2)+`
+The "html" field holds the entire HTML document as one escaped string.
+If you cannot verify a free-tier limit, put "limit not published" in free_tier.limit.`],
+   ['User template',USR],
+   ['OpenAI-compatible request body (vLLM, Ollama, TGI, Together, Groq)',JSON.stringify({
+     model:"meta-llama/Meta-Llama-3.1-70B-Instruct",
+     temperature:0.4, top_p:0.9, max_tokens:4096,
+     messages:[{role:"system",content:"{{SYSTEM_PROMPT_WITH_SCHEMA}}"},{role:"user",content:"{{USER_TEMPLATE}}"}]
+   },null,2)],
+   ['Local call','curl http://localhost:11434/v1/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -d @payload.json | jq -r \'.choices[0].message.content\' > out.json\n\nnode -e \'require("fs").writeFileSync("tool.html", JSON.parse(require("fs").readFileSync("out.json","utf8")).html)\'\n\n# Ollama: swap the model for llama3.1:70b, mistral-large or qwen2:72b.\n# Servers that support it accept response_format: {"type":"json_object"} — check yours before adding it.']
+ ])}
+];
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+let uid=0;
+function blockSet(title,pfx,blocks){
+  return `<div class="card"><h3>For ${esc(title)} — CI/CD minute-waste visual tool builder</h3>
+    <p class="tiny muted">Replace every <code>{{variable}}</code>. The tool/function block below matches this provider's current request format.</p>`+
+    blocks.map(([label,body])=>{
+      const id=pfx+'_'+(uid++);
+      return `<div style="margin-top:12px"><div class="copybar"><span class="mono tiny">${esc(label)}</span>
+        <button class="copybtn" data-copy="#${id}">Copy</button></div><pre id="${id}">${esc(body)}</pre></div>`;
+    }).join('')+`</div>`;
+}
+$('#tabs').innerHTML=PANELS.map((p,i)=>`<button class="tab" role="tab" id="tab_${p.id}" aria-controls="panel_${p.id}" aria-selected="${i===0}">${p.label}</button>`).join('');
+$('#panels').innerHTML=PANELS.map((p,i)=>`<div class="tabpanel" role="tabpanel" id="panel_${p.id}" aria-labelledby="tab_${p.id}" ${i===0?'':'hidden'}>${p.html()}</div>`).join('');
+$$('#tabs .tab').forEach((t,i)=>t.onclick=()=>{
+  $$('#tabs .tab').forEach(x=>x.setAttribute('aria-selected','false'));
+  t.setAttribute('aria-selected','true');
+  $$('.tabpanel').forEach((p,j)=>p.hidden=(j!==i));
+});
+
+/* load stagger */
+$$('.card').forEach((c,i)=>{ if(reduce) return; c.style.opacity=0; c.style.transform='translateY(8px)';
+  setTimeout(()=>{c.style.transition='opacity var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out)';
+    c.style.opacity=1;c.style.transform='none';}, 40*Math.min(i,10)); });
+drawJobChart(); renderFindings();
+</script>
+</body>
+</html>
