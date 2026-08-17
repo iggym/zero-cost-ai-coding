@@ -8,6 +8,26 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "8025",
+  "slug": "ai-agentic-loop-workbench",
+  "title": "AI Systems Agentic Loop & Tool Execution Workbench",
+  "hook": "Simulate and test client-side agent loops, function calling schemas, and multi-provider failover routing.",
+  "path": "tools/ai-agentic-loop-workbench.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Groq LPU 14.4K RPD + Google AI Studio free tier + OpenRouter zero-cost model tier",
+  "source_url": "https://console.groq.com/docs/rate-limits",
+  "produces": "JSON",
+  "accepts": ["JSON"],
+  "tags": ["agentic-ai", "tool-calling", "schema-validation", "zero-cost"],
+  "reading_time_minutes": 2,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "visuals": ["why-chart", "how-flow", "utility-dashboard"],
+  "prompt_targets": ["openai", "anthropic", "google", "open-weight"]
+},{
   "id": "7391",
   "slug": "prompt-diff-cost-delta",
   "title": "Prompt Diff & Cost Delta Analyzer",
