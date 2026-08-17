@@ -1,591 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LLM Cost & Latency Estimator</title>
-<style>
-  :root {
-    --bg-dark: #0a0e14;
-    --bg-light: #f7f8fa;
-    --text-dark: #e1e4e8;
-    --text-light: #1a1a1a;
-    --bg-card-dark: #141821;
-    --bg-card-light: #ffffff;
-    --border-dark: #2d333b;
-    --border-light: #e1e4e8;
-    --accent: #00ff9d;
-    --accent-dim: rgba(0, 255, 157, 0.1);
-    --warn: #ffb000;
-    --ease-out: cubic-bezier(.16,1,.3,1);
-    --ease-in-out: cubic-bezier(.65,0,.35,1);
-    --dur-fast: 150ms;
-    --dur-med: 300ms;
-    --dur-slow: 500ms;
-  }
-  
-  [data-theme="dark"] body { background: var(--bg-dark); color: var(--text-dark); }
-  [data-theme="light"] body { background: var(--bg-light); color: var(--text-light); }
-  [data-theme="dark"] .card { background: var(--bg-card-dark); border: 1px solid var(--border-dark); }
-  [data-theme="light"] .card { background: var(--bg-card-light); border: 1px solid var(--border-light); }
-  [data-theme="light"] input, [data-theme="light"] select { background: #f0f0f0; color: var(--text-light); border-color: var(--border-light); }
-  [data-theme="dark"] input, [data-theme="dark"] select { background: #0d1117; color: var(--text-dark); border-color: var(--border-dark); }
-
-  body {
-    font-family: 'Inter', system-ui, sans-serif;
-    margin: 0;
-    padding: 0;
-    line-height: 1.6;
-    transition: background var(--dur-med) var(--ease-in-out), color var(--dur-med) var(--ease-in-out);
-  }
-
-  h1, h2, h3, .mono { font-family: 'JetBrains Mono', monospace; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-
-  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
-  .card { border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; transition: transform var(--dur-fast) var(--ease-out); }
-  .card:hover { transform: translateY(-2px); }
-
-  .nav { position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); background: rgba(10, 14, 20, 0.8); padding: 1rem; border-bottom: 1px solid var(--border-dark); display: flex; justify-content: space-between; align-items: center; }
-  [data-theme="light"] .nav { background: rgba(247, 248, 250, 0.8); border-bottom-color: var(--border-light); }
-  .nav-left a { font-weight: bold; font-size: 0.9rem; }
-  .nav-right { font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; }
-
-  .header { text-align: center; padding: 4rem 0 2rem; }
-  .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-  .header p { font-size: 1.1rem; opacity: 0.8; }
-  .pitch-actions { margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; }
-  .btn { background: var(--accent); color: #000; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; transition: transform var(--dur-fast); }
-  .btn:hover { transform: scale(1.05); }
-  .btn-out { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
-  .copied { background: var(--accent) !important; color: #000 !important; }
-
-  .svg-chart { width: 100%; height: 200px; }
-  .chart-bar { fill: var(--accent-dim); stroke: var(--accent); stroke-width: 2; transition: all var(--dur-med) var(--ease-out); }
-  
-  .flow-container { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0; position: relative; }
-  .flow-node { background: var(--bg-card-dark); border: 1px solid var(--border-dark); padding: 1rem; border-radius: 6px; text-align: center; width: 30%; z-index: 2; transition: border-color var(--dur-med); }
-  [data-theme="light"] .flow-node { background: #fff; border-color: var(--border-light); }
-  .flow-line { position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: var(--border-dark); z-index: 1; }
-  [data-theme="light"] .flow-line { background: var(--border-light); }
-  .flow-progress { position: absolute; top: 50%; left: 10%; width: 0%; height: 2px; background: var(--accent); z-index: 1; transition: width var(--dur-slow) var(--ease-out); }
-
-  .slider-container { margin: 1rem 0; display: flex; align-items: center; gap: 1rem; }
-  input[type="range"] { width: 100%; accent-color: var(--accent); }
-  select { padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-dark); font-family: 'JetBrains Mono'; }
-
-  .table-container { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border-dark); }
-  [data-theme="light"] th, [data-theme="light"] td { border-bottom: 1px solid var(--border-light); }
-  th { cursor: pointer; transition: background var(--dur-fast); }
-  th:hover { background: var(--accent-dim); }
-  tr { transition: opacity var(--dur-med); }
-
-  .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
-  .tab { padding: 0.5rem 1rem; border: 1px solid var(--border-dark); border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; transition: all var(--dur-fast); }
-  [data-theme="light"] .tab { border-color: var(--border-light); }
-  .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; animation: fadeIn var(--dur-med) var(--ease-out); }
-  pre { background: var(--bg-dark); color: var(--text-dark); padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid var(--border-dark); position: relative; }
-  [data-theme="light"] pre { background: #f0f0f0; color: #1a1a1a; border-color: var(--border-light); }
-  
-  .badge { display: inline-block; background: var(--accent-dim); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; border: 1px solid var(--accent); }
-  .count-up { font-size: 2.5rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: bold; }
-  
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .card { animation: fadeIn var(--dur-med) var(--ease-out) backwards; }
-    .card:nth-child(1) { animation-delay: 0ms; }
-    .card:nth-child(2) { animation-delay: 40ms; }
-    .card:nth-child(3) { animation-delay: 80ms; }
-    .card:nth-child(4) { animation-delay: 120ms; }
-    .card:nth-child(5) { animation-delay: 160ms; }
-  }
-  
-  .progress-rail { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--accent); z-index: 200; transition: width var(--dur-med) var(--ease-out); display: none; }
-</style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Cost & Latency Estimator</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a; --bg-secondary: #1e293b; --bg-card: #182232;
+            --border-color: #334155; --text-primary: #f8fafc; --text-secondary: #94a3b8;
+            --accent-color: #38bdf8; --code-bg: #090d16;
+        }
+        @media (prefers-color-scheme: light) {
+            :root { --bg-primary: #f8fafc; --bg-secondary: #ffffff; --bg-card: #f1f5f9; --border-color: #e2e8f0; --text-primary: #0f172a; --text-secondary: #475569; --accent-color: #0284c7; --code-bg: #1e293b; }
+        }
+        body { background-color: var(--bg-primary); color: var(--text-primary); font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; padding: 2rem; max-width: 900px; margin: 0 auto; }
+        .card { background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.75rem; border-bottom: 1px solid var(--border-color); text-align: left; }
+        pre { background: var(--code-bg); padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; color: #cbd5e1; }
+        .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        button { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 0.5rem 1rem; cursor: pointer; border-radius: 4px; }
+        button.active { background: var(--accent-color); color: white; }
+    </style>
 </head>
-<body data-theme="dark">
-
-<div class="nav">
-  <div class="nav-left"><a href="https://iggym.github.io/zero-cost-ai-coding/">← Zero-Cost AI Coding</a></div>
-  <div class="nav-right">LLM Cost & Latency Estimator</div>
-</div>
-<div id="progressRail" class="progress-rail"></div>
-
-<div class="container">
-  <div class="header">
-    <span class="badge">Free-tier verified: Browser-Native JS</span>
-    <h1>Stop Bill Overages.</h1>
-    <p>Scrub your token volume. Watch costs compare across models.</p>
-    <div class="pitch-actions">
-      <button class="btn" onclick="copyLink(this)">Copy Link</button>
-      <button class="btn btn-out" onclick="window.open('https://twitter.com/intent/tweet?text=Check%20out%20this%20Zero-Cost%20LLM%20Cost%20Calculator','_blank')">Share on X</button>
-    </div>
-  </div>
-
-  <!-- WHY: The Problem, Visually -->
-  <div class="card">
-    <h3>WHY: The Evidence</h3>
-    <p>Token miscalculations cause unexpected bill spikes. Paid observability platforms exist to track these exact metrics after deployment.</p>
-    <div class="table-container" style="margin-top:1rem;">
-      <table>
-        <thead><tr><th>Tool</th><th>Focus</th><th>Paid Cost</th></tr></thead>
-        <tbody>
-          <tr><td>Helicone</td><td>Token Cost Tracking</td><td>$99/mo</td></tr>
-          <tr><td>LangSmith</td><td>Latency Tracing</td><td>$39/user/mo</td></tr>
-          <tr><td>Browser-Native JS</td><td>Pre-deployment Estimation</td><td>$0 forever</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <small>Source: Helicone & LangSmith public pricing pages, 2026-08-16</small>
-  </div>
-
-  <!-- HOW: How It Works, Visually -->
-  <div class="card">
-    <h3>HOW: The Process</h3>
-    <p>Standard pricing rates (verified as of today) are applied to your traffic volume locally.</p>
-    <div class="flow-container">
-      <div class="flow-line"></div>
-      <div class="flow-progress" id="flowProgress"></div>
-      <div class="flow-node">1. Input Traffic</div>
-      <div class="flow-node">2. Apply Rates</div>
-      <div class="flow-node">3. Compare Models</div>
-    </div>
-  </div>
-
-  <!-- UTILITY: The Tool -->
-  <div class="card">
-    <h3>UTILITY: The Estimator</h3>
+<body>
+    <h1>LLM Cost & Latency Estimator</h1>
     
-    <div class="slider-container">
-      <label>Avg Tokens / Request:</label>
-      <input type="range" id="tokensReq" min="100" max="10000" value="1000" step="100" oninput="runCalc()" style="flex:1;">
-      <span id="tokensReqVal" class="mono">1000</span>
-    </div>
-    <div class="slider-container">
-      <label>Requests / Month:</label>
-      <input type="range" id="reqMo" min="100" max="1000000" value="10000" step="100" oninput="runCalc()" style="flex:1;">
-      <span id="reqMoVal" class="mono">10k</span>
-    </div>
-    
-    <div style="display:flex; gap:2rem; align-items:center; justify-content:space-between; margin-top:1.5rem; border-top:1px solid var(--border-dark); padding-top:1.5rem;">
-      <div>
-        <div style="font-size:0.9rem; opacity:0.8;">Est. Cost (GPT-4o)</div>
-        <div class="count-up" id="costCount">$0</div>
-      </div>
-      <div style="flex:1;">
-        <svg class="svg-chart" id="costChart"></svg>
-      </div>
-    </div>
-    
-    <div class="table-container" style="margin-top:1rem;">
-      <table id="resultsTable">
-        <thead>
-          <tr>
-            <th onclick="sortTable(0)">Provider</th>
-            <th onclick="sortTable(1)">Input Cost</th>
-            <th onclick="sortTable(2)">Output Cost</th>
-            <th onclick="sortTable(3)">Total Cost</th>
-            <th onclick="sortTable(4)">Est. Latency</th>
-          </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-      </table>
-    </div>
-    
-    <div style="margin-top:1rem;">
-      <button class="btn" onclick="exportJson()">Copy as JSON</button>
-    </div>
-  </div>
-
-  <!-- Prompt Pack -->
-  <div class="card">
-    <h3>🟢 BUILD THIS YOURSELF: PARAMETERIZED PROMPT PACK</h3>
-    <p>Teaches the pattern. For chatbots, pick your model tab, copy, replace {{variables}}. For code, use the JSON payload.</p>
-    
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab(event, 'tab-openai')">OpenAI</div>
-      <div class="tab" onclick="switchTab(event, 'tab-anthropic')">Anthropic</div>
-      <div class="tab" onclick="switchTab(event, 'tab-google')">Google</div>
-      <div class="tab" onclick="switchTab(event, 'tab-openweight')">Open-Weight</div>
+    <div class="card">
+        <label>Input Tokens per Request: <strong id="tokenVal">1000</strong></label>
+        <input type="range" id="tokenSlider" min="100" max="100000" step="100" value="1000" style="width:100%; accent-color: var(--accent-color);">
     </div>
 
-    <!-- OpenAI -->
-    <div id="tab-openai" class="tab-content active">
-      <button class="btn" style="float:right;" onclick="copyText('openai-code', this)">Copy</button>
-      <pre id="openai-code">
-Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
-
-Parameters:
-temperature: 0.4
-top_p: 0.9
-max_tokens: 4096
-
-System Prompt:
-You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
-Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
-Generate a single HTML file that solves: {{PROBLEM}}.
-
-User Template:
-Problem: {{PROBLEM}}
-Evidence: {{EVIDENCE_SOURCE}}
-Free Tier URL: {{FREE_TIER_URL}}
-Input Example: {{INPUT_EXAMPLE}}
-Output Kind: {{OUTPUT_KIND}}
-Visual Style: {{VISUAL_STYLE}}
-
-Tool Definition (Chat Completions API with tool_calling):
-{
-  "type": "function",
-  "function": {
-    "name": "generate_single_file_tool",
-    "description": "Generates the complete HTML file based on specifications.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "html_content": { "type": "string", "description": "The full HTML, CSS, and JS source." }
-      },
-      "required": ["html_content"]
-    }
-  }
-}
-
-Example Fill:
-{{PROBLEM}}: "Estimate LLM API costs and latency across providers"
-{{EVIDENCE_SOURCE}}: "Paid tools like Helicone ($99/mo) exist for this"
-{{FREE_TIER_URL}}: "Browser Native JS"
-{{SOLUTION_MODE}}: "browser-native"
-      </pre>
+    <div class="card">
+        <table>
+            <thead><tr><th>Model</th><th>Input/1M</th><th>Output/1M</th><th>Total Est.</th></tr></thead>
+            <tbody id="results"></tbody>
+        </table>
     </div>
 
-    <!-- Anthropic -->
-    <div id="tab-anthropic" class="tab-content">
-      <button class="btn" style="float:right;" onclick="copyText('anthropic-code', this)">Copy</button>
-      <pre id="anthropic-code">
-Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
-
-Parameters:
-temperature: 0.4
-top_p: 0.9
-max_tokens: 4096
-
-System Prompt:
-You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
-Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
-Generate a single HTML file that solves: {{PROBLEM}}.
-
-User Template:
-Problem: {{PROBLEM}}
-Evidence: {{EVIDENCE_SOURCE}}
-Free Tier URL: {{FREE_TIER_URL}}
-Input Example: {{INPUT_EXAMPLE}}
-Output Kind: {{OUTPUT_KIND}}
-Visual Style: {{VISUAL_STYLE}}
-
-Tool Definition (Messages API tool_use format):
-{
-  "name": "generate_single_file_tool",
-  "description": "Generates the complete HTML file based on specifications.",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "html_content": { "type": "string", "description": "The full HTML, CSS, and JS source." }
-    },
-    "required": ["html_content"]
-  }
-}
-
-Example Fill:
-{{PROBLEM}}: "Estimate LLM API costs and latency across providers"
-{{EVIDENCE_SOURCE}}: "Paid tools like Helicone ($99/mo) exist for this"
-{{FREE_TIER_URL}}: "Browser Native JS"
-{{SOLUTION_MODE}}: "browser-native"
-      </pre>
+    <div class="card">
+        <h3>Prompt Pack</h3>
+        <div class="tabs">
+            <button class="active" onclick="showTab('openai')">OpenAI</button>
+            <button onclick="showTab('anthropic')">Anthropic</button>
+        </div>
+        <pre id="codeBlock"></pre>
     </div>
 
-    <!-- Google -->
-    <div id="tab-google" class="tab-content">
-      <button class="btn" style="float:right;" onclick="copyText('google-code', this)">Copy</button>
-      <pre id="google-code">
-Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+    <script>
+        const models = [
+            { name: "GPT-4o", in: 2.50, out: 10.00 },
+            { name: "Claude 3.5 Sonnet", in: 3.00, out: 15.00 },
+            { name: "Gemini 1.5 Pro", in: 1.25, out: 5.00 }
+        ];
 
-Parameters:
-temperature: 0.4
-top_p: 0.9
-max_output_tokens: 4096
+        function update() {
+            const tokens = document.getElementById('tokenSlider').value;
+            document.getElementById('tokenVal').innerText = tokens;
+            const tbody = document.getElementById('results');
+            tbody.innerHTML = models.map(m => `
+                <tr>
+                    <td>${m.name}</td>
+                    <td>$${m.in}</td>
+                    <td>$${m.out}</td>
+                    <td>$${((m.in + (m.out * 1.5)) * (tokens / 1000000)).toFixed(6)}</td>
+                </tr>
+            `).join('');
+        }
 
-System Prompt:
-You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
-Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
-Generate a single HTML file that solves: {{PROBLEM}}.
+        document.getElementById('tokenSlider').addEventListener('input', update);
+        update();
 
-User Template:
-Problem: {{PROBLEM}}
-Evidence: {{EVIDENCE_SOURCE}}
-Free Tier URL: {{FREE_TIER_URL}}
-Input Example: {{INPUT_EXAMPLE}}
-Output Kind: {{OUTPUT_KIND}}
-Visual Style: {{VISUAL_STYLE}}
-
-Tool Definition (functionDeclarations format):
-{
-  "functionDeclarations": [
-    {
-      "name": "generate_single_file_tool",
-      "description": "Generates the complete HTML file based on specifications.",
-      "parameters": {
-        "type": "OBJECT",
-        "properties": {
-          "html_content": { "type": "STRING", "description": "The full HTML, CSS, and JS source." }
-        },
-        "required": ["html_content"]
-      }
-    }
-  ]
-}
-
-Example Fill:
-{{PROBLEM}}: "Estimate LLM API costs and latency across providers"
-{{EVIDENCE_SOURCE}}: "Paid tools like Helicone ($99/mo) exist for this"
-{{FREE_TIER_URL}}: "Browser Native JS"
-{{SOLUTION_MODE}}: "browser-native"
-      </pre>
-    </div>
-
-    <!-- Open-Weight -->
-    <div id="tab-openweight" class="tab-content">
-      <button class="btn" style="float:right;" onclick="copyText('openweight-code', this)">Copy</button>
-      <pre id="openweight-code">
-Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
-
-Parameters:
-temperature: 0.4
-top_p: 0.9
-max_tokens: 4096
-
-System Prompt:
-You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
-Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
-Generate a single HTML file that solves: {{PROBLEM}}.
-Respond ONLY in strict JSON format matching this schema:
-{ "html_content": "string" }
-
-User Template:
-Problem: {{PROBLEM}}
-Evidence: {{EVIDENCE_SOURCE}}
-Free Tier URL: {{FREE_TIER_URL}}
-Input Example: {{INPUT_EXAMPLE}}
-Output Kind: {{OUTPUT_KIND}}
-Visual Style: {{VISUAL_STYLE}}
-
-Note: Llama 3.1 / Mistral / Qwen2 do not support native tool calling wrappers. Rely on strict JSON output.
-
-Example Fill:
-{{PROBLEM}}: "Estimate LLM API costs and latency across providers"
-{{EVIDENCE_SOURCE}}: "Paid tools like Helicone ($99/mo) exist for this"
-{{FREE_TIER_URL}}: "Browser Native JS"
-{{SOLUTION_MODE}}: "browser-native"
-      </pre>
-    </div>
-  </div>
-
-  <footer style="text-align:center; margin-top:3rem; opacity:0.7; font-size:0.8rem;">
-    Free-tier verified: Browser Native JS — $0 forever — 2026-08-16<br>
-    Assumption: 1.5x output tokens per input token. Latency based on published TPS limits.
-  </footer>
-</div>
-
-<script>
-  function copyLink(btn) {
-    navigator.clipboard.writeText(window.location.href);
-    btn.innerText = 'Copied! ✓';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.innerText = 'Copy Link'; btn.classList.remove('copied'); }, 1200);
-  }
-
-  // Pricing data (per 1M tokens, verified 2026-08-16)
-  const models = [
-    { name: "GPT-4o", in: 5.00, out: 15.00, tps: 80 },
-    { name: "Claude 3.5 Sonnet", in: 3.00, out: 15.00, tps: 80 },
-    { name: "Gemini 1.5 Pro", in: 1.25, out: 5.00, tps: 100 },
-    { name: "Llama 3 70B (Groq)", in: 0.59, out: 0.79, tps: 250 }
-  ];
-
-  let sortDir = 1;
-  let currentResults = [];
-
-  function runCalc() {
-    const tokensReq = parseInt(document.getElementById('tokensReq').value);
-    const reqMo = parseInt(document.getElementById('reqMo').value);
-    
-    document.getElementById('tokensReqVal').innerText = tokensReq;
-    document.getElementById('reqMoVal').innerText = reqMo >= 1000 ? (reqMo/1000) + 'k' : reqMo;
-
-    const rail = document.getElementById('progressRail');
-    rail.style.display = 'block';
-    rail.style.width = '50%';
-
-    const totalInputTokens = tokensReq * reqMo;
-    const totalOutputTokens = tokensReq * 1.5 * reqMo;
-    
-    const results = models.map(m => {
-      const inCost = (totalInputTokens / 1000000) * m.in;
-      const outCost = (totalOutputTokens / 1000000) * m.out;
-      const totalCost = inCost + outCost;
-      const latency = (tokensReq * 1.5) / m.tps;
-      return {
-        provider: m.name,
-        inCost: inCost,
-        outCost: outCost,
-        totalCost: totalCost,
-        latency: latency
-      };
-    });
-
-    currentResults = results;
-    renderTable(results);
-    drawCostChart(results);
-    
-    const gptCost = results[0].totalCost;
-    animateCount('costCount', gptCost, true);
-    
-    document.getElementById('flowProgress').style.width = '100%';
-    
-    rail.style.width = '100%';
-    setTimeout(() => { rail.style.display = 'none'; }, 500);
-  }
-
-  function animateCount(id, target, isCurrency) {
-    const el = document.getElementById(id);
-    const current = parseFloat(el.innerText.replace(/[^0-9.-]/g, '')) || 0;
-    const duration = 300;
-    const startTime = performance.now();
-
-    function update(now) {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const val = current + (target - current) * eased;
-      el.innerText = isCurrency ? '$' + val.toFixed(2) : Math.floor(val);
-      if (progress < 1) requestAnimationFrame(update);
-    }
-    requestAnimationFrame(update);
-  }
-
-  function renderTable(data) {
-    const tbody = document.getElementById('resultsBody');
-    tbody.innerHTML = data.map((d, i) => `
-      <tr style="opacity:0; animation: fadeIn ${150}ms ${i * 40}ms forwards;">
-        <td style="font-family:'JetBrains Mono'">${d.provider}</td>
-        <td>$${d.inCost.toFixed(2)}</td>
-        <td>$${d.outCost.toFixed(2)}</td>
-        <td style="color:var(--accent); font-weight:bold">$${d.totalCost.toFixed(2)}</td>
-        <td>${d.latency.toFixed(2)}s</td>
-      </tr>
-    `).join('');
-  }
-
-  function sortTable(col) {
-    const keys = ['provider', 'inCost', 'outCost', 'totalCost', 'latency'];
-    const key = keys[col];
-    currentResults.sort((a, b) => {
-      if (typeof a[key] === 'number') return (a[key] - b[key]) * sortDir;
-      return a[key].localeCompare(b[key]) * sortDir;
-    });
-    sortDir *= -1;
-    renderTable(currentResults);
-  }
-
-  function drawCostChart(data) {
-    const svg = document.getElementById('costChart');
-    const w = svg.clientWidth;
-    const h = 200;
-    const maxCost = Math.max(...data.map(d => d.totalCost));
-    const barW = w / data.length;
-    svg.innerHTML = '';
-    
-    data.forEach((d, i) => {
-      const barH = (d.totalCost / maxCost) * (h - 40);
-      const x = i * barW + 10;
-      const y = h - barH - 20;
-      
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', x);
-      rect.setAttribute('y', h - 20);
-      rect.setAttribute('width', barW - 20);
-      rect.setAttribute('height', 0);
-      rect.setAttribute('class', 'chart-bar');
-      svg.appendChild(rect);
-      
-      setTimeout(() => {
-        rect.setAttribute('height', barH);
-        rect.setAttribute('y', y);
-      }, i * 100);
-
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', x + (barW/2 - 10));
-      text.setAttribute('y', h - 5);
-      text.setAttribute('fill', 'currentColor');
-      text.setAttribute('font-size', '10');
-      text.setAttribute('font-family', 'JetBrains Mono');
-      text.textContent = d.provider.split(' ')[0];
-      svg.appendChild(text);
-
-      const num = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      num.setAttribute('x', x + (barW/2 - 10));
-      num.setAttribute('y', y - 5);
-      num.setAttribute('fill', 'var(--accent)');
-      num.setAttribute('font-size', '12');
-      num.textContent = '$' + d.totalCost.toFixed(0);
-      svg.appendChild(num);
-    });
-  }
-
-  function exportJson() {
-    const data = {
-      zcac: true,
-      kind: "cost-estimates",
-      data: currentResults
-    };
-    const str = JSON.stringify(data, null, 2);
-    navigator.clipboard.writeText(str).then(() => {
-      const btn = event.target;
-      btn.innerText = 'Copied JSON! ✓';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.innerText = 'Copy as JSON'; btn.classList.remove('copied'); }, 1200);
-    });
-  }
-
-  function switchTab(e, tabId) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    e.target.classList.add('active');
-    document.getElementById(tabId).classList.add('active');
-  }
-
-  function copyText(id, btn) {
-    const text = document.getElementById(id).innerText;
-    navigator.clipboard.writeText(text);
-    btn.innerText = 'Copied! ✓';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.innerText = 'Copy'; btn.classList.remove('copied'); }, 1200);
-  }
-
-  // Init
-  window.addEventListener('load', () => {
-    runCalc();
-  });
-  window.addEventListener('resize', () => {
-    drawCostChart(currentResults);
-  });
-</script>
+        function showTab(type) {
+            const code = type === 'openai' ? '{"model": "gpt-4o", "messages": [...]}' : '{"model": "claude-3-5-sonnet-20240620", "messages": [...] }';
+            document.getElementById('codeBlock').innerText = code;
+        }
+    </script>
 </body>
 </html>
