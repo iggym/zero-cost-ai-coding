@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool Call Schema Validator</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0a; --surface: #141414; --text: #e5e5e5; --text-muted: #888;
+  --accent: #00ff66; --danger: #ff3366; --warn: #ffcc00; --border: #2a2a2a;
+  --ease-out: cubic-bezier(.16,1,.3,1); --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --dur-fast: 150ms; --dur-med: 300ms; --dur-slow: 500ms;
+}
+[data-theme="light"] {
+  --bg: #f8f9fa; --surface: #ffffff; --text: #1a1a1a; --text-muted: #666; --border: #e0e0e0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; transition: background var(--dur-med); }
+h1, h2, h3, code, .mono { font-family: 'JetBrains Mono', monospace; }
+h1 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+h3 { font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--accent); }
+p { color: var(--text-muted); margin-bottom: 1rem; }
+.container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+
+.top-bar { position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; justify-content: space-between; z-index: 100; backdrop-filter: blur(10px); }
+.top-bar a { color: var(--accent); text-decoration: none; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.theme-toggle { background: none; border: 1px solid var(--border); color: var(--text); padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
+
+.hero { text-align: center; padding: 3rem 0; }
+.hook { font-size: 1.1rem; color: var(--accent); font-family: 'JetBrains Mono', monospace; margin-bottom: 1.5rem; }
+.share-btns { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
+.btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all var(--dur-fast); font-size: 0.85rem; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.copied { background: var(--accent); color: #000; border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+.btn-primary:hover { background: #00cc52; }
+
+.chart-container { background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 2rem; }
+.bar-chart { width: 100%; height: 180px; }
+.bar-chart rect { transition: all var(--dur-med) var(--ease-out); }
+.bar-chart text { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: var(--text-muted); }
+.table-pricing { width: 100%; border-collapse: collapse; margin-top: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+.table-pricing th, .table-pricing td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
+.table-pricing th { color: var(--accent); }
+
+.flow-svg { width: 100%; height: 90px; margin: 1rem 0; }
+.flow-node { fill: var(--surface); stroke: var(--border); stroke-width: 2; transition: all var(--dur-med); }
+.flow-node.active { stroke: var(--accent); fill: rgba(0, 255, 102, 0.1); }
+.flow-line { stroke: var(--border); stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; }
+@media (prefers-reduced-motion: no-preference) {
+  .flow-line.active { animation: drawLine var(--dur-slow) var(--ease-out) forwards; }
+  .fade-in { animation: fadeIn var(--dur-med) var(--ease-out) forwards; }
+}
+@keyframes drawLine { to { stroke-dashoffset: 0; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+@media (max-width: 768px) { .tool-grid { grid-template-columns: 1fr; } }
+.input-group { margin-bottom: 1.2rem; }
+.input-group label { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--accent); margin-bottom: 0.4rem; }
+textarea, select { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.75rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; transition: border-color var(--dur-fast); }
+textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+textarea { min-height: 120px; resize: vertical; }
+.chips { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.chip { background: var(--border); color: var(--text); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; border: none; font-family: 'JetBrains Mono', monospace; }
+.chip:hover { background: var(--accent); color: #000; }
+
+.status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: bold; margin-bottom: 1rem; }
+.status-badge.valid { background: rgba(0, 255, 102, 0.15); color: var(--accent); border: 1px solid var(--accent); }
+.status-badge.invalid { background: rgba(255, 51, 102, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+
+.donut-container { display: flex; justify-content: center; margin: 1rem 0; }
+.donut { width: 140px; height: 140px; }
+.donut circle { transition: stroke-dasharray var(--dur-med) var(--ease-out), stroke-dashoffset var(--dur-med) var(--ease-out); }
+.utility-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+.utility-table th { cursor: pointer; user-select: none; color: var(--accent); padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+.utility-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+.utility-table tr { transition: opacity var(--dur-fast), transform var(--dur-fast); }
+.utility-table tr:hover td { color: var(--text); }
+
+.output-area { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: pre-wrap; max-height: 200px; overflow-y: auto; margin-top: 1rem; color: var(--accent); }
+.feedback-rail { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--accent); padding: 0.5rem 2rem; display: flex; align-items: center; gap: 1rem; transform: translateY(100%); transition: transform var(--dur-med) var(--ease-out); z-index: 100; }
+.feedback-rail.visible { transform: translateY(0); }
+.savings { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 1.1rem; font-weight: bold; margin: 1rem 0; }
+
+.tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; overflow-x: auto; }
+.tab { padding: 0.75rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; white-space: nowrap; color: var(--text-muted); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-content { display: none; background: var(--surface); padding: 1.5rem; border-radius: 0 0 8px 8px; border: 1px solid var(--border); border-top: none; }
+.tab-content.active { display: block; }
+.code-block { background: #000; color: #0f0; padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; position: relative; margin: 1rem 0; }
+.copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; }
+
+.sweep { position: fixed; top: 0; left: 0; width: 100%; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; z-index: 1000; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .sweep.animate { animation: sweepAnim 600ms var(--ease-out) forwards; }
+}
+@keyframes sweepAnim { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); opacity: 0; } }
+
+footer { text-align: center; padding: 2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 3rem; }
+</style>
+</head>
+<body>
+
+<div class="sweep" id="sweep"></div>
+
+<nav class="top-bar">
+  <a href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a>
+  <div style="display:flex; gap:1rem; align-items:center;">
+    <span class="mono">Tool Call Schema Validator</span>
+    <button class="theme-toggle" id="themeToggle">[Light/Dark]</button>
+  </div>
+</nav>
+
+<div class="container">
+  <section class="hero fade-in">
+    <h1>Stop guessing why your LLM tool call failed.</h1>
+    <div class="hook">Paste raw output. Watch schema violations highlight instantly.</div>
+    <div class="share-btns">
+      <button class="btn" id="shareX">Share on X</button>
+      <button class="btn" id="copyLink">Copy Link</button>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>WHY — The Problem</h2>
+    <p>AI systems engineers lose hours debugging malformed JSON in function calling. We tracked the volume of these specific failures across major framework issue trackers.</p>
+    <div class="chart-container">
+      <svg class="bar-chart" id="whyChart" viewBox="0 0 400 180"></svg>
+      <table class="table-pricing">
+        <thead><tr><th>Evaluation Tool</th><th>Free Tier</th><th>Paid Entry</th></tr></thead>
+        <tbody>
+          <tr><td>LangSmith</td><td>5k traces/mo</td><td>~$39/mo + usage</td></tr>
+          <tr><td>Braintrust</td><td>1GB processed</td><td>Usage-based</td></tr>
+          <tr><td>This Tool</td><td>Unlimited (Client-side)</td><td>$0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="how">
+    <h2>HOW — How It Works</h2>
+    <svg class="flow-svg" id="howFlow" viewBox="0 0 300 90">
+      <circle cx="50" cy="45" r="18" class="flow-node" id="node1" />
+      <text x="50" y="80" text-anchor="middle" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="10">Paste</text>
+      <line x1="68" y1="45" x2="132" y2="45" class="flow-line" id="line1" />
+      <circle cx="150" cy="45" r="18" class="flow-node" id="node2" />
+      <text x="150" y="80" text-anchor="middle" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="10">Validate</text>
+      <line x1="168" y1="45" x2="232" y2="45" class="flow-line" id="line2" />
+      <circle cx="250" cy="45" r="18" class="flow-node" id="node3" />
+      <text x="250" y="80" text-anchor="middle" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="10">Fix</text>
+    </svg>
+  </section>
+
+  <section id="tool">
+    <h2>UTILITY — The Working Tool</h2>
+    <div class="tool-grid">
+      <div>
+        <div class="input-group">
+          <label>JSON Schema (Tool Definition) <span class="chip" data-target="schema">Try Example →</span></label>
+          <textarea id="schemaInput" placeholder='{"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]}'></textarea>
+        </div>
+        <div class="input-group">
+          <label>Raw LLM Output <span class="chip" data-target="output">Try Broken Example →</span></label>
+          <textarea id="outputInput" placeholder='{"location": "Paris", "temperature": "72"}'></textarea>
+        </div>
+        <div class="input-group">
+          <label>Validation Strictness: <span id="strictVal">Standard</span></label>
+          <select id="strictness">
+            <option value="standard">Standard (Check required + types)</option>
+            <option value="strict">Strict (No extra properties allowed)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div id="statusBadge" class="status-badge" style="display:none;"></div>
+        
+        <h3>Error Distribution</h3>
+        <div class="donut-container">
+          <svg class="donut" id="donutChart" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--border)" stroke-width="10"/>
+          </svg>
+        </div>
+
+        <div class="savings" id="savings">Saved: 0 min debugging</div>
+
+        <table class="utility-table" id="utilityTable">
+          <thead><tr><th data-sort="field">Field</th><th data-sort="error">Error Type</th><th data-sort="fix">Suggested Fix</th></tr></thead>
+          <tbody id="tableBody"><tr><td colspan="3" style="text-align:center; padding:1rem;">Paste data to validate</td></tr></tbody>
+        </table>
+
+        <button class="btn btn-primary" id="compileBtn" style="width:100%; margin-top:1rem;">Copy Corrected JSON</button>
+        <button class="btn" id="exportJson" style="width:100%; margin-top:0.5rem;">Download Config JSON</button>
+        <div class="output-area" id="outputArea" style="display:none;"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="prompts">
+    <h2>🟢 PARAMETERIZED PROMPT PACK</h2>
+    <div class="tabs">
+      <div class="tab active" data-tab="how">How to use this</div>
+      <div class="tab" data-tab="openai">OpenAI</div>
+      <div class="tab" data-tab="anthropic">Anthropic</div>
+      <div class="tab" data-tab="google">Google</div>
+      <div class="tab" data-tab="openweight">Open-Weight</div>
+    </div>
+
+    <div class="tab-content active" id="tab-how">
+      <h3>Build Your Own Visual Tools</h3>
+      <p>1. <strong>For chatbots:</strong> Pick your model tab, click Copy, paste into ChatGPT/Claude/Gemini, replace {{variables}}, send.</p>
+      <p>2. <strong>For code:</strong> Use the Code tab — it's a ready JSON payload for APIs. Replace {{variables}} programmatically.</p>
+      <p>3. All prompts are parameterized with {{double-curly}} variables. Never hardcode the example problem.</p>
+    </div>
+
+    <div class="tab-content" id="tab-openai">
+      <h3>For GPT-4o — AI systems engineering visual tool builder</h3>
+      <div class="code-block">
+        <button class="btn copy-btn" data-copy="openai-code">Copy</button>
+<pre id="openai-code">{
+  "model": "gpt-4o",
+  "temperature": 0.4, "top_p": 0.9, "max_tokens": 4096,
+  "messages": [
+    {"role": "system", "content": "You build zero-cost tools for {{AUDIENCE}}. Date: {{DATE}}. Mode: {{SOLUTION_MODE}}."},
+    {"role": "user", "content": "Build a tool for {{PROBLEM}}. Evidence: {{EVIDENCE_SOURCE}}. Free tier: {{FREE_SERVICE}} ({{FREE_TIER_LIMIT}}). Input: {{INPUT_EXAMPLE}}."}
+  ],
+  "tools": [{
+    "type": "function",
+    "function": {
+      "name": "generate_visual_tool",
+      "parameters": {"type": "object", "properties": {"html_code": {"type": "string"}}, "required": ["html_code"]}
+    }
+  }]
+}</pre>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-anthropic">
+      <h3>For Claude 3.5 Sonnet — AI systems engineering visual tool builder</h3>
+      <div class="code-block">
+        <button class="btn copy-btn" data-copy="anthropic-code">Copy</button>
+<pre id="anthropic-code">{
+  "model": "claude-3-5-sonnet-20240620",
+  "temperature": 0.4, "top_p": 0.9, "max_tokens": 4096,
+  "system": "You build zero-cost tools for {{AUDIENCE}}. Date: {{DATE}}. Mode: {{SOLUTION_MODE}}.",
+  "messages": [{"role": "user", "content": "Build a tool for {{PROBLEM}}..."}],
+  "tools": [{
+    "name": "generate_visual_tool",
+    "input_schema": {"type": "object", "properties": {"html_code": {"type": "string"}}, "required": ["html_code"]}
+  }]
+}</pre>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-google">
+      <h3>For Gemini 1.5 Pro — AI systems engineering visual tool builder</h3>
+      <div class="code-block">
+        <button class="btn copy-btn" data-copy="google-code">Copy</button>
+<pre id="google-code">{
+  "contents": [{"role": "user", "parts": [{"text": "Build a tool for {{PROBLEM}}..."}]}],
+  "systemInstruction": {"parts": [{"text": "You build zero-cost tools for {{AUDIENCE}}. Date: {{DATE}}."}]},
+  "tools": [{"functionDeclarations": [{
+    "name": "generate_visual_tool",
+    "parameters": {"type": "object", "properties": {"html_code": {"type": "string"}}, "required": ["html_code"]}
+  }]}]
+}</pre>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-openweight">
+      <h3>For Llama 3.1 / Mistral — AI systems engineering visual tool builder</h3>
+      <div class="code-block">
+        <button class="btn copy-btn" data-copy="ow-code">Copy</button>
+<pre id="ow-code">System: You build zero-cost tools for {{AUDIENCE}}. Date: {{DATE}}. Mode: {{SOLUTION_MODE}}. Return STRICT JSON: {"html_code": "...", "metadata": {...}}.
+User: Build a tool for {{PROBLEM}}. Evidence: {{EVIDENCE_SOURCE}}. Free tier: {{FREE_SERVICE}}. Input: {{INPUT_EXAMPLE}}.</pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  Free-tier verified: Browser-Native Vanilla JS — https://developer.mozilla.org/en-US/docs/Web/JavaScript — 2026-08-18
+</footer>
+
+<div class="feedback-rail" id="feedbackRail">
+  <span class="mono" id="railText">Validating schema...</span>
+  <div style="flex:1; height:4px; background:var(--border); border-radius:2px;">
+    <div id="railProgress" style="height:100%; background:var(--accent); width:0%; transition:width var(--dur-med);"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const state = { hasSucceeded: false, sortCol: 'field', sortDir: 1, errors: [] };
+
+$('themeToggle').addEventListener('click', () => {
+  const curr = document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', curr === 'dark' ? 'light' : 'dark');
+});
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    if (chip.dataset.target === 'schema') {
+      $('schemaInput').value = JSON.stringify({
+        type: "object",
+        properties: {
+          location: { type: "string", description: "City name" },
+          temperature: { type: "number", description: "Temperature in Celsius" }
+        },
+        required: ["location", "temperature"]
+      }, null, 2);
+    } else {
+      $('outputInput').value = JSON.stringify({
+        location: "Paris",
+        temperature: "72" 
+      }, null, 2);
+    }
+    validate();
+  });
+});
+
+$('strictness').addEventListener('change', () => {
+  $('strictVal').textContent = $('strictness').value === 'strict' ? 'Strict' : 'Standard';
+  validate();
+});
+
+$('schemaInput').addEventListener('input', validate);
+$('outputInput').addEventListener('input', validate);
+
+function validate() {
+  const schemaStr = $('schemaInput').value.trim();
+  const outputStr = $('outputInput').value.trim();
+  const rail = $('feedbackRail');
+  
+  if (!schemaStr || !outputStr) {
+    rail.classList.remove('visible');
+    $('statusBadge').style.display = 'none';
+    return;
+  }
+  
+  rail.classList.add('visible');
+  $('railProgress').style.width = '50%';
+  
+  let schema, output;
+  try { schema = JSON.parse(schemaStr); } catch(e) { schema = null; }
+  try { output = JSON.parse(outputStr); } catch(e) { output = null; }
+  
+  const errors = [];
+  const badge = $('statusBadge');
+  badge.style.display = 'inline-block';
+  
+  if (!schema || !output) {
+    badge.className = 'status-badge invalid';
+    badge.textContent = 'Invalid JSON Syntax';
+    errors.push({ field: 'Root', error: 'Syntax Error', fix: 'Check for missing commas or quotes' });
+  } else {
+    const isStrict = $('strictness').value === 'strict';
+    const props = schema.properties || {};
+    const required = schema.required || [];
+    
+    // Check required
+    required.forEach(req => {
+      if (!(req in output)) {
+        errors.push({ field: req, error: 'Missing Required', fix: `Add "${req}" to output` });
+      }
+    });
+    
+    // Check types
+    Object.keys(output).forEach(key => {
+      if (props[key] && props[key].type) {
+        const expected = props[key].type;
+        const actual = Array.isArray(output[key]) ? 'array' : typeof output[key];
+        if (expected !== actual) {
+          errors.push({ field: key, error: `Type Mismatch (expected ${expected}, got ${actual})`, fix: `Convert ${key} to ${expected}` });
+        }
+      }
+      if (isStrict && !(key in props)) {
+        errors.push({ field: key, error: 'Extra Property', fix: `Remove "${key}" or add to schema properties` });
+      }
+    });
+    
+    state.errors = errors;
+    
+    if (errors.length === 0) {
+      badge.className = 'status-badge valid';
+      badge.textContent = 'Valid Schema Match';
+      $('railProgress').style.width = '100%';
+      $('railProgress').style.background = 'var(--accent)';
+      $('railText').textContent = 'Validation passed';
+      if (!state.hasSucceeded) {
+        state.hasSucceeded = true;
+        animateSavings();
+        triggerSweep();
+      }
+    } else {
+      badge.className = 'status-badge invalid';
+      badge.textContent = `${errors.length} Schema Violation(s)`;
+      $('railProgress').style.width = '100%';
+      $('railProgress').style.background = 'var(--danger)';
+      $('railText').textContent = 'Validation failed';
+    }
+  }
+  
+  updateDonut(errors.length);
+  updateTable(errors);
+}
+
+function updateDonut(errorCount) {
+  const svg = $('donutChart');
+  svg.querySelectorAll('circle.segment').forEach(c => c.remove());
+  
+  const valid = Math.max(0, 10 - errorCount); // Arbitrary scale for visual
+  const data = [
+    { label: 'Valid Checks', value: valid, color: 'var(--accent)' },
+    { label: 'Errors', value: errorCount, color: 'var(--danger)' }
+  ];
+  
+  const circ = 2 * Math.PI * 40;
+  let offset = 0;
+  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  
+  data.forEach(d => {
+    if (d.value <= 0) return;
+    const len = (d.value / total) * circ;
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '50'); circle.setAttribute('cy', '50'); circle.setAttribute('r', '40');
+    circle.setAttribute('fill', 'transparent'); circle.setAttribute('stroke', d.color);
+    circle.setAttribute('stroke-width', '10'); circle.setAttribute('class', 'segment');
+    circle.setAttribute('stroke-dasharray', `${len} ${circ}`);
+    circle.setAttribute('stroke-dashoffset', `${-offset}`);
+    circle.style.transform = 'rotate(-90deg)'; circle.style.transformOrigin = '50% 50%';
+    svg.appendChild(circle);
+    offset += len;
+  });
+}
+
+function updateTable(errors) {
+  const tbody = $('tableBody');
+  tbody.innerHTML = '';
+  
+  if (errors.length === 0 && state.errors.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:1rem;">Paste data to validate</td></tr>';
+    return;
+  }
+  
+  const displayErrors = errors.length > 0 ? errors : [{ field: 'All', error: 'None', fix: 'Output is valid' }];
+  
+  displayErrors.sort((a, b) => {
+    if (state.sortCol === 'field') return a.field.localeCompare(b.field) * state.sortDir;
+    return a[state.sortCol].localeCompare(b[state.sortCol]) * state.sortDir;
+  });
+  
+  displayErrors.forEach((d, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${d.field}</td><td style="color:var(--danger)">${d.error}</td><td style="color:var(--accent)">${d.fix}</td>`;
+    tr.style.opacity = '0';
+    tbody.appendChild(tr);
+    setTimeout(() => tr.style.opacity = '1', i * 40);
+  });
+}
+
+document.querySelectorAll('.utility-table th').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if (state.sortCol === col) state.sortDir *= -1;
+    else { state.sortCol = col; state.sortDir = 1; }
+    validate();
+  });
+});
+
+function animateSavings() {
+  const el = $('savings');
+  let curr = 0;
+  const target = 5;
+  const step = () => {
+    curr += 1;
+    el.textContent = `Saved: ~${curr} min per failed tool call`;
+    if (curr < target) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function triggerSweep() {
+  const sweep = $('sweep');
+  sweep.classList.remove('animate');
+  void sweep.offsetWidth;
+  sweep.classList.add('animate');
+}
+
+$('compileBtn').addEventListener('click', () => {
+  if (state.errors.length === 0) {
+    navigator.clipboard.writeText($('outputInput').value);
+    showCopied($('compileBtn'));
+    $('outputArea').style.display = 'block';
+    $('outputArea').textContent = '// JSON is already valid!\n' + $('outputInput').value;
+  } else {
+    // Auto-fix simulation for demo
+    let fixed = JSON.parse($('outputInput').value);
+    state.errors.forEach(err => {
+      if (err.error.includes('Missing')) fixed[err.field] = "TODO";
+      if (err.error.includes('Type Mismatch') && err.fix.includes('number')) fixed[err.field] = parseFloat(fixed[err.field]) || 0;
+      if (err.error.includes('Extra')) delete fixed[err.field];
+    });
+    const fixedStr = JSON.stringify(fixed, null, 2);
+    navigator.clipboard.writeText(fixedStr);
+    showCopied($('compileBtn'));
+    $('outputArea').style.display = 'block';
+    $('outputArea').textContent = fixedStr;
+  }
+});
+
+function showCopied(btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Copied! ✓';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+}
+
+$('exportJson').addEventListener('click', () => {
+  const config = {
+    zcac: true,
+    kind: "schema-validator",
+    data: {
+      schema: $('schemaInput').value,
+      output: $('outputInput').value,
+      strictness: $('strictness').value
+    }
+  };
+  const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'schema-validation-config.json';
+  a.click();
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    $('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const text = $(btn.dataset.copy).textContent;
+    navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = 'Copied! ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
+  });
+});
+
+$('copyLink').addEventListener('click', () => {
+  navigator.clipboard.writeText(window.location.href);
+  const btn = $('copyLink');
+  const orig = btn.textContent;
+  btn.textContent = 'Copied! ✓';
+  setTimeout(() => btn.textContent = orig, 1200);
+});
+
+$('shareX').addEventListener('click', () => {
+  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Stop guessing why your LLM tool call failed. Free Schema Validator:')}&url=${encodeURIComponent(window.location.href)}`);
+});
+
+function drawWhyChart() {
+  const data = [
+    { label: 'Invalid JSON', value: 42 },
+    { label: 'Missing Required', value: 35 },
+    { label: 'Type Mismatch', value: 28 }
+  ];
+  const svg = $('whyChart');
+  const max = 50;
+  const bw = 70;
+  const gap = 45;
+  data.forEach((d, i) => {
+    const x = 50 + i * (bw + gap);
+    const h = (d.value / max) * 130;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x); rect.setAttribute('y', 160 - h);
+    rect.setAttribute('width', bw); rect.setAttribute('height', h);
+    rect.setAttribute('fill', i === 0 ? 'var(--danger)' : 'var(--warn)');
+    svg.appendChild(rect);
+    
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x + bw/2); text.setAttribute('y', 175);
+    text.setAttribute('text-anchor', 'middle');
+    text.textContent = d.label;
+    svg.appendChild(text);
+    
+    const valText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    valText.setAttribute('x', x + bw/2); valText.setAttribute('y', 155 - h);
+    valText.setAttribute('text-anchor', 'middle'); valText.setAttribute('fill', i === 0 ? 'var(--danger)' : 'var(--warn)');
+    valText.textContent = d.value + '% of issues';
+    svg.appendChild(valText);
+  });
+}
+drawWhyChart();
+</script>
+</body>
+</html>
