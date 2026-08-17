@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trace Triage — AI Systems Incident Parser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0f0d;--panel:#111813;--panel2:#162019;--ink:#ecf5ee;--muted:#9aaba0;
+  --line:#29382d;--green:#78f0a2;--green2:#1dbd65;--red:#ff6978;--amber:#ffcb66;
+  --shadow:0 18px 55px rgba(0,0,0,.28);
+  --ease-out:cubic-bezier(.16,1,.3,1);--ease-in-out:cubic-bezier(.65,0,.35,1);
+  --dur-fast:150ms;--dur-med:300ms;--dur-slow:500ms;
+}
+:root.light{
+  --bg:#f2f7f2;--panel:#ffffff;--panel2:#edf7ef;--ink:#162019;--muted:#58705f;
+  --line:#c9dccd;--shadow:0 14px 40px rgba(17,53,25,.10);
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,sans-serif}
+button,input,textarea{font:inherit} button{cursor:pointer}
+a{color:var(--green)} .mono{font-family:"JetBrains Mono",monospace}
+.topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:13px max(20px,calc((100vw - 1160px)/2));background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.topbar a{text-decoration:none;font-weight:700}.titlemark{font:600 13px "JetBrains Mono",monospace;color:var(--muted)}
+.toggle,.btn,.chip,.tab{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:9px 12px;transition:background var(--dur-fast),border-color var(--dur-fast),color var(--dur-fast),transform var(--dur-fast)}
+.btn:hover,.chip:hover,.tab:hover,.toggle:hover{border-color:var(--green);transform:translateY(-1px)}
+.btn.primary{background:var(--green);border-color:var(--green);color:#082111;font-weight:800}.btn.ghost{background:transparent}
+main{max-width:1160px;margin:auto;padding:46px 20px 80px}.eyebrow{font:600 12px "JetBrains Mono",monospace;color:var(--green);letter-spacing:.08em}
+h1,h2,h3{font-family:"JetBrains Mono",monospace;line-height:1.1;margin:0}h1{font-size:clamp(34px,6vw,72px);letter-spacing:-.07em;max-width:900px}h2{font-size:26px;margin-bottom:14px}h3{font-size:15px}
+.hero{padding:28px 0 36px}.hero p{max-width:720px;color:var(--muted);font-size:18px;margin:20px 0}.actions{display:flex;gap:10px;flex-wrap:wrap}
+.grid{display:grid;gap:16px}.two{grid-template-columns:1.1fr .9fr}.three{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.section{padding:32px 0}.sectionhead{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:14px}.sectionhead p{color:var(--muted);margin:0;max-width:650px}
+.badge{display:inline-flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--green) 50%,var(--line));color:var(--green);border-radius:99px;padding:7px 10px;font:600 11px "JetBrains Mono",monospace}
+.dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 14px var(--green)}
+.evidence table,.results-table{width:100%;border-collapse:collapse}.evidence th,.evidence td,.results-table th,.results-table td{border-bottom:1px solid var(--line);text-align:left;padding:10px 7px}.evidence th,.results-table th{font:600 11px "JetBrains Mono",monospace;color:var(--muted)}
+.bar-row{display:grid;grid-template-columns:110px 1fr 50px;align-items:center;gap:10px;margin:11px 0;font-size:12px}.bar{height:11px;border-radius:99px;background:var(--line);overflow:hidden}.fill{height:100%;background:var(--green);border-radius:99px}
+.source{font-size:12px;color:var(--muted);margin-top:14px}.source a{word-break:break-word}
+.flow{display:flex;align-items:center;justify-content:space-between;gap:7px;margin:12px 0}.node{min-width:0;flex:1;border:1px solid var(--line);border-radius:11px;padding:12px;text-align:center;color:var(--muted);font:600 11px "JetBrains Mono",monospace}.node.active{border-color:var(--green);color:var(--green);background:color-mix(in srgb,var(--green) 9%,var(--panel))}.connector{height:2px;flex:.45;background:var(--line);position:relative;overflow:hidden}.connector i{position:absolute;inset:0 auto 0 0;width:0;background:var(--green)}
+.toolgrid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.drop{position:relative;min-height:380px;border:1px dashed var(--line);background:var(--panel);border-radius:16px;padding:16px;transition:border-color var(--dur-med),transform var(--dur-med),background var(--dur-med)}.drop.drag{border-color:var(--green);background:color-mix(in srgb,var(--green) 8%,var(--panel));transform:scale(1.01)}
+textarea{resize:vertical;min-height:255px;width:100%;padding:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:11px;font:13px/1.5 "JetBrains Mono",monospace;outline:none}textarea:focus{border-color:var(--green)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.chip{font-size:12px;padding:7px 9px}.tool-actions{display:flex;gap:8px;flex-wrap:wrap}.state{font:600 12px "JetBrains Mono",monospace;color:var(--muted);margin:12px 0 0}.state.done{color:var(--green)}
+.metric{font:700 clamp(38px,6vw,64px)/1 "JetBrains Mono",monospace;color:var(--green);margin:14px 0}.muted{color:var(--muted);font-size:13px}
+.chart{height:190px;display:flex;align-items:flex-end;gap:10px;border-bottom:1px solid var(--line);padding:10px 3px 0}.col{flex:1;min-width:35px;height:100%;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:7px;font:10px "JetBrains Mono",monospace;color:var(--muted)}.col i{display:block;width:100%;max-width:50px;border-radius:6px 6px 0 0;background:var(--green);transition:height var(--dur-med) var(--ease-out),opacity var(--dur-fast)}
+.filterrow{display:flex;gap:8px;margin:15px 0}.filterrow input{flex:1;min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 10px}.sort{font-size:12px;padding:7px}
+.tablewrap{overflow:auto;max-height:310px}.sev{font:700 10px "JetBrains Mono",monospace;padding:4px 6px;border-radius:5px}.error{color:#ff9aa5;background:#ff697824}.warn{color:#ffdb88;background:#ffcb6624}.info{color:#9bcaff;background:#76a9ff24}
+.rail{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);border-top:1px solid var(--line);padding:8px 20px;transform:translateY(100%);transition:transform var(--dur-med) var(--ease-out)}.rail.show{transform:translateY(0)}.railin{max-width:1120px;margin:auto;display:flex;align-items:center;gap:12px;font:12px "JetBrains Mono",monospace}.progress{flex:1;height:5px;border-radius:10px;background:var(--line);overflow:hidden}.progress i{display:block;width:0;height:100%;background:var(--green);transition:width var(--dur-med)}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.tab.active{background:var(--green);color:#082111;border-color:var(--green);font-weight:800}.prompt{display:none}.prompt.active{display:block}.codebox{position:relative;margin:12px 0}.codebox pre{white-space:pre-wrap;word-break:break-word;max-height:380px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:16px;margin:0;color:#c7f8d5;font:12px/1.55 "JetBrains Mono",monospace}.copy{position:absolute;right:9px;top:9px;font-size:11px;padding:6px 8px}
+.jsondrop{border:1px dashed var(--line);border-radius:11px;padding:14px;text-align:center;color:var(--muted);font-size:12px;margin-top:12px}.jsondrop.drag{border-color:var(--green);color:var(--green);transform:scale(1.01)}
+footer{padding:28px 0 4px;color:var(--muted);font-size:12px}
+@media(max-width:780px){.two,.three,.toolgrid{grid-template-columns:1fr}.flow{gap:4px}.node{padding:9px 4px;font-size:9px}.sectionhead{display:block}.sectionhead p{margin-top:8px}}
+@media(prefers-reduced-motion:no-preference){.card{animation:rise var(--dur-slow) var(--ease-out) both}.card:nth-child(2){animation-delay:40ms}.card:nth-child(3){animation-delay:80ms}.connector.run i{animation:line 800ms var(--ease-out) forwards}.success{animation:sweep 560ms var(--ease-out)}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes line{to{width:100%}}@keyframes sweep{0%{box-shadow:inset 0 0 0 0 var(--green)}50%{box-shadow:inset 0 0 30px 4px color-mix(in srgb,var(--green) 25%,transparent)}100%{box-shadow:inset 0 0 0 0 transparent}}}
+</style>
+</head>
+<body>
+<nav class="topbar"><a href="https://iggym.github.io/zero-cost-ai-coding/">← zero-cost-ai-coding</a><span class="titlemark">TRACE_TRIAGE / local</span><button class="toggle" id="theme">☼</button></nav>
+<main>
+<section class="hero">
+  <div class="eyebrow">AI SYSTEMS ENGINEERING TOOL</div>
+  <h1>Turn noisy traces into an incident queue.</h1>
+  <p>Paste an application, agent, or model-serving log. Watch failures cluster, then export a clean JSON handoff.</p>
+  <div class="actions"><a class="btn primary" href="#tool">Triage a log ↓</a><button class="btn ghost" id="share">Copy link</button><a class="btn ghost" href="https://x.com/intent/tweet?text=Trace%20Triage%20%E2%80%94%20local%20AI%20systems%20incident%20parser" target="_blank" rel="noopener">Share on X</a></div>
+</section>
+
+<section class="section">
+  <div class="sectionhead"><div><div class="eyebrow">WHY</div><h2>Incident review has a tax.</h2></div><p>Hosted observability is useful, but a first-pass log reduction should not require transmitting sensitive traces or opening a billing account.</p></div>
+  <div class="grid two">
+    <article class="card evidence">
+      <h3>Paid observability reference</h3>
+      <div class="bar-row"><span>Datadog Pro</span><div class="bar"><div class="fill" style="width:31%"></div></div><b>$15</b></div>
+      <div class="bar-row"><span>New Relic Std.</span><div class="bar"><div class="fill" style="width:100%"></div></div><b>$49</b></div>
+      <div class="bar-row"><span>Trace Triage</span><div class="bar"><div class="fill" style="width:0%"></div></div><b>$0</b></div>
+      <p class="source">Reference: public entry pricing shown for Datadog Pro / host-month and New Relic Standard / user-month. <a href="https://www.datadoghq.com/pricing/" target="_blank" rel="noopener">Datadog pricing ↗</a> · <a href="https://newrelic.com/pricing" target="_blank" rel="noopener">New Relic pricing ↗</a></p>
+    </article>
+    <article class="card">
+      <div class="badge"><span class="dot"></span>Browser-Native · $0 · no quota</div>
+      <h3 style="margin-top:16px">Keep the raw log local.</h3>
+      <p class="muted">This page uses deterministic browser-side parsing. It makes no network request with your log, needs no key, and has no provider cap. It is a triage aid—not a replacement for distributed tracing or root-cause analysis.</p>
+      <p class="muted">AI tooling reference: GitHub Copilot Free advertises 2,000 completions plus 50 premium requests per month, with no card required.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <div class="sectionhead"><div><div class="eyebrow">HOW</div><h2>From pasted trace to shareable queue.</h2></div><span class="badge">Processing stays in this tab</span></div>
+  <article class="card">
+    <div class="flow">
+      <div class="node active" id="n1">01 · PASTE</div><div class="connector" id="c1"><i></i></div>
+      <div class="node" id="n2">02 · PARSE</div><div class="connector" id="c2"><i></i></div>
+      <div class="node" id="n3">03 · QUEUE</div>
+    </div>
+    <p class="muted">Recognizes timestamps, severity, service labels, request/trace IDs, latency, status codes, exception words, rate limits, timeouts, and common LLM failure signals.</p>
+  </article>
+</section>
+
+<section class="section" id="tool">
+  <div class="sectionhead"><div><div class="eyebrow">UTILITY</div><h2>Run the local parser.</h2></div><span class="badge">Free-tier reference: GitHub Copilot Free · 2,000 completions + 50 premium requests/month</span></div>
+  <div class="toolgrid">
+    <article class="drop" id="drop">
+      <h3>Input log</h3>
+      <div class="chips"><button class="chip" data-sample="tiny">Try tiny →</button><button class="chip" data-sample="medium">Try medium →</button><button class="chip" data-sample="stress">Try stress-test →</button></div>
+      <textarea id="log" aria-label="Paste log lines"></textarea>
+      <div class="tool-actions"><button class="btn primary" id="run">Analyze log</button><button class="btn" id="clear">Clear</button><button class="btn" id="copyjson">Copy as JSON</button><button class="btn" id="download">Download JSON</button></div>
+      <div class="state" id="state">EMPTY — pick an example, paste text, or drop a .log/.txt/.json file.</div>
+      <div class="jsondrop" id="jsondrop">Import prior result: drop a <span class="mono">{"zcac":true,"kind":"trace-triage"}</span> JSON file here.</div>
+    </article>
+
+    <aside class="grid">
+      <article class="card" id="savecard">
+        <div class="eyebrow">WHAT THIS SAVED YOU</div>
+        <div class="metric" id="saved">0 sec</div>
+        <p class="muted">Assumption: ~15 sec to inspect one flagged entry by hand. This counts only entries flagged by your own pasted log.</p>
+      </article>
+      <article class="card">
+        <div class="eyebrow">LIVE SCRUB</div>
+        <h3 style="margin-top:8px">Minimum severity</h3>
+        <input type="range" id="threshold" min="0" max="2" value="0" style="width:100%;accent-color:var(--green);margin:16px 0 5px">
+        <div class="muted" id="thresholdLabel">Show: INFO, WARN, ERROR</div>
+      </article>
+      <article class="card">
+        <div class="eyebrow">HONEST LIMIT</div>
+        <p class="muted">The parser identifies patterns; it does not understand business context, join distributed spans, or prove causality. Redact secrets before sharing exported JSON.</p>
+      </article>
+    </aside>
+  </div>
+
+  <div class="grid two" style="margin-top:16px">
+    <article class="card">
+      <div class="sectionhead"><div><h3>Severity distribution</h3></div><span class="muted" id="countLabel">0 entries</span></div>
+      <div class="chart" id="chart"></div>
+    </article>
+    <article class="card">
+      <div class="sectionhead"><div><h3>Failure fingerprints</h3></div><span class="muted">live from input</span></div>
+      <div id="fingerprints" class="muted">No parsed entries yet.</div>
+    </article>
+  </div>
+
+  <article class="card" style="margin-top:16px">
+    <div class="sectionhead"><div><h3>Incident queue</h3><p class="muted">Search and sort the parsed entries.</p></div><button class="btn sort" id="sort">Sort: severity ↓</button></div>
+    <div class="filterrow"><input id="search" placeholder="Filter message, service, trace ID…"></div>
+    <div class="tablewrap"><table class="results-table"><thead><tr><th>SEV</th><th>TIME</th><th>SERVICE</th><th>FINGERPRINT</th><th>MESSAGE</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="muted">Run analysis to create a queue.</td></tr></tbody></table></div>
+  </article>
+</section>
+
+<section class="section">
+  <div class="sectionhead"><div><div class="eyebrow">BUILD THIS YOURSELF</div><h2>Parameterized multi-model prompt pack.</h2></div><p>Templates teach the single-file visual-tool pattern. Replace every <span class="mono">{{variable}}</span>.</p></div>
+  <article class="card">
+    <div class="tabs">
+      <button class="tab active" data-tab="use">How to use this</button>
+      <button class="tab" data-tab="openai">Chatbot · OpenAI</button>
+      <button class="tab" data-tab="code">Code / API</button>
+      <button class="tab" data-tab="anthropic">Anthropic</button>
+      <button class="tab" data-tab="google">Google</button>
+      <button class="tab" data-tab="openweight">Open-Weight</button>
+    </div>
+
+    <div class="prompt active" id="use">
+      <h3>How to use this</h3>
+      <ol class="muted">
+        <li>For chatbots: select the provider tab, copy the prompt, paste it into your chosen model, replace every {{variable}}, then send.</li>
+        <li>For code: use the Code / API tab as a JSON payload. Replace {{variables}} programmatically and attach your own API key on the server—not in a public static page.</li>
+        <li>Every template is parameterized. The small filled example is illustrative; do not hardcode it into your own tool.</li>
+      </ol>
+    </div>
+
+    <div class="prompt" id="openai"><div class="codebox"><button class="btn copy">Copy</button><pre>Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+Parameters:
+temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+
+SYSTEM
+You build a single-file HTML visual tool for {{AUDIENCE}}. Date boundary: {{DATE}}. Solve {{PROBLEM}} through {{SOLUTION_MODE}}. Verify every external price, limit, endpoint, and tool syntax before stating it. Produce useful input-driven UI: WHY evidence visual, HOW three-node flow, UTILITY live chart and sortable table. Use no framework and no backend secrets.
+
+USER
+Problem: {{PROBLEM}}
+Evidence source: {{EVIDENCE_SOURCE}}
+Free service: {{FREE_SERVICE}}
+Limit: {{FREE_TIER_LIMIT}}
+Documentation: {{FREE_TIER_URL}}
+Input example: {{INPUT_EXAMPLE}}
+Output kind: {{OUTPUT_KIND}}
+Visual style: {{VISUAL_STYLE}}
+
+Use this function when you need structured implementation planning:
+tools: [{
+  "type":"function",
+  "name":"plan_visual_tool",
+  "description":"Return a verified build plan for a browser tool.",
+  "parameters":{"type":"object","properties":{
+    "mode":{"type":"string"},
+    "claims_to_verify":{"type":"array","items":{"type":"string"}},
+    "components":{"type":"array","items":{"type":"string"}}
+  },"required":["mode","claims_to_verify","components"],"additionalProperties":false},
+  "strict":true
+}]
+
+EXAMPLE FILL
+{{PROBLEM}} = Reduce noisy AI-system logs into an incident queue.
+{{FREE_SERVICE}} = Local browser JavaScript parser.
+{{SOLUTION_MODE}} = Browser-Native.</pre></div></div>
+
+    <div class="prompt" id="code"><div class="codebox"><button class="btn copy">Copy</button><pre>{
+  "model": "{{MODEL_NAME}}",
+  "input": [
+    {"role":"system","content":[{"type":"input_text","text":"You build one working single-file HTML tool for {{AUDIENCE}}. Date: {{DATE}}. Mode: {{SOLUTION_MODE}}. Verify claims; use real visitor input; create WHY/HOW/UTILITY visuals."}]},
+    {"role":"user","content":[{"type":"input_text","text":"Problem: {{PROBLEM}}\nEvidence: {{EVIDENCE_SOURCE}}\nFree service: {{FREE_SERVICE}}\nLimit: {{FREE_TIER_LIMIT}}\nDocs: {{FREE_TIER_URL}}\nInput: {{INPUT_EXAMPLE}}\nOutput: {{OUTPUT_KIND}}\nStyle: {{VISUAL_STYLE}}"}]}
+  ],
+  "tools": [{
+    "type":"function",
+    "name":"plan_visual_tool",
+    "description":"Plan a verified visual browser tool.",
+    "parameters":{"type":"object","properties":{"components":{"type":"array","items":{"type":"string"}}},"required":["components"],"additionalProperties":false},
+    "strict":true
+  }]
+}</pre></div></div>
+
+    <div class="prompt" id="anthropic"><div class="codebox"><button class="btn copy">Copy</button><pre>Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+Parameters: temperature: 0.4 | top_p: 0.9 | max_tokens: 4096
+
+SYSTEM
+Build a verified, usable single-file HTML tool for {{AUDIENCE}}. Bound all free claims to {{DATE}}. Solution mode: {{SOLUTION_MODE}}. Require a real-input utility dashboard, sortable output, and an accessible reduced-motion fallback.
+
+USER
+{{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Free service / limit / docs: {{FREE_SERVICE}} / {{FREE_TIER_LIMIT}} / {{FREE_TIER_URL}}
+Example: {{INPUT_EXAMPLE}}
+Output: {{OUTPUT_KIND}}. Visuals: {{VISUAL_STYLE}}.
+
+TOOL_USE DEFINITION
+{
+ "name":"plan_visual_tool",
+ "description":"Plan components and claims needing verification.",
+ "input_schema":{"type":"object","properties":{
+   "components":{"type":"array","items":{"type":"string"}},
+   "claims_to_verify":{"type":"array","items":{"type":"string"}}
+ },"required":["components","claims_to_verify"]}
+}
+
+EXAMPLE: Problem = triage AI-serving logs; mode = Browser-Native; output = trace-triage JSON.</pre></div></div>
+
+    <div class="prompt" id="google"><div class="codebox"><button class="btn copy">Copy</button><pre>Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+Parameters: temperature: 0.4 | top_p: 0.9 | max_tokens: 4096
+
+SYSTEM
+Create a single static HTML tool for {{AUDIENCE}}. Date boundary: {{DATE}}. Use {{SOLUTION_MODE}}. Facts must be verified. Build visual WHY/HOW/UTILITY storytelling and a working input-driven dashboard.
+
+USER
+Problem={{PROBLEM}}
+Evidence={{EVIDENCE_SOURCE}}
+Free service={{FREE_SERVICE}}
+Limit={{FREE_TIER_LIMIT}}
+URL={{FREE_TIER_URL}}
+Input={{INPUT_EXAMPLE}}
+Output={{OUTPUT_KIND}}
+Style={{VISUAL_STYLE}}
+
+functionDeclarations: [{
+ "name":"planVisualTool",
+ "description":"Return a visual-tool implementation plan.",
+ "parameters":{
+   "type":"OBJECT",
+   "properties":{
+     "components":{"type":"ARRAY","items":{"type":"STRING"}},
+     "verificationQueries":{"type":"ARRAY","items":{"type":"STRING"}}
+   },
+   "required":["components","verificationQueries"]
+ }
+}]
+
+EXAMPLE: {{PROBLEM}} = classify AI gateway failures from logs; {{OUTPUT_KIND}} = trace-triage.</pre></div></div>
+
+    <div class="prompt" id="openweight"><div class="codebox"><button class="btn copy">Copy</button><pre>Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+Parameters:
+temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+
+SYSTEM
+You are a visual tool builder. Generate one usable single-file HTML document for {{AUDIENCE}}. Apply {{SOLUTION_MODE}} as of {{DATE}}. Never invent free limits, pricing, endpoint syntax, or citations. Include a WHY visual, three-step HOW flow, and a real-input UTILITY chart/table. Return strict JSON only, matching the schema below.
+
+USER
+PROBLEM={{PROBLEM}}
+EVIDENCE_SOURCE={{EVIDENCE_SOURCE}}
+FREE_SERVICE={{FREE_SERVICE}}
+FREE_TIER_LIMIT={{FREE_TIER_LIMIT}}
+FREE_TIER_URL={{FREE_TIER_URL}}
+INPUT_EXAMPLE={{INPUT_EXAMPLE}}
+OUTPUT_KIND={{OUTPUT_KIND}}
+VISUAL_STYLE={{VISUAL_STYLE}}
+
+STRICT JSON SCHEMA
+{"type":"object","properties":{
+ "title":{"type":"string"},
+ "verification_needed":{"type":"array","items":{"type":"string"}},
+ "html":{"type":"string"},
+ "output_kind":{"type":"string"}
+},"required":["title","verification_needed","html","output_kind"],"additionalProperties":false}
+
+EXAMPLE: Problem=turn LLM gateway logs into an incident queue; Output kind=trace-triage.</pre></div></div>
+  </article>
+</section>
+<footer>Free-tier verified: GitHub Copilot Free — <a href="https://github.com/features/copilot/plans">github.com/features/copilot/plans</a> — 2026-08-16. Local parsing itself has no provider tier or cap.</footer>
+</main>
+<div class="rail" id="rail"><div class="railin"><span id="railtext">READY</span><span>● ● ●</span><div class="progress"><i id="railbar"></i></div><span id="railcount">0</span></div></div>
+
+<script>
+const samples={
+tiny:`2026-08-16T09:14:02Z INFO api-gateway request_id=req_01 model=gpt-router latency_ms=184 status=200 request complete
+2026-08-16T09:14:03Z ERROR api-gateway request_id=req_02 model=gpt-router latency_ms=3204 status=504 upstream timeout while waiting for inference
+2026-08-16T09:14:04Z WARN prompt-worker trace_id=tr_a91 retry=1 rate limit received from provider`,
+medium:`2026-08-16T09:14:02Z INFO api-gateway request_id=req_01 model=router latency_ms=184 status=200 request complete
+2026-08-16T09:14:03Z ERROR api-gateway request_id=req_02 model=router latency_ms=3204 status=504 upstream timeout while waiting for inference
+2026-08-16T09:14:04Z WARN prompt-worker trace_id=tr_a91 retry=1 rate limit received from provider
+2026-08-16T09:14:06Z ERROR retrieval-service trace_id=tr_a92 status=500 vector database connection refused
+2026-08-16T09:14:08Z WARN api-gateway request_id=req_03 latency_ms=2200 status=429 too many requests
+2026-08-16T09:14:09Z ERROR agent-runner trace_id=tr_a93 tool call failed: invalid JSON arguments
+2026-08-16T09:14:11Z INFO api-gateway request_id=req_04 latency_ms=201 status=200 request complete`,
+stress:Array.from({length:28},(_,i)=>{
+const sev=i%7===0?"ERROR":i%4===0?"WARN":"INFO";
+const msg=sev==="ERROR"?["upstream timeout status=504","context window exceeded status=400","tool call failed invalid JSON","vector database connection refused"][i%4]:sev==="WARN"?["rate limit status=429","retry scheduled","slow request latency_ms=2200"][i%3]:"request complete status=200";
+return `2026-08-16T09:${String(i).padStart(2,"0")}:00Z ${sev} ${i%3?"api-gateway":"agent-runner"} trace_id=tr_${100+i} latency_ms=${120+i*91} ${msg}`;
+}).join("\n")
+};
+const els={log:document.querySelector("#log"),state:document.querySelector("#state"),rows:document.querySelector("#rows"),chart:document.querySelector("#chart"),fp:document.querySelector("#fingerprints"),saved:document.querySelector("#saved"),count:document.querySelector("#countLabel"),rail:document.querySelector("#rail"),railtext:document.querySelector("#railtext"),railbar:document.querySelector("#railbar"),railcount:document.querySelector("#railcount"),threshold:document.querySelector("#threshold"),thresholdLabel:document.querySelector("#thresholdLabel"),drop:document.querySelector("#drop")};
+let all=[],sorted=true,first=true;
+function sev(line){if(/\b(fatal|error|exception|failed|timeout|refused)\b/i.test(line))return "ERROR";if(/\b(warn|rate limit|429|retry|slow)\b/i.test(line))return "WARN";return "INFO"}
+function fingerprint(s){const tests=[["Timeout",/timeout|504/i],["Rate limit",/rate limit|429/i],["Context limit",/context window|token limit/i],["Tool JSON",/tool call|invalid json/i],["Retrieval",/vector|retrieval|database/i],["Server error",/\b500\b/i]];return (tests.find(x=>x[1].test(s))||["General log"])[0]}
+function parse(text){return text.split(/\n+/).map((raw,i)=>{let x=raw.trim();if(!x)return null;let time=(x.match(/\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ?/)||["—"])[0],service=(x.match(/\b(api-gateway|prompt-worker|retrieval-service|agent-runner|[\w-]+service)\b/i)||["unknown"])[0],id=(x.match(/\b(?:trace_id|request_id)=([^\s]+)/)||[])[1]||"";let s=sev(x);return {i,time,service,id,sev:s,fp:fingerprint(x),msg:x.replace(time,"").replace(/\b(?:INFO|WARN|ERROR|FATAL)\b/i,"").trim()}}).filter(Boolean)}
+function visible(){let min=+els.threshold.value,rank={INFO:0,WARN:1,ERROR:2},q=document.querySelector("#search").value.toLowerCase();return all.filter(x=>rank[x.sev]>=min&&JSON.stringify(x).toLowerCase().includes(q)).sort((a,b)=>sorted?(rank[b.sev]-rank[a.sev]||a.i-b.i):(a.i-b.i))}
+function render(){let v=visible(),counts={INFO:0,WARN:0,ERROR:0};all.forEach(x=>counts[x.sev]++);els.chart.innerHTML=Object.entries(counts).map(([k,n])=>`<div class="col"><span>${n}</span><i style="height:${all.length?Math.max(4,n/all.length*150):4}px;background:${k==="ERROR"?"var(--red)":k==="WARN"?"var(--amber)":"var(--green)"}"></i><b>${k}</b></div>`).join("");els.count.textContent=`${all.length} entries`;els.railcount.textContent=`${v.length} shown`;
+let f={};all.forEach(x=>{if(x.sev!=="INFO")f[x.fp]=(f[x.fp]||0)+1});els.fp.innerHTML=Object.keys(f).length?Object.entries(f).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:9px 0"><span>${k}</span><b class="mono" style="color:var(--green)">${n}</b></div>`).join(""):"No failures or warnings found.";
+els.rows.style.opacity=".15";setTimeout(()=>{els.rows.innerHTML=v.length?v.map(x=>`<tr><td><span class="sev ${x.sev.toLowerCase()}">${x.sev}</span></td><td>${x.time}</td><td>${x.service}${x.id?`<br><small class="muted">${x.id}</small>`:""}</td><td>${x.fp}</td><td>${x.msg}</td></tr>`).join(""):`<tr><td colspan="5" class="muted">No entries match this filter.</td></tr>`;els.rows.style.opacity="1"},150);
+let flags=all.filter(x=>x.sev!=="INFO").length;animateSave(flags*15);els.thresholdLabel.textContent=["Show: INFO, WARN, ERROR","Show: WARN, ERROR","Show: ERROR only"][+els.threshold.value]}
+function animateSave(target){let start=Number((els.saved.textContent.match(/\d+/)||[0])[0]),t0=performance.now(),dur=380;function tick(t){let p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);els.saved.textContent=Math.round(start+(target-start)*e)+" sec";if(p<1)requestAnimationFrame(tick)}requestAnimationFrame(tick)}
+function run(){els.rail.classList.add("show");els.railtext.textContent="PARSING";els.railbar.style.width="34%";els.state.textContent="WORKING — extracting timestamps, severity, services, and fingerprints…";els.state.className="state";document.querySelector("#n1").classList.add("active");document.querySelector("#n2").classList.add("active");document.querySelector("#c1").classList.add("run");setTimeout(()=>{all=parse(els.log.value);els.railtext.textContent="DONE";els.railbar.style.width="100%";els.state.textContent=`DONE — ${all.length} log entries parsed locally.`;els.state.className="state done";document.querySelector("#n3").classList.add("active");document.querySelector("#c2").classList.add("run");render();if(first&&all.length){first=false;document.querySelector("#savecard").classList.add("success")}setTimeout(()=>els.rail.classList.remove("show"),2200)},420)}
+document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{els.log.value=samples[b.dataset.sample];els.log.style.transform="scale(.99)";setTimeout(()=>{els.log.style.transform="";run()},300)});
+document.querySelector("#run").onclick=run;document.querySelector("#clear").onclick=()=>{els.log.value="";all=[];render();els.state.textContent="EMPTY — paste a log or choose an example.";els.state.className="state"};
+els.threshold.oninput=render;document.querySelector("#search").oninput=render;document.querySelector("#sort").onclick=()=>{sorted=!sorted;document.querySelector("#sort").textContent=sorted?"Sort: severity ↓":"Sort: source order";render()};
+function payload(){return {zcac:true,kind:"trace-triage",data:{created_at:new Date().toISOString(),entries:all,summary:{total:all.length,flagged:all.filter(x=>x.sev!=="INFO").length}}}}
+function copied(btn){let t=btn.textContent;btn.textContent="Copied! ✓";setTimeout(()=>btn.textContent=t,1200)}
+document.querySelector("#copyjson").onclick=async e=>{await navigator.clipboard.writeText(JSON.stringify(payload(),null,2));copied(e.target)};
+document.querySelector("#download").onclick=()=>{let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(payload(),null,2)],{type:"application/json"}));a.download="trace-triage.json";a.click();URL.revokeObjectURL(a.href)};
+document.querySelector("#share").onclick=async e=>{await navigator.clipboard.writeText(location.href);copied(e.target)};
+document.querySelector("#theme").onclick=()=>document.documentElement.classList.toggle("light");
+function drag(el,handler){["dragenter","dragover"].forEach(n=>el.addEventListener(n,e=>{e.preventDefault();el.classList.add("drag")}));["dragleave","drop"].forEach(n=>el.addEventListener(n,e=>{e.preventDefault();el.classList.remove("drag")}));el.addEventListener("drop",e=>handler(e.dataTransfer.files[0]))}
+drag(els.drop,file=>{if(!file)return;let r=new FileReader;r.onload=()=>{els.log.value=r.result;run()};r.readAsText(file)});
+drag(document.querySelector("#jsondrop"),file=>{if(!file)return;let r=new FileReader;r.onload=()=>{try{let j=JSON.parse(r.result);if(j.zcac&&j.kind==="trace-triage"){all=j.data.entries||[];els.log.value=all.map(x=>x.msg).join("\n");render();els.state.textContent="DONE — trace-triage JSON imported.";els.state.className="state done"}}catch{}};r.readAsText(file)});
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.prompt").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.querySelector("#"+t.dataset.tab).classList.add("active")});
+document.querySelectorAll(".copy").forEach(b=>b.onclick=async()=>{await navigator.clipboard.writeText(b.nextElementSibling.textContent);copied(b)});
+els.log.value=samples.tiny;
+</script>
+</body>
+</html>
