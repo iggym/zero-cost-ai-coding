@@ -8,6 +8,26 @@
     "description": "Single-file, working web tools that solve real developer problems using genuinely free AI, compute, and hosting — every free-tier claim verified against the provider's own current docs."
   },
   "articles": [{
+  "id": "1026",
+  "slug": "llm-cost-latency-estimator",
+  "title": "LLM Cost & Latency Estimator",
+  "hook": "Stop bill overages. Scrub your token volume and watch costs compare across models.",
+  "path": "tools/llm-cost-latency-estimator.html",
+  "date": "2026-08-16",
+  "status": "published",
+  "format": "tool",
+  "solution_mode": "browser-native",
+  "how_free": "Browser Native JS - $0 forever, no external APIs needed",
+  "source_url": "https://www.helicone.ai/pricing",
+  "produces": "JSON",
+  "accepts": ["text/plain"],
+  "tags": ["ai-syseng", "cost-estimation", "latency", "browser-native"],
+  "reading_time_minutes": 3,
+  "pinned": false,
+  "verified": "2026-08-16",
+  "visuals": ["why-chart", "how-flow", "utility-dashboard", "sortable-table"],
+  "prompt_targets": ["openai", "anthropic", "google", "open-weight"]
+},{
   "id": "1024",
   "slug": "prompt-injection-detector",
   "title": "Prompt Injection Detector",
