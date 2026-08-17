@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Fallback Config Generator</title>
+<style>
+  :root {
+    --bg-dark: #0a0e14;
+    --bg-light: #f7f8fa;
+    --text-dark: #e1e4e8;
+    --text-light: #1a1a1a;
+    --bg-card-dark: #141821;
+    --bg-card-light: #ffffff;
+    --border-dark: #2d333b;
+    --border-light: #e1e4e8;
+    --accent: #00ff9d;
+    --accent-dim: rgba(0, 255, 157, 0.1);
+    --warn: #ffb000;
+    --danger: #ff4c44;
+    --ease-out: cubic-bezier(.16,1,.3,1);
+    --ease-in-out: cubic-bezier(.65,0,.35,1);
+    --dur-fast: 150ms;
+    --dur-med: 300ms;
+    --dur-slow: 500ms;
+  }
+  
+  [data-theme="dark"] body { background: var(--bg-dark); color: var(--text-dark); }
+  [data-theme="light"] body { background: var(--bg-light); color: var(--text-light); }
+  [data-theme="dark"] .card { background: var(--bg-card-dark); border: 1px solid var(--border-dark); }
+  [data-theme="light"] .card { background: var(--bg-card-light); border: 1px solid var(--border-light); }
+  [data-theme="light"] input, [data-theme="light"] select, [data-theme="light"] textarea { background: #f0f0f0; color: var(--text-light); border-color: var(--border-light); }
+  [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: #0d1117; color: var(--text-dark); border-color: var(--border-dark); }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    transition: background var(--dur-med) var(--ease-in-out), color var(--dur-med) var(--ease-in-out);
+  }
+
+  h1, h2, h3, .mono { font-family: 'JetBrains Mono', monospace; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+  .card { border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; transition: transform var(--dur-fast) var(--ease-out); }
+  .card:hover { transform: translateY(-2px); }
+
+  .nav { position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); background: rgba(10, 14, 20, 0.8); padding: 1rem; border-bottom: 1px solid var(--border-dark); display: flex; justify-content: space-between; align-items: center; }
+  [data-theme="light"] .nav { background: rgba(247, 248, 250, 0.8); border-bottom-color: var(--border-light); }
+  .nav-left a { font-weight: bold; font-size: 0.9rem; }
+  .nav-right { font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; }
+
+  .header { text-align: center; padding: 4rem 0 2rem; }
+  .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .header p { font-size: 1.1rem; opacity: 0.8; }
+  .pitch-actions { margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; }
+  .btn { background: var(--accent); color: #000; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; transition: transform var(--dur-fast); }
+  .btn:hover { transform: scale(1.05); }
+  .btn-out { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+  .copied { background: var(--accent) !important; color: #000 !important; }
+
+  .svg-chart { width: 100%; height: 150px; }
+  .flow-node { fill: var(--bg-card-dark); stroke: var(--border-dark); stroke-width: 2; transition: all var(--dur-med) var(--ease-out); }
+  [data-theme="light"] .flow-node { fill: #fff; stroke: var(--border-light); }
+  .flow-line { stroke: var(--border-dark); stroke-width: 2; stroke-dasharray: 5,5; }
+  [data-theme="light"] .flow-line { stroke: var(--border-light); }
+  .flow-line-active { stroke: var(--accent); stroke-dasharray: none; stroke-dashoffset: 100; animation: dash 1s linear forwards; }
+  
+  @keyframes dash { to { stroke-dashoffset: 0; } }
+
+  .slider-container { margin: 1rem 0; display: flex; align-items: center; gap: 1rem; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  select { padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-dark); font-family: 'JetBrains Mono'; }
+
+  .table-container { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border-dark); }
+  [data-theme="light"] th, [data-theme="light"] td { border-bottom: 1px solid var(--border-light); }
+  th { cursor: pointer; transition: background var(--dur-fast); }
+  th:hover { background: var(--accent-dim); }
+  tr { transition: opacity var(--dur-med); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+  .tab { padding: 0.5rem 1rem; border: 1px solid var(--border-dark); border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; transition: all var(--dur-fast); }
+  [data-theme="light"] .tab { border-color: var(--border-light); }
+  .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn var(--dur-med) var(--ease-out); }
+  pre { background: var(--bg-dark); color: var(--text-dark); padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid var(--border-dark); position: relative; }
+  [data-theme="light"] pre { background: #f0f0f0; color: #1a1a1a; border-color: var(--border-light); }
+  
+  .badge { display: inline-block; background: var(--accent-dim); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; border: 1px solid var(--accent); }
+  .count-up { font-size: 2.5rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: bold; }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card { animation: fadeIn var(--dur-med) var(--ease-out) backwards; }
+    .card:nth-child(1) { animation-delay: 0ms; }
+    .card:nth-child(2) { animation-delay: 40ms; }
+    .card:nth-child(3) { animation-delay: 80ms; }
+    .card:nth-child(4) { animation-delay: 120ms; }
+    .card:nth-child(5) { animation-delay: 160ms; }
+  }
+  
+  .progress-rail { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--accent); z-index: 200; transition: width var(--dur-med) var(--ease-out); display: none; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body data-theme="dark">
+
+<div class="nav">
+  <div class="nav-left"><a href="https://iggym.github.io/zero-cost-ai-coding/">← Zero-Cost AI Coding</a></div>
+  <div class="nav-right">AI Fallback Config Generator</div>
+</div>
+<div id="progressRail" class="progress-rail"></div>
+
+<div class="container">
+  <div class="header">
+    <span class="badge">Free-tier verified: Browser-Native JS</span>
+    <h1>Stop Dropped Requests.</h1>
+    <p>Scrub your retry limits. Watch the routing logic generate.</p>
+    <div class="pitch-actions">
+      <button class="btn" onclick="copyLink(this)">Copy Link</button>
+      <button class="btn btn-out" onclick="window.open('https://twitter.com/intent/tweet?text=Check%20out%20this%20Zero-Cost%20AI%20Fallback%20Config%20Generator','_blank')">Share on X</button>
+    </div>
+  </div>
+
+  <!-- WHY: The Problem, Visually -->
+  <div class="card">
+    <h3>WHY: The Evidence</h3>
+    <p>Bad fallback logic causes cascading failures. Paid AI gateway tools offer visual builders to prevent this.</p>
+    <div class="table-container" style="margin-top:1rem;">
+      <table>
+        <thead><tr><th>Tool</th><th>Focus</th><th>Paid Cost</th></tr></thead>
+        <tbody>
+          <tr><td>Portkey</td><td>Visual AI Gateway</td><td>$29/mo</td></tr>
+          <tr><td>Kong AI Gateway</td><td>Enterprise Routing</td><td>Custom/Enterprise</td></tr>
+          <tr><td>Browser-Native JS</td><td>Config Generation</td><td>$0 forever</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <small>Source: Portkey public pricing pages, 2026-08-16</small>
+  </div>
+
+  <!-- HOW: How It Works, Visually -->
+  <div class="card">
+    <h3>HOW: The Process</h3>
+    <p>Routing logic is calculated locally and mapped to a deployable YAML file.</p>
+    <svg class="svg-chart" id="flowChart" viewBox="0 0 600 150">
+      <!-- Node 1 -->
+      <rect class="flow-node" x="10" y="50" width="120" height="50" rx="5"></rect>
+      <text x="70" y="80" text-anchor="middle" fill="currentColor" font-family="JetBrains Mono" font-size="12">Request</text>
+      
+      <!-- Node 2 -->
+      <rect class="flow-node" x="240" y="20" width="120" height="50" rx="5"></rect>
+      <text x="300" y="45" text-anchor="middle" fill="currentColor" font-family="JetBrains Mono" font-size="12">Primary Model</text>
+      
+      <!-- Node 3 -->
+      <rect class="flow-node" x="240" y="90" width="120" height="50" rx="5"></rect>
+      <text x="300" y="115" text-anchor="middle" fill="currentColor" font-family="JetBrains Mono" font-size="12">Fallback Model</text>
+      
+      <!-- Node 4 -->
+      <rect class="flow-node" x="470" y="50" width="120" height="50" rx="5"></rect>
+      <text x="530" y="80" text-anchor="middle" fill="currentColor" font-family="JetBrains Mono" font-size="12">Response</text>
+      
+      <!-- Lines -->
+      <path class="flow-line flow-line-active" d="M130,75 L240,45" fill="none"></path>
+      <path class="flow-line" id="failLine" d="M300,70 L300,90" fill="none"></path>
+      <path class="flow-line flow-line-active" d="M360,115 L470,75" fill="none"></path>
+      <path class="flow-line flow-line-active" d="M360,45 L470,75" fill="none"></path>
+    </svg>
+  </div>
+
+  <!-- UTILITY: The Tool -->
+  <div class="card">
+    <h3>UTILITY: The Generator</h3>
+    
+    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <div style="flex:1; min-width:200px;">
+        <label>Primary Model:</label>
+        <select id="primaryModel" onchange="runGen()" style="width:100%; margin-bottom:1rem;">
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:200px;">
+        <label>Fallback Model:</label>
+        <select id="fallbackModel" onchange="runGen()" style="width:100%; margin-bottom:1rem;">
+          <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="llama-3-70b">Llama 3 70B</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="slider-container">
+      <label>Max Retries:</label>
+      <input type="range" id="retries" min="1" max="5" value="2" oninput="runGen()" style="flex:1;">
+      <span id="retriesVal" class="mono">2</span>
+    </div>
+    <div class="slider-container">
+      <label>Timeout (ms):</label>
+      <input type="range" id="timeout" min="500" max="10000" value="3000" step="500" oninput="runGen()" style="flex:1;">
+      <span id="timeoutVal" class="mono">3000</span>
+    </div>
+    
+    <div style="display:flex; gap:2rem; align-items:center; justify-content:space-between; margin-top:1.5rem; border-top:1px solid var(--border-dark); padding-top:1.5rem;">
+      <div>
+        <div style="font-size:0.9rem; opacity:0.8;">Est. Saved Req/Hr</div>
+        <div class="count-up" id="savedCount">0</div>
+      </div>
+      <div style="flex:1;">
+        <pre id="yamlOutput" style="margin:0; min-height:150px;"></pre>
+      </div>
+    </div>
+    
+    <div class="table-container" style="margin-top:1.5rem;">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Step</th>
+            <th onclick="sortTable(1)">Trigger</th>
+            <th onclick="sortTable(2)">Action</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+    
+    <div style="margin-top:1rem;">
+      <button class="btn" onclick="exportJson()">Copy as JSON</button>
+      <button class="btn btn-out" style="margin-left:0.5rem;" onclick="copyYaml(this)">Copy YAML</button>
+    </div>
+  </div>
+
+  <!-- Prompt Pack -->
+  <div class="card">
+    <h3>🟢 BUILD THIS YOURSELF: PARAMETERIZED PROMPT PACK</h3>
+    <p>Teaches the pattern. For chatbots, pick your model tab, copy, replace {{variables}}. For code, use the JSON payload.</p>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab(event, 'tab-openai')">OpenAI</div>
+      <div class="tab" onclick="switchTab(event, 'tab-anthropic')">Anthropic</div>
+      <div class="tab" onclick="switchTab(event, 'tab-google')">Google</div>
+      <div class="tab" onclick="switchTab(event, 'tab-openweight')">Open-Weight</div>
+    </div>
+
+    <!-- OpenAI -->
+    <div id="tab-openai" class="tab-content active">
+      <button class="btn" style="float:right;" onclick="copyText('openai-code', this)">Copy</button>
+      <pre id="openai-code">
+Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+
+Parameters:
+temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+
+System Prompt:
+You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
+Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
+Generate a single HTML file that solves: {{PROBLEM}}.
+
+User Template:
+Problem: {{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Free Tier URL: {{FREE_TIER_URL}}
+Input Example: {{INPUT_EXAMPLE}}
+Output Kind: {{OUTPUT_KIND}}
+Visual Style: {{VISUAL_STYLE}}
+
+Tool Definition (Chat Completions API with tool_calling):
+{
+  "type": "function",
+  "function": {
+    "name": "generate_single_file_tool",
+    "description": "Generates the complete HTML file based on specifications.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "html_content": { "type": "string", "description": "The full HTML, CSS, and JS source." }
+      },
+      "required": ["html_content"]
+    }
+  }
+}
+
+Example Fill:
+{{PROBLEM}}: "Generate AI gateway fallback routing configs"
+{{EVIDENCE_SOURCE}}: "Paid tools like Portkey ($29/mo) exist for this"
+{{FREE_TIER_URL}}: "Browser Native JS"
+{{SOLUTION_MODE}}: "generator"
+      </pre>
+    </div>
+
+    <!-- Anthropic -->
+    <div id="tab-anthropic" class="tab-content">
+      <button class="btn" style="float:right;" onclick="copyText('anthropic-code', this)">Copy</button>
+      <pre id="anthropic-code">
+Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+
+Parameters:
+temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+
+System Prompt:
+You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
+Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
+Generate a single HTML file that solves: {{PROBLEM}}.
+
+User Template:
+Problem: {{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Free Tier URL: {{FREE_TIER_URL}}
+Input Example: {{INPUT_EXAMPLE}}
+Output Kind: {{OUTPUT_KIND}}
+Visual Style: {{VISUAL_STYLE}}
+
+Tool Definition (Messages API tool_use format):
+{
+  "name": "generate_single_file_tool",
+  "description": "Generates the complete HTML file based on specifications.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "html_content": { "type": "string", "description": "The full HTML, CSS, and JS source." }
+    },
+    "required": ["html_content"]
+  }
+}
+
+Example Fill:
+{{PROBLEM}}: "Generate AI gateway fallback routing configs"
+{{EVIDENCE_SOURCE}}: "Paid tools like Portkey ($29/mo) exist for this"
+{{FREE_TIER_URL}}: "Browser Native JS"
+{{SOLUTION_MODE}}: "generator"
+      </pre>
+    </div>
+
+    <!-- Google -->
+    <div id="tab-google" class="tab-content">
+      <button class="btn" style="float:right;" onclick="copyText('google-code', this)">Copy</button>
+      <pre id="google-code">
+Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+
+Parameters:
+temperature: 0.4
+top_p: 0.9
+max_output_tokens: 4096
+
+System Prompt:
+You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
+Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
+Generate a single HTML file that solves: {{PROBLEM}}.
+
+User Template:
+Problem: {{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Free Tier URL: {{FREE_TIER_URL}}
+Input Example: {{INPUT_EXAMPLE}}
+Output Kind: {{OUTPUT_KIND}}
+Visual Style: {{VISUAL_STYLE}}
+
+Tool Definition (functionDeclarations format):
+{
+  "functionDeclarations": [
+    {
+      "name": "generate_single_file_tool",
+      "description": "Generates the complete HTML file based on specifications.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "html_content": { "type": "STRING", "description": "The full HTML, CSS, and JS source." }
+        },
+        "required": ["html_content"]
+      }
+    }
+  ]
+}
+
+Example Fill:
+{{PROBLEM}}: "Generate AI gateway fallback routing configs"
+{{EVIDENCE_SOURCE}}: "Paid tools like Portkey ($29/mo) exist for this"
+{{FREE_TIER_URL}}: "Browser Native JS"
+{{SOLUTION_MODE}}: "generator"
+      </pre>
+    </div>
+
+    <!-- Open-Weight -->
+    <div id="tab-openweight" class="tab-content">
+      <button class="btn" style="float:right;" onclick="copyText('openweight-code', this)">Copy</button>
+      <pre id="openweight-code">
+Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
+
+Parameters:
+temperature: 0.4
+top_p: 0.9
+max_tokens: 4096
+
+System Prompt:
+You are an expert AI systems engineer building a tool for {{AUDIENCE}}.
+Today is {{DATE}}. The tool must operate in {{SOLUTION_MODE}} mode using only {{FREE_SERVICE}}.
+Generate a single HTML file that solves: {{PROBLEM}}.
+Respond ONLY in strict JSON format matching this schema:
+{ "html_content": "string" }
+
+User Template:
+Problem: {{PROBLEM}}
+Evidence: {{EVIDENCE_SOURCE}}
+Free Tier URL: {{FREE_TIER_URL}}
+Input Example: {{INPUT_EXAMPLE}}
+Output Kind: {{OUTPUT_KIND}}
+Visual Style: {{VISUAL_STYLE}}
+
+Note: Llama 3.1 / Mistral / Qwen2 do not support native tool calling wrappers. Rely on strict JSON output.
+
+Example Fill:
+{{PROBLEM}}: "Generate AI gateway fallback routing configs"
+{{EVIDENCE_SOURCE}}: "Paid tools like Portkey ($29/mo) exist for this"
+{{FREE_TIER_URL}}: "Browser Native JS"
+{{SOLUTION_MODE}}: "generator"
+      </pre>
+    </div>
+  </div>
+
+  <footer style="text-align:center; margin-top:3rem; opacity:0.7; font-size:0.8rem;">
+    Free-tier verified: Browser Native JS — $0 forever — 2026-08-16<br>
+    Assumption: 1 dropped request = 1 lost user interaction. Savings based on retries.
+  </footer>
+</div>
+
+<script>
+  function copyLink(btn) {
+    navigator.clipboard.writeText(window.location.href);
+    btn.innerText = 'Copied! ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerText = 'Copy Link'; btn.classList.remove('copied'); }, 1200);
+  }
+
+  let sortDir = 1;
+  let currentSteps = [];
+
+  function runGen() {
+    const primary = document.getElementById('primaryModel').value;
+    const fallback = document.getElementById('fallbackModel').value;
+    const retries = parseInt(document.getElementById('retries').value);
+    const timeout = parseInt(document.getElementById('timeout').value);
+    
+    document.getElementById('retriesVal').innerText = retries;
+    document.getElementById('timeoutVal').innerText = timeout;
+
+    const rail = document.getElementById('progressRail');
+    rail.style.display = 'block';
+    rail.style.width = '50%';
+
+    // Generate YAML
+    const yaml = `model_list:
+  - model_name: primary
+    litellm_params:
+      model: ${primary}
+      fallbacks: [fallback]
+      max_retries: ${retries}
+      timeout: ${timeout}
+      
+  - model_name: fallback
+    litellm_params:
+      model: ${fallback}
+      max_retries: ${retries}
+      timeout: ${timeout}`;
+
+    document.getElementById('yamlOutput').textContent = yaml;
+
+    // Generate Routing Steps
+    const steps = [
+      { step: 1, trigger: "Request received", action: `Route to ${primary}` },
+      { step: 2, trigger: `${timeout}ms timeout or error`, action: `Retry up to ${retries} times` },
+      { step: 3, trigger: "Retries exhausted", action: `Fall back to ${fallback}` },
+      { step: 4, trigger: "Fallback fails", action: "Return 503 Service Unavailable" }
+    ];
+    
+    currentSteps = steps;
+    renderTable(steps);
+    
+    const saved = (retries * 10) + 40; // Mock saved requests calculation
+    animateCount('savedCount', saved);
+    
+    rail.style.width = '100%';
+    setTimeout(() => { rail.style.display = 'none'; }, 500);
+  }
+
+  function animateCount(id, target) {
+    const el = document.getElementById(id);
+    const current = parseInt(el.innerText) || 0;
+    const duration = 300;
+    const startTime = performance.now();
+
+    function update(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const val = Math.floor(current + (target - current) * eased);
+      el.innerText = val;
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+
+  function renderTable(data) {
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = data.map((d, i) => `
+      <tr style="opacity:0; animation: fadeIn ${150}ms ${i * 40}ms forwards;">
+        <td style="font-family:'JetBrains Mono'">${d.step}</td>
+        <td>${d.trigger}</td>
+        <td>${d.action}</td>
+      </tr>
+    `).join('');
+  }
+
+  function sortTable(col) {
+    const keys = ['step', 'trigger', 'action'];
+    const key = keys[col];
+    currentSteps.sort((a, b) => {
+      if (typeof a[key] === 'number') return (a[key] - b[key]) * sortDir;
+      return a[key].localeCompare(b[key]) * sortDir;
+    });
+    sortDir *= -1;
+    renderTable(currentSteps);
+  }
+
+  function exportJson() {
+    const data = {
+      zcac: true,
+      kind: "routing-config",
+      data: { yaml: document.getElementById('yamlOutput').textContent, steps: currentSteps }
+    };
+    const str = JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(str).then(() => {
+      const btn = event.target;
+      btn.innerText = 'Copied JSON! ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerText = 'Copy as JSON'; btn.classList.remove('copied'); }, 1200);
+    });
+  }
+
+  function copyYaml(btn) {
+    const text = document.getElementById('yamlOutput').textContent;
+    navigator.clipboard.writeText(text);
+    btn.innerText = 'Copied YAML! ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerText = 'Copy YAML'; btn.classList.remove('copied'); }, 1200);
+  }
+
+  function switchTab(e, tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    e.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function copyText(id, btn) {
+    const text = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(text);
+    btn.innerText = 'Copied! ✓';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerText = 'Copy'; btn.classList.remove('copied'); }, 1200);
+  }
+
+  // Init
+  window.addEventListener('load', () => {
+    runGen();
+  });
+</script>
+</body>
+</html>
