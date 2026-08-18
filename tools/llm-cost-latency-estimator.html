@@ -19,7 +19,6 @@
     --accent-light: #f0f0ff;
     --accent-glow: rgba(99, 91, 255, 0.15);
     
-    --rausch: #ff385c; /* Airbnb brand accent for highlights */
     --success: #10b981;
     
     --radius-sm: 8px;
@@ -29,7 +28,6 @@
     
     --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.04);
     --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-    --shadow-float: 0 12px 32px -4px rgba(0, 0, 0, 0.08);
 
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: "SF Mono", SFMono-Regular, ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace;
@@ -52,7 +50,6 @@
     
     --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.2);
     --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.3);
-    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.4);
   }
 
   * { box-sizing: border-box; }
@@ -86,6 +83,28 @@
   [data-theme="dark"] .nav {
     background: rgba(13, 17, 23, 0.8);
   }
+  
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-back-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: color 0.2s var(--ease-apple);
+  }
+
+  .nav-back-link:hover {
+    color: var(--accent);
+  }
+
   .nav-title {
     font-weight: 600;
     font-size: 0.95rem;
@@ -93,15 +112,10 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    border-left: 1px solid var(--border-color);
+    padding-left: 1rem;
   }
-  .nav-title span {
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: var(--radius-pill);
-    font-weight: 600;
-  }
+
   .nav-actions {
     display: flex;
     gap: 0.75rem;
@@ -410,14 +424,21 @@
   @media (max-width: 640px) {
     .metrics-hero { grid-template-columns: 1fr; gap: 1rem; }
     .hero h1 { font-size: 2rem; }
+    .nav-title { display: none; }
   }
 </style>
 </head>
 <body>
 
 <div class="nav">
-  <div class="nav-title">
-    LLM Cost & Latency <span>2026 Engine</span>
+  <div class="nav-left">
+    <a href="https://iggym.github.io/zero-cost-ai-coding/" class="nav-back-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Zero-Cost AI Coding
+    </a>
+    <div class="nav-title">
+      LLM Cost & Latency Estimator
+    </div>
   </div>
   <div class="nav-actions">
     <button class="btn btn-secondary btn-sm" onclick="toggleTheme()">Theme</button>
