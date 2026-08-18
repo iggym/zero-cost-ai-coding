@@ -6,17 +6,19 @@
 <title>LLM Cost & Latency Estimator</title>
 <style>
   :root {
-    --bg-dark: #0a0e14;
-    --bg-light: #f7f8fa;
-    --text-dark: #e1e4e8;
-    --text-light: #1a1a1a;
-    --bg-card-dark: #141821;
+    --bg-dark: #090d16;
+    --bg-light: #f4f6fb;
+    --text-dark: #f0f4fc;
+    --text-light: #0f172a;
+    --bg-card-dark: rgba(18, 24, 38, 0.7);
     --bg-card-light: #ffffff;
-    --border-dark: #2d333b;
-    --border-light: #e1e4e8;
-    --accent: #10b981;
-    --accent-dim: rgba(16, 185, 129, 0.12);
-    --warn: #f59e0b;
+    --border-dark: rgba(255, 255, 255, 0.08);
+    --border-light: #e2e8f0;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.25);
+    --accent-dim: rgba(56, 189, 248, 0.08);
+    --accent-purple: #c084fc;
+    --warn: #fbbf24;
     --ease-out: cubic-bezier(.16,1,.3,1);
     --ease-in-out: cubic-bezier(.65,0,.35,1);
     --dur-fast: 150ms;
@@ -24,18 +26,36 @@
     --dur-slow: 500ms;
   }
   
-  [data-theme="dark"] body { background: var(--bg-dark); color: var(--text-dark); }
-  [data-theme="light"] body { background: var(--bg-light); color: var(--text-light); }
-  [data-theme="dark"] .card { background: var(--bg-card-dark); border: 1px solid var(--border-dark); }
-  [data-theme="light"] .card { background: var(--bg-card-light); border: 1px solid var(--border-light); }
-  [data-theme="light"] input, [data-theme="light"] select { background: #f0f0f0; color: var(--text-light); border-color: var(--border-light); }
-  [data-theme="dark"] input, [data-theme="dark"] select { background: #0d1117; color: var(--text-dark); border-color: var(--border-dark); }
+  [data-theme="dark"] body { 
+    background: radial-gradient(circle at 50% 0%, #111827 0%, var(--bg-dark) 70%); 
+    color: var(--text-dark); 
+  }
+  [data-theme="light"] body { 
+    background: var(--bg-light); 
+    color: var(--text-light); 
+  }
+  
+  [data-theme="dark"] .card { 
+    background: var(--bg-card-dark); 
+    border: 1px solid var(--border-dark); 
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+  [data-theme="light"] .card { 
+    background: var(--bg-card-light); 
+    border: 1px solid var(--border-light); 
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  [data-theme="light"] input[type="range"], [data-theme="light"] select { background: #f1f5f9; color: var(--text-light); border-color: var(--border-light); }
+  [data-theme="dark"] input[type="range"], [data-theme="dark"] select { background: #0f172a; color: var(--text-dark); border-color: var(--border-dark); }
 
   body {
     font-family: 'Inter', system-ui, sans-serif;
     margin: 0;
     padding: 0;
     line-height: 1.6;
+    min-height: 100vh;
     transition: background var(--dur-med) var(--ease-in-out), color var(--dur-med) var(--ease-in-out);
   }
 
@@ -44,58 +64,93 @@
   a:hover { text-decoration: underline; }
 
   .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
-  .card { border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; transition: transform var(--dur-fast) var(--ease-out); }
-  .card:hover { transform: translateY(-2px); }
+  .card { border-radius: 12px; padding: 1.75rem; margin-bottom: 2rem; transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast); }
+  .card:hover { transform: translateY(-2px); border-color: rgba(56, 189, 248, 0.3); }
 
-  .nav { position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); background: rgba(10, 14, 20, 0.8); padding: 1rem; border-bottom: 1px solid var(--border-dark); display: flex; justify-content: space-between; align-items: center; }
-  [data-theme="light"] .nav { background: rgba(247, 248, 250, 0.8); border-bottom-color: var(--border-light); }
-  .nav-left a { font-weight: bold; font-size: 0.9rem; }
-  .nav-right { font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; }
+  .nav { position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); background: rgba(9, 13, 22, 0.75); padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-dark); display: flex; justify-content: space-between; align-items: center; }
+  [data-theme="light"] .nav { background: rgba(244, 246, 251, 0.85); border-bottom-color: var(--border-light); }
+  .nav-left a { font-weight: 600; font-size: 0.9rem; color: #94a3b8; transition: color var(--dur-fast); }
+  .nav-left a:hover { color: var(--accent); }
+  .nav-right { font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 600; }
 
-  .header { text-align: center; padding: 4rem 0 2rem; }
-  .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
-  .header p { font-size: 1.1rem; opacity: 0.8; }
+  .header { text-align: center; padding: 3rem 0 2rem; }
+  .header h1 { font-size: 2.75rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #ffffff 0%, #38bdf8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header p { font-size: 1.1rem; color: #94a3b8; }
   .pitch-actions { margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: center; }
-  .btn { background: var(--accent); color: #ffffff; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 600; transition: transform var(--dur-fast); }
-  .btn:hover { transform: scale(1.05); }
-  .btn-out { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
-  .copied { background: var(--accent) !important; color: #ffffff !important; }
+  
+  .btn { 
+    background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); 
+    color: #ffffff; 
+    border: none; 
+    padding: 0.65rem 1.4rem; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    box-shadow: 0 4px 14px 0 var(--accent-glow);
+    transition: all var(--dur-fast) var(--ease-out); 
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px 0 var(--accent-glow); }
+  .btn-out { background: transparent; border: 1px solid rgba(56, 189, 248, 0.4); color: var(--accent); box-shadow: none; }
+  .btn-out:hover { background: var(--accent-dim); border-color: var(--accent); }
+  .copied { background: #10b981 !important; color: #ffffff !important; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4) !important; }
 
   .svg-chart { width: 100%; height: 200px; }
-  .chart-bar { fill: var(--accent-dim); stroke: var(--accent); stroke-width: 2; transition: all var(--dur-med) var(--ease-out); }
+  .chart-bar { fill: var(--accent-dim); stroke: var(--accent); stroke-width: 1.5; rx: 4; transition: all var(--dur-med) var(--ease-out); }
+  .chart-bar:hover { fill: var(--accent-glow); }
   
   .flow-container { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0; position: relative; }
-  .flow-node { background: var(--bg-card-dark); border: 1px solid var(--border-dark); padding: 1rem; border-radius: 6px; text-align: center; width: 30%; z-index: 2; transition: border-color var(--dur-med); }
+  .flow-node { background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-dark); padding: 1rem; border-radius: 8px; text-align: center; width: 28%; z-index: 2; font-weight: 600; font-size: 0.9rem; transition: border-color var(--dur-med); }
   [data-theme="light"] .flow-node { background: #fff; border-color: var(--border-light); }
-  .flow-line { position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: var(--border-dark); z-index: 1; }
+  .flow-line { position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: #1e293b; z-index: 1; }
   [data-theme="light"] .flow-line { background: var(--border-light); }
-  .flow-progress { position: absolute; top: 50%; left: 10%; width: 0%; height: 2px; background: var(--accent); z-index: 1; transition: width var(--dur-slow) var(--ease-out); }
+  .flow-progress { position: absolute; top: 50%; left: 10%; width: 0%; height: 2px; background: linear-gradient(90deg, #38bdf8, #c084fc); z-index: 1; transition: width var(--dur-slow) var(--ease-out); }
 
-  .slider-container { margin: 1rem 0; display: flex; align-items: center; gap: 1rem; }
-  input[type="range"] { width: 100%; accent-color: var(--accent); }
-  select { padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-dark); font-family: 'JetBrains Mono'; }
+  .slider-container { margin: 1.25rem 0; display: flex; align-items: center; gap: 1rem; }
+  .slider-container label { font-size: 0.9rem; color: #94a3b8; min-width: 160px; }
+  input[type="range"] { 
+    width: 100%; 
+    accent-color: var(--accent); 
+    height: 6px;
+    border-radius: 3px;
+    background: #1e293b;
+  }
+  select { padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-dark); font-family: 'JetBrains Mono'; }
 
-  .table-container { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border-dark); }
-  [data-theme="light"] th, [data-theme="light"] td { border-bottom: 1px solid var(--border-light); }
-  th { cursor: pointer; transition: background var(--dur-fast); }
-  th:hover { background: var(--accent-dim); }
-  tr { transition: opacity var(--dur-med); }
+  .table-container { overflow-x: auto; margin-top: 1rem; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; }
+  th { text-align: left; padding: 0.85rem 1rem; color: #94a3b8; font-weight: 600; border-bottom: 1px solid var(--border-dark); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-dark); }
+  [data-theme="light"] th { border-bottom-color: var(--border-light); color: #64748b; }
+  [data-theme="light"] td { border-bottom-color: var(--border-light); }
+  th { cursor: pointer; transition: color var(--dur-fast); }
+  th:hover { color: var(--accent); }
+  tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
-  .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
-  .tab { padding: 0.5rem 1rem; border: 1px solid var(--border-dark); border-radius: 4px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; transition: all var(--dur-fast); }
-  [data-theme="light"] .tab { border-color: var(--border-light); }
-  .tab.active { background: var(--accent); color: #ffffff; border-color: var(--accent); font-weight: 600; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+  .tab { padding: 0.5rem 1.2rem; border: 1px solid var(--border-dark); border-radius: 6px; cursor: pointer; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #94a3b8; transition: all var(--dur-fast); }
+  [data-theme="light"] .tab { border-color: var(--border-light); color: #64748b; }
+  .tab.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); font-weight: 600; }
   .tab-content { display: none; }
   .tab-content.active { display: block; animation: fadeIn var(--dur-med) var(--ease-out); }
-  pre { background: var(--bg-dark); color: var(--text-dark); padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid var(--border-dark); position: relative; }
-  [data-theme="light"] pre { background: #f0f0f0; color: #1a1a1a; border-color: var(--border-light); }
   
-  .badge { display: inline-block; background: var(--accent-dim); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; border: 1px solid var(--accent); }
-  .count-up { font-size: 2.5rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: bold; }
+  pre { 
+    background: #0f172a; 
+    color: #e2e8f0; 
+    padding: 1.25rem; 
+    border-radius: 8px; 
+    overflow-x: auto; 
+    border: 1px solid var(--border-dark); 
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  [data-theme="light"] pre { background: #1e293b; color: #f8fafc; border-color: var(--border-light); }
   
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  .badge { display: inline-block; background: var(--accent-dim); color: var(--accent); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 600; }
+  .count-up { font-size: 2.75rem; font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: bold; text-shadow: 0 0 20px var(--accent-glow); }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
   @media (prefers-reduced-motion: no-preference) {
     .card { animation: fadeIn var(--dur-med) var(--ease-out) backwards; }
@@ -106,11 +161,11 @@
     .card:nth-child(5) { animation-delay: 160ms; }
   }
   
-  .progress-rail { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--accent); z-index: 200; transition: width var(--dur-med) var(--ease-out); display: none; }
+  .progress-rail { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: linear-gradient(90deg, #38bdf8, #c084fc); z-index: 200; transition: width var(--dur-med) var(--ease-out); display: none; }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body data-theme="dark">
 
@@ -133,25 +188,25 @@
 
   <!-- WHY: The Problem, Visually -->
   <div class="card">
-    <h3>WHY: The Evidence</h3>
-    <p>Token miscalculations cause unexpected bill spikes. Paid observability platforms exist to track these exact metrics after deployment.</p>
-    <div class="table-container" style="margin-top:1rem;">
+    <h3 style="margin-top:0;">WHY: The Evidence</h3>
+    <p style="color:#94a3b8;">Token miscalculations cause unexpected bill spikes. Paid observability platforms exist to track these exact metrics after deployment.</p>
+    <div class="table-container">
       <table>
         <thead><tr><th>Tool</th><th>Focus</th><th>Paid Cost</th></tr></thead>
         <tbody>
-          <tr><td>Helicone</td><td>Token Cost Tracking</td><td>$99/mo</td></tr>
-          <tr><td>LangSmith</td><td>Latency Tracing</td><td>$39/user/mo</td></tr>
-          <tr><td>Browser-Native JS</td><td>Pre-deployment Estimation</td><td>$0 forever</td></tr>
+          <tr><td style="font-weight: 600;">Helicone</td><td>Token Cost Tracking</td><td>$99/mo</td></tr>
+          <tr><td style="font-weight: 600;">LangSmith</td><td>Latency Tracing</td><td>$39/user/mo</td></tr>
+          <tr><td style="color:var(--accent); font-weight:600;">Browser-Native JS</td><td>Pre-deployment Estimation</td><td>$0 forever</td></tr>
         </tbody>
       </table>
     </div>
-    <small>Source: Helicone & LangSmith public pricing pages, 2026-08-16</small>
+    <p style="font-size:0.75rem; color:#64748b; margin-top:1rem; margin-bottom:0;">Source: Helicone & LangSmith public pricing pages, 2026-08-16</p>
   </div>
 
   <!-- HOW: How It Works, Visually -->
   <div class="card">
-    <h3>HOW: The Process</h3>
-    <p>Standard pricing rates (verified as of today) are applied to your traffic volume locally.</p>
+    <h3 style="margin-top:0;">HOW: The Process</h3>
+    <p style="color:#94a3b8;">Standard pricing rates (verified as of today) are applied to your traffic volume locally.</p>
     <div class="flow-container">
       <div class="flow-line"></div>
       <div class="flow-progress" id="flowProgress"></div>
@@ -163,22 +218,22 @@
 
   <!-- UTILITY: The Tool -->
   <div class="card">
-    <h3>UTILITY: The Estimator</h3>
+    <h3 style="margin-top:0;">UTILITY: The Estimator</h3>
     
     <div class="slider-container">
       <label>Avg Tokens / Request:</label>
       <input type="range" id="tokensReq" min="100" max="10000" value="1000" step="100" oninput="runCalc()" style="flex:1;">
-      <span id="tokensReqVal" class="mono">1000</span>
+      <span id="tokensReqVal" class="mono" style="color:var(--accent); font-weight:600; min-width:60px; text-align:right;">1000</span>
     </div>
     <div class="slider-container">
       <label>Requests / Month:</label>
       <input type="range" id="reqMo" min="100" max="1000000" value="10000" step="100" oninput="runCalc()" style="flex:1;">
-      <span id="reqMoVal" class="mono">10k</span>
+      <span id="reqMoVal" class="mono" style="color:var(--accent); font-weight:600; min-width:60px; text-align:right;">10k</span>
     </div>
     
     <div style="display:flex; gap:2rem; align-items:center; justify-content:space-between; margin-top:1.5rem; border-top:1px solid var(--border-dark); padding-top:1.5rem;">
       <div>
-        <div style="font-size:0.9rem; opacity:0.8;">Est. Cost (GPT-4o)</div>
+        <div style="font-size:0.85rem; color:#94a3b8; font-family:'JetBrains Mono', monospace;">Est. Cost (GPT-4o)</div>
         <div class="count-up" id="costCount">$0</div>
       </div>
       <div style="flex:1;">
@@ -186,7 +241,7 @@
       </div>
     </div>
     
-    <div class="table-container" style="margin-top:1rem;">
+    <div class="table-container">
       <table id="resultsTable">
         <thead>
           <tr>
@@ -201,15 +256,15 @@
       </table>
     </div>
     
-    <div style="margin-top:1rem;">
-      <button class="btn" onclick="exportJson()">Copy as JSON</button>
+    <div style="margin-top:1.25rem;">
+      <button class="btn" onclick="exportJson(event)">Copy as JSON</button>
     </div>
   </div>
 
   <!-- Prompt Pack -->
   <div class="card">
-    <h3>🟢 BUILD THIS YOURSELF: PARAMETERIZED PROMPT PACK</h3>
-    <p>Teaches the pattern. For chatbots, pick your model tab, copy, replace {{variables}}. For code, use the JSON payload.</p>
+    <h3 style="margin-top:0; color:var(--accent-purple);">PARAMETERIZED PROMPT PACK</h3>
+    <p style="color:#94a3b8;">Teaches the pattern. For chatbots, pick your model tab, copy, replace {{variables}}. For code, use the JSON payload.</p>
     
     <div class="tabs">
       <div class="tab active" onclick="switchTab(event, 'tab-openai')">OpenAI</div>
@@ -220,7 +275,7 @@
 
     <!-- OpenAI -->
     <div id="tab-openai" class="tab-content active">
-      <button class="btn" style="float:right;" onclick="copyText('openai-code', this)">Copy</button>
+      <button class="btn btn-out" style="float:right;" onclick="copyText('openai-code', this)">Copy Prompt</button>
       <pre id="openai-code">
 Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
 
@@ -268,7 +323,7 @@ Example Fill:
 
     <!-- Anthropic -->
     <div id="tab-anthropic" class="tab-content">
-      <button class="btn" style="float:right;" onclick="copyText('anthropic-code', this)">Copy</button>
+      <button class="btn btn-out" style="float:right;" onclick="copyText('anthropic-code', this)">Copy Prompt</button>
       <pre id="anthropic-code">
 Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
 
@@ -313,7 +368,7 @@ Example Fill:
 
     <!-- Google -->
     <div id="tab-google" class="tab-content">
-      <button class="btn" style="float:right;" onclick="copyText('google-code', this)">Copy</button>
+      <button class="btn btn-out" style="float:right;" onclick="copyText('google-code', this)">Copy Prompt</button>
       <pre id="google-code">
 Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
 
@@ -362,7 +417,7 @@ Example Fill:
 
     <!-- Open-Weight -->
     <div id="tab-openweight" class="tab-content">
-      <button class="btn" style="float:right;" onclick="copyText('openweight-code', this)">Copy</button>
+      <button class="btn btn-out" style="float:right;" onclick="copyText('openweight-code', this)">Copy Prompt</button>
       <pre id="openweight-code">
 Title: For {{MODEL_NAME}} — {{PROBLEM_TYPE}} visual tool builder
 
@@ -397,7 +452,7 @@ Example Fill:
     </div>
   </div>
 
-  <footer style="text-align:center; margin-top:3rem; opacity:0.7; font-size:0.8rem;">
+  <footer style="text-align:center; margin-top:3rem; color:#64748b; font-size:0.8rem; font-family:'JetBrains Mono', monospace;">
     Free-tier verified: Browser Native JS — $0 forever — 2026-08-16<br>
     Assumption: 1.5x output tokens per input token. Latency based on published TPS limits.
   </footer>
@@ -484,11 +539,11 @@ Example Fill:
     const tbody = document.getElementById('resultsBody');
     tbody.innerHTML = data.map((d, i) => `
       <tr style="opacity:0; animation: fadeIn ${150}ms ${i * 40}ms forwards;">
-        <td style="font-family:'JetBrains Mono'">${d.provider}</td>
-        <td>$${d.inCost.toFixed(2)}</td>
-        <td>$${d.outCost.toFixed(2)}</td>
-        <td style="color:var(--accent); font-weight:bold">$${d.totalCost.toFixed(2)}</td>
-        <td>${d.latency.toFixed(2)}s</td>
+        <td style="font-family:'JetBrains Mono'; font-weight:600;">${d.provider}</td>
+        <td style="color:#94a3b8;">$${d.inCost.toFixed(2)}</td>
+        <td style="color:#94a3b8;">$${d.outCost.toFixed(2)}</td>
+        <td style="color:var(--accent); font-weight:bold; font-family:'JetBrains Mono';">$${d.totalCost.toFixed(2)}</td>
+        <td style="color:#94a3b8; font-family:'JetBrains Mono';">${d.latency.toFixed(2)}s</td>
       </tr>
     `).join('');
   }
@@ -513,14 +568,14 @@ Example Fill:
     svg.innerHTML = '';
     
     data.forEach((d, i) => {
-      const barH = (d.totalCost / maxCost) * (h - 40);
-      const x = i * barW + 10;
-      const y = h - barH - 20;
+      const barH = (d.totalCost / maxCost) * (h - 50);
+      const x = i * barW + 12;
+      const y = h - barH - 25;
       
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', x);
-      rect.setAttribute('y', h - 20);
-      rect.setAttribute('width', barW - 20);
+      rect.setAttribute('y', h - 25);
+      rect.setAttribute('width', barW - 24);
       rect.setAttribute('height', 0);
       rect.setAttribute('class', 'chart-bar');
       svg.appendChild(rect);
@@ -528,28 +583,32 @@ Example Fill:
       setTimeout(() => {
         rect.setAttribute('height', barH);
         rect.setAttribute('y', y);
-      }, i * 100);
+      }, i * 80);
 
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', x + (barW/2 - 10));
-      text.setAttribute('y', h - 5);
-      text.setAttribute('fill', 'currentColor');
-      text.setAttribute('font-size', '10');
+      text.setAttribute('x', x + ((barW - 24) / 2));
+      text.setAttribute('y', h - 6);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('fill', '#94a3b8');
+      text.setAttribute('font-size', '11');
       text.setAttribute('font-family', 'JetBrains Mono');
       text.textContent = d.provider.split(' ')[0];
       svg.appendChild(text);
 
       const num = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      num.setAttribute('x', x + (barW/2 - 10));
-      num.setAttribute('y', y - 5);
+      num.setAttribute('x', x + ((barW - 24) / 2));
+      num.setAttribute('y', y - 8);
+      num.setAttribute('text-anchor', 'middle');
       num.setAttribute('fill', 'var(--accent)');
       num.setAttribute('font-size', '12');
+      num.setAttribute('font-weight', '600');
+      num.setAttribute('font-family', 'JetBrains Mono');
       num.textContent = '$' + d.totalCost.toFixed(0);
       svg.appendChild(num);
     });
   }
 
-  function exportJson() {
+  function exportJson(e) {
     const data = {
       zcac: true,
       kind: "cost-estimates",
@@ -557,7 +616,7 @@ Example Fill:
     };
     const str = JSON.stringify(data, null, 2);
     navigator.clipboard.writeText(str).then(() => {
-      const btn = event.target;
+      const btn = e.target;
       btn.innerText = 'Copied JSON! ✓';
       btn.classList.add('copied');
       setTimeout(() => { btn.innerText = 'Copy as JSON'; btn.classList.remove('copied'); }, 1200);
@@ -576,7 +635,7 @@ Example Fill:
     navigator.clipboard.writeText(text);
     btn.innerText = 'Copied! ✓';
     btn.classList.add('copied');
-    setTimeout(() => { btn.innerText = 'Copy'; btn.classList.remove('copied'); }, 1200);
+    setTimeout(() => { btn.innerText = 'Copy Prompt'; btn.classList.remove('copied'); }, 1200);
   }
 
   // Init
